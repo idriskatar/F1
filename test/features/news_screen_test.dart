@@ -33,7 +33,7 @@ void main() {
 
     expect(find.text('Motorsport Türkiye headline'), findsOneWidget);
     expect(find.text('TRF1 headline one'), findsOneWidget);
-    expect(find.text('TRF1.NET'), findsOneWidget);
+    expect(find.text('TRF1.NET'), findsNWidgets(2));
     expect(find.text('MOTORSPORT.COM TÜRKİYE'), findsOneWidget);
     expect(find.textContaining('RSS akışlarından alınır'), findsOneWidget);
   });
