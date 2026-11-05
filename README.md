@@ -8,6 +8,7 @@ Kişisel kullanım için hazırlanmış, premium koyu temalı Android/iOS Formul
 - Ana sayfada sıradaki yarış, canlı geri sayım, sıradaki seans, son yarış podyumu ve şampiyona ilk 3 özeti (gerçek Jolpica verisi).
 - Takvimdeki bir yarışa dokununca açılan detay ekranı: yarış sınıflandırması (grid, tur, en hızlı tur, puan), sıralama turları (Q1/Q2/Q3), sprint hafta sonlarında sprint sonuçları ve o yarıştan sonraki pilot/takım puan durumu. Yarış henüz yapılmadıysa hafta sonu programı gösterilir.
 - Haberler sekmesi ve ana sayfada en yeni 3 haber: TRF1.net ve Motorsport.com Türkiye RSS akışları. Yalnızca başlık, kısa özet, kaynak adı ve tarih gösterilir; haber tarayıcıda kaynağında açılır. Kaynak filtresi, kaynak başına hata bildirimi ve çevrimdışı önbellek vardır.
+- Analiz sekmesinde OpenF1 üzerinden son tamamlanmış seansın sıralaması gösterilir. Bu hafta sonunda tamamlanmış seans yoksa önceki Grand Prix’nin son seansına geçer; ağ yoksa son başarılı sonuç önbellekten yüklenir.
 - API tarih ve saatlerinin cihazın yerel saat diliminde gösterilmesi.
 - Son başarılı API yanıtlarının SQLite üzerinde çevrimdışı önbelleği.
 - Yükleniyor, hata/yeniden dene, önbellek ve henüz sonuç yok durumları.
@@ -16,7 +17,7 @@ Kişisel kullanım için hazırlanmış, premium koyu temalı Android/iOS Formul
 
 ## Gerçek veri ve örnek alanlar
 
-Takvim ile Sonuçlar sekmeleri `https://api.jolpi.ca/ergast/f1/` üzerinden gerçek API verisi yükler. Ekranlar canlı API yanıtını veya çevrimdışı SQLite kopyasını kaynağıyla etiketler. Jolpica bir yarış sonucu henüz yayımlamadıysa sonuç tablosu yerine “henüz yayımlanmış sonuç yok” gösterilir. Analiz sekmesindeki içerik şimdilik örnek/boş durum tasarımıdır; FastF1 tur analizi bu pakette henüz yoktur.
+Takvim ile Sonuçlar sekmeleri `https://api.jolpi.ca/ergast/f1/` üzerinden gerçek API verisi yükler. Ekranlar canlı API yanıtını veya çevrimdışı SQLite kopyasını kaynağıyla etiketler. Jolpica bir yarış sonucu henüz yayımlamadıysa sonuç tablosu yerine “henüz yayımlanmış sonuç yok” gösterilir. Analiz sekmesi OpenF1’den tarihsel seans sıralaması getirir; tur temposu, lastik, sektör ve pit-stop grafikleri daha sonra aynı seans verisine bağlanacaktır.
 
 Haberler şu herkese açık Türkçe RSS akışlarından gelir:
 
@@ -28,6 +29,8 @@ Haberler şu herkese açık Türkçe RSS akışlarından gelir:
 Bu akışlar üçüncü tarafların hizmetidir; adres veya kullanım koşulları değişebilir, bir kaynak yanıt vermezse uygulama o kaynağı uyarıyla işaretler ve varsa önbellekteki haberleri gösterir. Kaynakların kendi kullanım koşullarını (özellikle uygulamayı dağıtmayı düşünürseniz) ayrıca kontrol edin.
 
 Jolpica ücretsiz ve açık kaynaklıdır; bağımsız gönüllülerce işletilir. Erişim sınırı, kesinti veya API değişikliği olabilir. Uygulama bu durumlarda varsa yerel önbelleği kullanır. Uygulamaya ücretli API, abonelik veya zorunlu hosting eklenmemiştir.
+
+OpenF1, 2023 sezonundan itibaren tarihsel seans verisini kimlik doğrulama olmadan sunar. Analiz sekmesi yalnızca bitişi en az 30 dakika geçmiş seansları sorgulayarak tarihsel uçları kullanır; canlı veri aboneliği gerektirmez. Seans sonuçları OpenF1 tarafından resmi sonuç yayımlandıktan birkaç dakika sonra eklenir. Kaynak/API koşulları değişebilir.
 
 ## Bilgisayarda çalıştırma
 
@@ -75,8 +78,9 @@ Actions adımları Android’de `flutter analyze` ve `flutter test` çalıştır
 
 ## Teknik yapı
 
-- `lib/core/models`: Jolpica JSON modelleri ve formatlama.
+- `lib/core/models`: Jolpica ve OpenF1 JSON modelleri ve formatlama.
 - `lib/data/remote/jolpica_repository.dart`: HTTP, toleranslı yanıt ayrıştırma, hata yönetimi ve SQLite önbellek fallback’i; tur bazlı sonuç/sıralama/sprint/puan durumu sorguları.
+- `lib/data/remote/openf1_repository.dart`: Son tarihsel seansı, sonuçlarını ve pilot bilgilerini yükler; SQLite çevrimdışı fallback’i sağlar.
 - `lib/core/models/news_models.dart` ve `lib/data/remote/news_repository.dart`: RSS/Atom ayrıştırma, kaynakları birleştirme/sıralama, kaynak bazlı hata ve önbellek.
 - `lib/features/calendar/race_detail_screen.dart`: yarış detay ekranı.
 - `test/`: sahte HTTP istemcisi ve sabit saatle model, repository ve ekran testleri (`test/support/fakes.dart`).

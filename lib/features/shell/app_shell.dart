@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../data/remote/jolpica_repository.dart';
 import '../../data/remote/news_repository.dart';
+import '../../data/remote/openf1_repository.dart';
 import '../home/home_screen.dart';
 import '../calendar/calendar_screen.dart';
 import '../news/news_screen.dart';
@@ -8,10 +9,11 @@ import '../results/results_screen.dart';
 import '../analysis/analysis_screen.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, this.repository, this.newsRepository, this.clock});
+  const AppShell({super.key, this.repository, this.newsRepository, this.sessionRepository, this.clock});
 
   final JolpicaRepository? repository;
   final NewsRepository? newsRepository;
+  final OpenF1Repository? sessionRepository;
   final DateTime Function()? clock;
 
   @override
@@ -24,7 +26,8 @@ class _AppShellState extends State<AppShell> {
   late final bool _ownsRepository;
   late final NewsRepository _news;
   late final bool _ownsNews;
-  late final List<Widget> _screens;
+  late final OpenF1Repository _sessionRepository;
+  late final bool _ownsSessionRepository;
 
   @override
   void initState() {
@@ -33,7 +36,11 @@ class _AppShellState extends State<AppShell> {
     _repository = widget.repository ?? JolpicaRepository();
     _ownsNews = widget.newsRepository == null;
     _news = widget.newsRepository ?? NewsRepository();
-    _screens = [
+    _ownsSessionRepository = widget.sessionRepository == null;
+    _sessionRepository = widget.sessionRepository ?? OpenF1Repository();
+  }
+
+  List<Widget> _screens() => [
       HomeScreen(
         repository: _repository,
         newsRepository: _news,
@@ -43,21 +50,21 @@ class _AppShellState extends State<AppShell> {
       CalendarScreen(repository: _repository, clock: widget.clock),
       NewsScreen(repository: _news),
       ResultsScreen(repository: _repository),
-      const AnalysisScreen(),
+      AnalysisScreen(repository: _sessionRepository, active: _index == 4),
     ];
-  }
 
   @override
   void dispose() {
     if (_ownsRepository) _repository.close();
     if (_ownsNews) _news.close();
+    if (_ownsSessionRepository) _sessionRepository.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _index, children: _screens),
+      body: IndexedStack(index: _index, children: _screens()),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (value) => setState(() => _index = value),
