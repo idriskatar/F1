@@ -6,8 +6,20 @@ import '../../core/models/race_models.dart';
 import '../local/local_store.dart';
 
 class JolpicaData<T> {
-  const JolpicaData({required this.items, required this.isCached, required this.updatedAt});
+  const JolpicaData({required this.items, required this.isCached, required this.updatedAt, this.label});
   final List<T> items;
+  final bool isCached;
+  final DateTime updatedAt;
+
+  /// Verinin başlığı (örn. son yarışın adı); yoksa null.
+  final String? label;
+}
+
+class NextRaceData {
+  const NextRaceData({required this.race, required this.isCached, required this.updatedAt});
+
+  /// Sıradaki yarış; sezon bittiyse ve yeni takvim yoksa null.
+  final RaceWeekend? race;
   final bool isCached;
   final DateTime updatedAt;
 }
@@ -31,14 +43,35 @@ class JolpicaRepository {
     );
   }
 
+  /// Takvimden sıradaki yarışı bulur. Mevcut sezonda yarış kalmadıysa bir
+  /// sonraki sezonun takvimini dener; o da yoksa `race` null döner.
+  Future<NextRaceData> nextRace({DateTime? now}) async {
+    final current = (now ?? DateTime.now()).toUtc();
+    final thisYear = await calendar(season: current.year);
+    var race = upcomingRace(thisYear.items, current);
+    var source = thisYear;
+    if (race == null) {
+      try {
+        final nextYear = await calendar(season: current.year + 1);
+        race = upcomingRace(nextYear.items, current);
+        if (race != null) source = nextYear;
+      } catch (_) {
+        // Gelecek sezon takvimi henüz yayımlanmamış olabilir.
+      }
+    }
+    return NextRaceData(race: race, isCached: source.isCached, updatedAt: source.updatedAt);
+  }
+
   Future<JolpicaData<DriverResult>> latestResults() async {
     final payload = await _load('latest-results', 'current/last/results.json?limit=100');
     final races = _list(_raceTable(payload.json)['Races']);
     final results = races.isEmpty ? const [] : _list(_asMap(races.first)['Results']);
+    final raceName = races.isEmpty ? null : _asMap(races.first)['raceName']?.toString();
     return JolpicaData(
       items: results.map((item) => DriverResult.fromJson(_asMap(item))).toList(),
       isCached: payload.isCached,
       updatedAt: payload.updatedAt,
+      label: raceName,
     );
   }
 

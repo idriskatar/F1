@@ -6,6 +6,7 @@ class RaceWeekend {
     required this.dateLabel,
     required this.sessions,
     required this.round,
+    this.raceStart,
   });
 
   final String name;
@@ -14,6 +15,19 @@ class RaceWeekend {
   final String dateLabel;
   final int round;
   final List<RaceSession> sessions;
+
+  /// Yarışın UTC başlangıç zamanı; API vermediyse null.
+  final DateTime? raceStart;
+
+  /// [now] anından sonra başlayacak ilk seans (seanslar zamana göre sıralıdır).
+  RaceSession? nextSession(DateTime now) {
+    final nowUtc = now.toUtc();
+    for (final session in sessions) {
+      final start = session.startUtc;
+      if (start != null && start.isAfter(nowUtc)) return session;
+    }
+    return null;
+  }
 
   factory RaceWeekend.fromJson(Map<String, dynamic> json) {
     final circuit = _map(json['Circuit']);
@@ -42,9 +56,23 @@ class RaceWeekend {
         status: utc.isBefore(DateTime.now().toUtc())
             ? SessionStatus.completed
             : SessionStatus.upcoming,
+        startUtc: utc,
       ));
     }
+    // Jolpica yarışın tarih/saatini üst düzey `date`/`time` alanlarında verir;
+    // ayrı bir `Race` nesnesi yoktur.
     final raceDate = _parseUtc(json['date']?.toString(), json['time']?.toString());
+    if (raceDate != null && !sessions.any((s) => s.name == 'Yarış')) {
+      sessions.add(RaceSession(
+        name: 'Yarış',
+        localTime: MaterialLocalizationsDate.format(raceDate.toLocal()),
+        status: raceDate.isBefore(DateTime.now().toUtc())
+            ? SessionStatus.completed
+            : SessionStatus.upcoming,
+        startUtc: raceDate,
+      ));
+    }
+    sessions.sort((a, b) => a.startUtc!.compareTo(b.startUtc!));
     return RaceWeekend(
       name: _text(json['raceName'], 'Grand Prix'),
       location: _text(location['locality'], _text(circuit['circuitName'], '')),
@@ -52,15 +80,17 @@ class RaceWeekend {
       dateLabel: raceDate == null ? '' : MaterialLocalizationsDate.date(raceDate.toLocal()),
       round: round,
       sessions: sessions,
+      raceStart: raceDate,
     );
   }
 }
 
 class RaceSession {
-  const RaceSession({required this.name, required this.localTime, required this.status});
+  const RaceSession({required this.name, required this.localTime, required this.status, this.startUtc});
   final String name;
   final String localTime;
   final SessionStatus status;
+  final DateTime? startUtc;
 }
 
 enum SessionStatus { completed, upcoming, inProgress }
@@ -75,8 +105,12 @@ class DriverResult {
 
   factory DriverResult.fromJson(Map<String, dynamic> json) {
     final driver = _map(json['Driver']);
-    final constructors = json['Constructor'] is List ? json['Constructor'] as List : const [];
-    final team = constructors.isEmpty ? <String, dynamic>{} : _map(constructors.first);
+    // Jolpica/Ergast sonuç kayıtlarında `Constructor` bir nesnedir; yine de
+    // liste olarak gelirse ilk öğeyi kullan.
+    final rawTeam = json['Constructor'];
+    final team = rawTeam is List
+        ? (rawTeam.isEmpty ? <String, dynamic>{} : _map(rawTeam.first))
+        : _map(rawTeam);
     final timeData = _map(json['Time']);
     final status = json['status']?.toString();
     final time = _text(timeData['time'], _text(json['points'], status ?? '—'));
@@ -132,7 +166,26 @@ class TeamStanding {
 
 class MaterialLocalizationsDate {
   static String format(DateTime value) => '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+  static String dayTime(DateTime value) => '${value.day.toString().padLeft(2, '0')}.${value.month.toString().padLeft(2, '0')} ${format(value)}';
   static String date(DateTime value) => '${value.day.toString().padLeft(2, '0')}.${value.month.toString().padLeft(2, '0')}.${value.year}';
+}
+
+/// [now] anında henüz bitmemiş ilk yarış hafta sonunu döndürür. Yarış başladıktan
+/// sonra [raceWindow] süresince hâlâ "sıradaki/güncel" sayılır.
+RaceWeekend? upcomingRace(
+  List<RaceWeekend> races,
+  DateTime now, {
+  Duration raceWindow = const Duration(hours: 3),
+}) {
+  final nowUtc = now.toUtc();
+  RaceWeekend? best;
+  for (final race in races) {
+    final start = race.raceStart;
+    if (start == null) continue;
+    if (!start.add(raceWindow).isAfter(nowUtc)) continue;
+    if (best == null || start.isBefore(best.raceStart!)) best = race;
+  }
+  return best;
 }
 
 int teamColor(String id) => switch (id.toLowerCase()) {

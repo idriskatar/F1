@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../data/remote/jolpica_repository.dart';
 import '../home/home_screen.dart';
 import '../calendar/calendar_screen.dart';
 import '../news/news_screen.dart';
@@ -6,7 +7,10 @@ import '../results/results_screen.dart';
 import '../analysis/analysis_screen.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({super.key, this.repository, this.clock});
+
+  final JolpicaRepository? repository;
+  final DateTime Function()? clock;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -14,14 +18,33 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _index = 0;
+  late final JolpicaRepository _repository;
+  late final bool _ownsRepository;
+  late final List<Widget> _screens;
 
-  static const _screens = [
-    HomeScreen(),
-    CalendarScreen(),
-    NewsScreen(),
-    ResultsScreen(),
-    AnalysisScreen(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _ownsRepository = widget.repository == null;
+    _repository = widget.repository ?? JolpicaRepository();
+    _screens = [
+      HomeScreen(
+        repository: _repository,
+        clock: widget.clock,
+        onOpenTab: (value) => setState(() => _index = value),
+      ),
+      CalendarScreen(repository: _repository),
+      const NewsScreen(),
+      ResultsScreen(repository: _repository),
+      const AnalysisScreen(),
+    ];
+  }
+
+  @override
+  void dispose() {
+    if (_ownsRepository) _repository.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

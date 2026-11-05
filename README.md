@@ -5,6 +5,7 @@ Kişisel kullanım için hazırlanmış, premium koyu temalı Android/iOS Formul
 ## Bu pakette
 
 - Jolpica ile sezon takvimi, son yarış sınıflandırması ve pilot/takım puan durumu.
+- Ana sayfada sıradaki yarış, canlı geri sayım, sıradaki seans, son yarış podyumu ve şampiyona ilk 3 özeti (gerçek Jolpica verisi).
 - API tarih ve saatlerinin cihazın yerel saat diliminde gösterilmesi.
 - Son başarılı API yanıtlarının SQLite üzerinde çevrimdışı önbelleği.
 - Yükleniyor, hata/yeniden dene, önbellek ve henüz sonuç yok durumları.
@@ -13,7 +14,7 @@ Kişisel kullanım için hazırlanmış, premium koyu temalı Android/iOS Formul
 
 ## Gerçek veri ve örnek alanlar
 
-Takvim ile Sonuçlar sekmeleri `https://api.jolpi.ca/ergast/f1/` üzerinden gerçek API verisi yükler. Ekranlar canlı API yanıtını veya çevrimdışı SQLite kopyasını kaynağıyla etiketler. Jolpica bir yarış sonucu henüz yayımlamadıysa sonuç tablosu yerine “henüz yayımlanmış sonuç yok” gösterilir. Ana sayfa, haberler ve analiz sekmelerindeki içerikler şimdilik örnek/boş durum tasarımıdır; gerçek haber, FastF1 tur analizi ve otomatik senkronizasyon bu pakette henüz yoktur.
+Takvim ile Sonuçlar sekmeleri `https://api.jolpi.ca/ergast/f1/` üzerinden gerçek API verisi yükler. Ekranlar canlı API yanıtını veya çevrimdışı SQLite kopyasını kaynağıyla etiketler. Jolpica bir yarış sonucu henüz yayımlamadıysa sonuç tablosu yerine “henüz yayımlanmış sonuç yok” gösterilir. Haberler ve analiz sekmelerindeki içerikler şimdilik örnek/boş durum tasarımıdır; gerçek haber ve FastF1 tur analizi bu pakette henüz yoktur.
 
 Jolpica ücretsiz ve açık kaynaklıdır; bağımsız gönüllülerce işletilir. Erişim sınırı, kesinti veya API değişikliği olabilir. Uygulama bu durumlarda varsa yerel önbelleği kullanır. Uygulamaya ücretli API, abonelik veya zorunlu hosting eklenmemiştir.
 
@@ -69,7 +70,6 @@ Actions adımları Android’de `flutter analyze` ve `flutter test` çalıştır
 
 ## Sonraki işler
 
-- Ana sayfaya gerçek sıradaki yarış ve şampiyona özeti bağlamak.
 - FastF1 ile yarış sonrası tur/sektör/lastik analizini içe aktarmak.
 - Kaynak belirten ücretsiz RSS haber akışını eklemek.
 - Flutter widget/model testlerini ve platform cihaz derlemelerini genişletmek.

@@ -5,13 +5,14 @@ import '../../data/remote/jolpica_repository.dart';
 import '../../shared/widgets/demo_notice.dart';
 
 class CalendarScreen extends StatefulWidget {
-  const CalendarScreen({super.key});
+  const CalendarScreen({super.key, required this.repository});
+  final JolpicaRepository repository;
   @override
   State<CalendarScreen> createState() => _CalendarScreenState();
 }
 
 class _CalendarScreenState extends State<CalendarScreen> {
-  final _repository = JolpicaRepository();
+  JolpicaRepository get _repository => widget.repository;
   late Future<JolpicaData<RaceWeekend>> _calendar;
 
   @override
@@ -23,12 +24,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Future<void> _refresh() async {
     setState(() => _calendar = _repository.calendar());
     await _calendar;
-  }
-
-  @override
-  void dispose() {
-    _repository.close();
-    super.dispose();
   }
 
   @override
