@@ -41,12 +41,12 @@ class HomeScreen extends StatelessWidget {
             child: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('NEXT RACE', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w900, letterSpacing: 2)),
-                const SizedBox(height: 10),
-                const Text('Grand Prix', style: TextStyle(fontSize: 29, fontWeight: FontWeight.w900)),
-                const Text('Takvim verisi bağlandığında burada görünecek', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-                const SizedBox(height: 24),
-                const Row(
+                Text('NEXT RACE', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w900, letterSpacing: 2)),
+                SizedBox(height: 10),
+                Text('Grand Prix', style: TextStyle(fontSize: 29, fontWeight: FontWeight.w900)),
+                Text('Takvim verisi bağlandığında burada görünecek', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                SizedBox(height: 24),
+                Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     _CountdownUnit(value: '--', label: 'GÜN'),
@@ -55,9 +55,9 @@ class HomeScreen extends StatelessWidget {
                     _CountdownUnit(value: '--', label: 'SN'),
                   ],
                 ),
-                const SizedBox(height: 18),
-                const Divider(color: AppColors.border),
-                const Row(children: [
+                SizedBox(height: 18),
+                Divider(color: AppColors.border),
+                Row(children: [
                   Icon(Icons.schedule, color: AppColors.red, size: 17),
                   SizedBox(width: 8),
                   Text('Seans programı senkronizasyon bekliyor', style: TextStyle(fontSize: 12)),
