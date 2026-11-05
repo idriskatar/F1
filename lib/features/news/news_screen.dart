@@ -5,6 +5,8 @@ import '../../core/theme/app_theme.dart';
 import '../../data/remote/news_repository.dart';
 import '../../shared/open_url.dart';
 
+String _turkishUpperCase(String value) => value.replaceAll('i', 'İ').replaceAll('ı', 'I').toUpperCase();
+
 class NewsScreen extends StatefulWidget {
   const NewsScreen({super.key, required this.repository, this.onOpenUrl});
 
@@ -129,7 +131,7 @@ class _NewsCard extends StatelessWidget {
               ],
               const SizedBox(height: 10),
               Row(children: [
-                Text(item.sourceName.toUpperCase(), style: const TextStyle(color: AppColors.red, fontSize: 9.5, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                Text(_turkishUpperCase(item.sourceName), style: const TextStyle(color: AppColors.red, fontSize: 9.5, fontWeight: FontWeight.w900, letterSpacing: 1)),
                 if (date != null) ...[
                   const SizedBox(width: 8),
                   Text(MaterialLocalizationsDate.dayTime(date.toLocal()), style: const TextStyle(color: AppColors.muted, fontSize: 10.5)),
