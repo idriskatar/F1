@@ -221,14 +221,18 @@ class _AsyncTabState<T> extends State<_AsyncTab<T>> with AutomaticKeepAliveClien
     _future = widget.load();
   }
 
-  Future<void> _reload() async {
-    setState(() => _future = widget.load());
-    try {
-      await _future;
-    } catch (_) {
-      // Hata FutureBuilder tarafından gösterilir.
-    }
+Future<void> _reload() async {
+  final future = widget.load();
+  setState(() {
+    _future = future;
+  });
+
+  try {
+    await future;
+  } catch (_) {
+    // Hata FutureBuilder tarafından gösterilir.
   }
+}
 
   @override
   Widget build(BuildContext context) {
