@@ -54,7 +54,7 @@ class OpenF1Repository {
         return persisted.withCacheStatus(true);
       }
       if (error is OpenF1Exception) rethrow;
-      throw OpenF1Exception('OpenF1 seans verisine bağlanılamadı.');
+      throw const OpenF1Exception('OpenF1 seans verisine bağlanılamadı.');
     }
   }
 
