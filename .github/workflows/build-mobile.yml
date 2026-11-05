@@ -1,0 +1,88 @@
+name: F1 Tracker Mobile Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'pubspec.*'
+      - 'android/**'
+      - 'ios/**'
+      - '.github/workflows/build-mobile.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Android release APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Generate Android and iOS runners if absent
+        run: |
+          if [ ! -d android ] || [ ! -d ios ]; then
+            flutter create --platforms=android,ios .
+          fi
+      - name: Ensure Android network permission
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('android/app/src/main/AndroidManifest.xml')
+          content = path.read_text()
+          permission = '<uses-permission android:name="android.permission.INTERNET" />'
+          if permission not in content:
+              content = content.replace('<application', f'{permission}\n    <application', 1)
+              path.write_text(content)
+          PY
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build apk --release
+      - uses: actions/upload-artifact@v6
+        with:
+          name: f1-tracker-android
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  ios-simulator:
+    name: iOS simulator build (unsigned)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate Android and iOS runners if absent
+        run: |
+          if [ ! -d android ] || [ ! -d ios ]; then
+            flutter create --platforms=android,ios .
+          fi
+      - run: flutter pub get
+      - run: flutter build ios --simulator --no-codesign
+      - name: Package simulator app
+        run: |
+          app_path="build/ios/iphonesimulator/Runner.app"
+          if [ ! -d "$app_path" ]; then
+            echo "Flutter did not produce $app_path"
+            find build/ios -maxdepth 4 -name '*.app' -print || true
+            exit 1
+          fi
+          ditto -c -k --sequesterRsrc --keepParent "$app_path" "$GITHUB_WORKSPACE/f1-tracker-ios-simulator.zip"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: f1-tracker-ios-simulator
+          path: f1-tracker-ios-simulator.zip
+          if-no-files-found: error
+          retention-days: 14
