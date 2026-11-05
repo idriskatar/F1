@@ -33,7 +33,7 @@ void main() {
 
     await tester.tap(find.descendant(of: nav, matching: find.text('Haberler')));
     await settle(tester);
-    expect(find.widgetWithText(ChoiceChip, 'Autosport'), findsOneWidget);
+    expect(find.widgetWithText(ChoiceChip, 'TRF1.net'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
   });

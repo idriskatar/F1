@@ -266,32 +266,21 @@ class FakeJolpica {
 // RSS
 // ---------------------------------------------------------------------------
 
-const f1FeedUrl = 'https://www.formula1.com/en/latest/all.xml';
+const trf1FeedUrl = 'https://trf1.net/feed/';
 
-/// Resmi F1 akışı gibi: öğelerde yayın tarihi YOK.
-const f1Xml = '''<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0"><channel><title>Formula 1</title>
-<item><title>F1 headline one</title><link>https://www.formula1.com/en/latest/article/one</link><description>Short summary &amp; more</description></item>
-<item><title>F1 headline two</title><link>https://www.formula1.com/en/latest/article/two</link><description>Second summary</description></item>
+/// TRF1.net akışı.
+const trf1Xml = '''<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>TRF1.net</title>
+<item><title>TRF1 headline one</title><link>https://trf1.net/formula-1/ornek-haber-1/</link><description>Short summary &amp; more</description><pubDate>Wed, 04 Nov 2026 10:00:00 +0000</pubDate></item>
+<item><title>TRF1 headline two</title><link>https://trf1.net/formula-1/ornek-haber-2/</link><description>Second summary</description><pubDate>Tue, 03 Nov 2026 10:00:00 +0000</pubDate></item>
 </channel></rss>''';
 
-/// Autosport gibi: CDATA içinde HTML, "Keep reading" bağlantısı, RFC 822 tarih.
-const autosportXml = '''<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0"><channel><title>Autosport</title>
-<item>
-<title>Autosport headline</title>
-<link>https://www.autosport.com/f1/news/a/1/?utm_source=RSS</link>
-<description><![CDATA[Intro text from Autosport&hellip; <a class='more' href='https://www.autosport.com/f1/news/a/1/'>Keep reading</a>]]></description>
-<pubDate>Wed, 04 Nov 2026 10:00:00 +0000</pubDate>
-</item>
-</channel></rss>''';
-
-/// Motorsport.com gibi: +0100 saat dilimli tarih ve UTF-8 özel karakter.
+/// Motorsport.com Türkiye gibi: +0100 saat dilimli tarih ve UTF-8 özel karakter.
 const motorsportXml = '''<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0"><channel><title>Motorsport.com</title>
+<rss version="2.0"><channel><title>Motorsport.com Türkiye</title>
 <item>
-<title>Motorsport headline</title>
-<link>https://www.motorsport.com/f1/news/m/1/?utm_source=RSS</link>
+<title>Motorsport Türkiye headline</title>
+<link>https://tr.motorsport.com/f1/news/ornek-haber/</link>
 <description><![CDATA[Hamilton’s weekend in brief. <a href='https://www.motorsport.com/f1/news/m/1/'>Keep reading</a>]]></description>
 <pubDate>Thu, 05 Nov 2026 08:30:00 +0100</pubDate>
 </item>
@@ -299,7 +288,7 @@ const motorsportXml = '''<?xml version="1.0" encoding="UTF-8"?>
 
 /// Konuma göre RSS döndüren sahte HTTP istemcisi.
 class FakeFeeds {
-  /// Bu ana makinelere (örn. `www.autosport.com`) gelen istekler HTTP 503 alır.
+  /// Bu ana makinelere gelen istekler HTTP 503 alır.
   final Set<String> failingHosts = {};
   bool offline = false;
   int requestCount = 0;
@@ -310,9 +299,8 @@ class FakeFeeds {
     final host = request.url.host;
     if (failingHosts.contains(host)) return http.Response('unavailable', 503);
     final xml = switch (host) {
-      'www.formula1.com' => f1Xml,
-      'www.autosport.com' => autosportXml,
-      'www.motorsport.com' => motorsportXml,
+      'trf1.net' => trf1Xml,
+      'tr.motorsport.com' => motorsportXml,
       _ => null,
     };
     if (xml == null) return http.Response('not found', 404);

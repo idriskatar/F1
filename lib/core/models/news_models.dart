@@ -8,14 +8,10 @@ class NewsSource {
   final String url;
 }
 
-/// Uygulamanın kullandığı ücretsiz, herkese açık RSS akışları.
-///
-/// Adresler 5 Kasım 2026'da doğrulandı. Resmi F1 akışı en güncel 10 haberi verir
-/// ve öğelerinde yayın tarihi yoktur.
+/// Uygulamanın kullandığı Türkçe, herkese açık RSS akışları.
 const newsSources = <NewsSource>[
-  NewsSource(id: 'f1', name: 'Formula 1', url: 'https://www.formula1.com/en/latest/all.xml'),
-  NewsSource(id: 'autosport', name: 'Autosport', url: 'https://www.autosport.com/rss/f1/news/'),
-  NewsSource(id: 'motorsport', name: 'Motorsport.com', url: 'https://www.motorsport.com/rss/f1/news/'),
+  NewsSource(id: 'trf1', name: 'TRF1.net', url: 'https://trf1.net/feed/'),
+  NewsSource(id: 'motorsport_tr', name: 'Motorsport.com Türkiye', url: 'https://tr.motorsport.com/rss/f1/news/'),
 ];
 
 /// Tek bir haber: yalnızca başlık, kısa özet ve kaynağa bağlantı tutulur.

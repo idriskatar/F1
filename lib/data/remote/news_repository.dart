@@ -82,7 +82,8 @@ class NewsRepository {
     try {
       final response = await _client.get(Uri.parse(source.url), headers: const {
         'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.5',
-        'User-Agent': 'F1Tracker/0.1 (kişisel Flutter uygulaması)',
+        // HTTP header values must stay ASCII on all supported mobile clients.
+        'User-Agent': 'F1Tracker/0.1',
       }).timeout(const Duration(seconds: 12));
       if (response.statusCode != 200) {
         throw NewsFeedException('Sunucu HTTP ${response.statusCode} yanıtı verdi.');

@@ -31,27 +31,25 @@ void main() {
   testWidgets('tüm kaynaklardan haberleri, özetleri ve kaynak adlarını gösterir', (tester) async {
     await pumpNews(tester, FakeFeeds());
 
-    expect(find.text('Motorsport headline'), findsOneWidget);
-    expect(find.text('Autosport headline'), findsOneWidget);
-    expect(find.text('F1 headline one'), findsOneWidget);
-    expect(find.text('Intro text from Autosport…'), findsOneWidget);
-    expect(find.text('MOTORSPORT.COM'), findsOneWidget);
+    expect(find.text('Motorsport Türkiye headline'), findsOneWidget);
+    expect(find.text('TRF1 headline one'), findsOneWidget);
+    expect(find.text('TRF1.NET'), findsOneWidget);
+    expect(find.text('MOTORSPORT.COM TÜRKİYE'), findsOneWidget);
     expect(find.textContaining('RSS akışlarından alınır'), findsOneWidget);
   });
 
   testWidgets('kaynak filtresi yalnızca seçilen kaynağın haberlerini bırakır', (tester) async {
     await pumpNews(tester, FakeFeeds());
 
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Autosport'));
+    await tester.tap(find.widgetWithText(ChoiceChip, 'TRF1.net'));
     await tester.pump();
 
-    expect(find.text('Autosport headline'), findsOneWidget);
-    expect(find.text('Motorsport headline'), findsNothing);
-    expect(find.text('F1 headline one'), findsNothing);
+    expect(find.text('TRF1 headline one'), findsOneWidget);
+    expect(find.text('Motorsport Türkiye headline'), findsNothing);
 
     await tester.tap(find.widgetWithText(ChoiceChip, 'Tümü'));
     await tester.pump();
-    expect(find.text('Motorsport headline'), findsOneWidget);
+    expect(find.text('Motorsport Türkiye headline'), findsOneWidget);
   });
 
   testWidgets('habere dokununca orijinal bağlantı açılır', (tester) async {
@@ -61,16 +59,16 @@ void main() {
       return true;
     });
 
-    await tester.tap(find.text('Motorsport headline'));
+    await tester.tap(find.text('Motorsport Türkiye headline'));
     await tester.pump();
 
-    expect(opened, ['https://www.motorsport.com/f1/news/m/1/?utm_source=RSS']);
+    expect(opened, ['https://tr.motorsport.com/f1/news/ornek-haber/']);
   });
 
   testWidgets('bağlantı açılamazsa uyarı gösterir', (tester) async {
     await pumpNews(tester, FakeFeeds(), onOpenUrl: (_) async => false);
 
-    await tester.tap(find.text('Motorsport headline'));
+    await tester.tap(find.text('Motorsport Türkiye headline'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -78,18 +76,17 @@ void main() {
   });
 
   testWidgets('bir kaynak çökerse diğer haberler gösterilir, uyarı o kaynağı adlandırır', (tester) async {
-    await pumpNews(tester, FakeFeeds()..failingHosts.add('www.autosport.com'));
+    await pumpNews(tester, FakeFeeds()..failingHosts.add('trf1.net'));
 
-    expect(find.textContaining('Autosport güncellenemedi'), findsOneWidget);
-    expect(find.text('Motorsport headline'), findsOneWidget);
-    expect(find.text('Autosport headline'), findsNothing);
+    expect(find.textContaining('TRF1.net güncellenemedi'), findsOneWidget);
+    expect(find.text('Motorsport Türkiye headline'), findsOneWidget);
+    expect(find.text('TRF1 headline one'), findsNothing);
   });
 
   testWidgets('tüm kaynaklar çökerse her biri için uyarı gösterir, çökmez', (tester) async {
     await pumpNews(tester, FakeFeeds()..offline = true);
 
-    expect(find.textContaining('Formula 1 güncellenemedi'), findsOneWidget);
-    expect(find.textContaining('Autosport güncellenemedi'), findsOneWidget);
-    expect(find.textContaining('Motorsport.com güncellenemedi'), findsOneWidget);
+    expect(find.textContaining('TRF1.net güncellenemedi'), findsOneWidget);
+    expect(find.textContaining('Motorsport.com Türkiye güncellenemedi'), findsOneWidget);
   });
 }

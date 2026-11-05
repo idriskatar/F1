@@ -7,7 +7,7 @@ Kişisel kullanım için hazırlanmış, premium koyu temalı Android/iOS Formul
 - Jolpica ile sezon takvimi, son yarış sınıflandırması ve pilot/takım puan durumu.
 - Ana sayfada sıradaki yarış, canlı geri sayım, sıradaki seans, son yarış podyumu ve şampiyona ilk 3 özeti (gerçek Jolpica verisi).
 - Takvimdeki bir yarışa dokununca açılan detay ekranı: yarış sınıflandırması (grid, tur, en hızlı tur, puan), sıralama turları (Q1/Q2/Q3), sprint hafta sonlarında sprint sonuçları ve o yarıştan sonraki pilot/takım puan durumu. Yarış henüz yapılmadıysa hafta sonu programı gösterilir.
-- Haberler sekmesi ve ana sayfada en yeni 3 haber: Formula 1 (resmi), Autosport ve Motorsport.com RSS akışları. Yalnızca başlık, kısa özet, kaynak adı ve tarih gösterilir; haber tarayıcıda kaynağında açılır. Kaynak filtresi, kaynak başına hata bildirimi ve çevrimdışı önbellek vardır.
+- Haberler sekmesi ve ana sayfada en yeni 3 haber: TRF1.net ve Motorsport.com Türkiye RSS akışları. Yalnızca başlık, kısa özet, kaynak adı ve tarih gösterilir; haber tarayıcıda kaynağında açılır. Kaynak filtresi, kaynak başına hata bildirimi ve çevrimdışı önbellek vardır.
 - API tarih ve saatlerinin cihazın yerel saat diliminde gösterilmesi.
 - Son başarılı API yanıtlarının SQLite üzerinde çevrimdışı önbelleği.
 - Yükleniyor, hata/yeniden dene, önbellek ve henüz sonuç yok durumları.
@@ -18,15 +18,14 @@ Kişisel kullanım için hazırlanmış, premium koyu temalı Android/iOS Formul
 
 Takvim ile Sonuçlar sekmeleri `https://api.jolpi.ca/ergast/f1/` üzerinden gerçek API verisi yükler. Ekranlar canlı API yanıtını veya çevrimdışı SQLite kopyasını kaynağıyla etiketler. Jolpica bir yarış sonucu henüz yayımlamadıysa sonuç tablosu yerine “henüz yayımlanmış sonuç yok” gösterilir. Analiz sekmesindeki içerik şimdilik örnek/boş durum tasarımıdır; FastF1 tur analizi bu pakette henüz yoktur.
 
-Haberler şu herkese açık RSS akışlarından gelir (adresler 5 Kasım 2026’da doğrulandı):
+Haberler şu herkese açık Türkçe RSS akışlarından gelir:
 
 | Kaynak | Akış |
 | --- | --- |
-| Formula 1 (resmi) | `https://www.formula1.com/en/latest/all.xml` — son 10 haber, öğelerde yayın tarihi yoktur |
-| Autosport | `https://www.autosport.com/rss/f1/news/` |
-| Motorsport.com | `https://www.motorsport.com/rss/f1/news/` |
+| TRF1.net | `https://trf1.net/feed/` |
+| Motorsport.com Türkiye | `https://tr.motorsport.com/rss/f1/news/` |
 
-Tarihi olmayan resmi F1 haberleri tarih sıralı listenin sonunda yer alır; “Formula 1” filtresiyle ayrıca görülebilir. Bu akışlar üçüncü tarafların hizmetidir; adres veya kullanım koşulları değişebilir, bir kaynak yanıt vermezse uygulama o kaynağı uyarıyla işaretler ve varsa önbellekteki haberleri gösterir. Kaynakların kendi kullanım koşullarını (özellikle uygulamayı dağıtmayı düşünürseniz) ayrıca kontrol edin.
+Bu akışlar üçüncü tarafların hizmetidir; adres veya kullanım koşulları değişebilir, bir kaynak yanıt vermezse uygulama o kaynağı uyarıyla işaretler ve varsa önbellekteki haberleri gösterir. Kaynakların kendi kullanım koşullarını (özellikle uygulamayı dağıtmayı düşünürseniz) ayrıca kontrol edin.
 
 Jolpica ücretsiz ve açık kaynaklıdır; bağımsız gönüllülerce işletilir. Erişim sınırı, kesinti veya API değişikliği olabilir. Uygulama bu durumlarda varsa yerel önbelleği kullanır. Uygulamaya ücretli API, abonelik veya zorunlu hosting eklenmemiştir.
 
@@ -36,6 +35,7 @@ Gereksinimler: Flutter stable (Dart 3.4+), Android/iOS platform araçları. Andr
 
 ```bash
 flutter create --platforms=android,ios .
+python3 tool/configure_app_name.py
 flutter pub get
 flutter analyze
 flutter test
@@ -43,6 +43,7 @@ flutter run
 ```
 
 iOS derlemesi için macOS ve Xcode gerekir. Yerel Android sürüm derlemesi: `flutter build apk --release`.
+Kurulumda görünen uygulama adı **F1 Tracker** olarak yapılandırılır. GitHub Actions bu ayarı derleme sırasında uygular; yerel Android/iOS runner klasörlerini yeni oluşturduğunuzda yukarıdaki yapılandırma betiğini çalıştırın. Dart paket adı ve import yolu `f1_tracker` olarak kalır.
 
 ## GitHub’a yükleme ve commit
 

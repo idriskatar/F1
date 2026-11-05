@@ -28,8 +28,11 @@ class _NewsScreenState extends State<NewsScreen> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _feed = widget.repository.fetchAll(force: true));
-    await _feed;
+    final feed = widget.repository.fetchAll(force: true);
+    setState(() {
+      _feed = feed;
+    });
+    await feed;
   }
 
   Future<void> _open(NewsItem item) async {

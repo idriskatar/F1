@@ -161,9 +161,9 @@ void main() {
     });
   });
 
-  test('yapılandırılmış üç kaynak https ve benzersiz kimliklidir', () {
+  test('yapılandırılmış Türkçe kaynaklar https ve benzersiz kimliklidir', () {
     expect(newsSources.map((s) => s.id).toSet(), hasLength(newsSources.length));
     expect(newsSources.every((s) => s.url.startsWith('https://')), isTrue);
-    expect(newsSources.map((s) => s.name), ['Formula 1', 'Autosport', 'Motorsport.com']);
+    expect(newsSources.map((s) => s.name), ['TRF1.net', 'Motorsport.com Türkiye']);
   });
 }

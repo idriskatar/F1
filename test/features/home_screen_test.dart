@@ -61,10 +61,9 @@ void main() {
   testWidgets('en yeni 3 haberi kaynak adıyla gösterir; tarihli olanlar önce gelir', (tester) async {
     await pumpHome(tester, FakeJolpica());
 
-    expect(find.text('Motorsport headline'), findsOneWidget);
-    expect(find.text('Autosport headline'), findsOneWidget);
-    expect(find.text('F1 headline one'), findsOneWidget); // tarihsiz, sonda ama 3. sırada
-    expect(find.text('F1 headline two'), findsNothing); // yalnızca ilk 3
+    expect(find.text('Motorsport Türkiye headline'), findsOneWidget);
+    expect(find.text('TRF1 headline one'), findsOneWidget);
+    expect(find.text('TRF1 headline two'), findsOneWidget); // Ana sayfada ilk üç haber
 
     await tester.pumpWidget(const SizedBox());
   });
