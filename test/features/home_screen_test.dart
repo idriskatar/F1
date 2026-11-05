@@ -12,7 +12,7 @@ Future<void> settle(WidgetTester tester) async {
   }
 }
 
-Future<void> pumpHome(WidgetTester tester, FakeJolpica api, {ValueChanged<int>? onOpenTab}) async {
+Future<void> pumpHome(WidgetTester tester, FakeJolpica api, {ValueChanged<int>? onOpenTab, FakeFeeds? feeds}) async {
   tester.view.physicalSize = const Size(800, 3200);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -20,7 +20,12 @@ Future<void> pumpHome(WidgetTester tester, FakeJolpica api, {ValueChanged<int>? 
   await tester.pumpWidget(MaterialApp(
     theme: AppTheme.dark,
     home: Scaffold(
-      body: HomeScreen(repository: api.repository(), clock: () => testNow, onOpenTab: onOpenTab),
+      body: HomeScreen(
+        repository: api.repository(),
+        newsRepository: (feeds ?? FakeFeeds()).repository(),
+        clock: () => testNow,
+        onOpenTab: onOpenTab,
+      ),
     ),
   ));
   await settle(tester);
@@ -49,6 +54,27 @@ void main() {
     expect(find.text('Alex Tester'), findsOneWidget);
     expect(find.text('301'), findsOneWidget);
     expect(find.text('577'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('en yeni 3 haberi kaynak adıyla gösterir; tarihli olanlar önce gelir', (tester) async {
+    await pumpHome(tester, FakeJolpica());
+
+    expect(find.text('Motorsport headline'), findsOneWidget);
+    expect(find.text('Autosport headline'), findsOneWidget);
+    expect(find.text('F1 headline one'), findsOneWidget); // tarihsiz, sonda ama 3. sırada
+    expect(find.text('F1 headline two'), findsNothing); // yalnızca ilk 3
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('haber kaynakları çökerse yalnızca haber bölümü hata gösterir', (tester) async {
+    final feeds = FakeFeeds()..offline = true;
+    await pumpHome(tester, FakeJolpica(), feeds: feeds);
+
+    expect(find.text('Haber bulunamadı'), findsOneWidget);
+    expect(find.text('Test Grand Prix'), findsOneWidget); // yarış kartı etkilenmedi
 
     await tester.pumpWidget(const SizedBox());
   });

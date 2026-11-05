@@ -75,6 +75,49 @@ class JolpicaRepository {
     );
   }
 
+  /// Belirli bir turun yarış sınıflandırması. Yarış yapılmadıysa `items` boştur.
+  Future<JolpicaData<DriverResult>> raceResults(int season, int round) =>
+      _roundData('results-$season-$round', '$season/$round/results.json?limit=100', 'Results', DriverResult.fromJson);
+
+  /// Belirli bir turun sprint sınıflandırması (yalnızca sprint hafta sonları).
+  Future<JolpicaData<DriverResult>> sprintResults(int season, int round) =>
+      _roundData('sprint-$season-$round', '$season/$round/sprint.json?limit=100', 'SprintResults', DriverResult.fromJson);
+
+  /// Belirli bir turun sıralama turları (Q1/Q2/Q3) sonuçları.
+  Future<JolpicaData<QualifyingResult>> qualifying(int season, int round) =>
+      _roundData('quali-$season-$round', '$season/$round/qualifying.json?limit=100', 'QualifyingResults', QualifyingResult.fromJson);
+
+  /// Belirli bir turdan SONRAKİ pilotlar şampiyonası.
+  Future<JolpicaData<DriverStanding>> driverStandingsAfter(int season, int round) async {
+    final payload = await _load('driver-standings-$season-r$round', '$season/$round/driverStandings.json?limit=100');
+    final list = _standingList(payload.json, 'DriverStandings');
+    return JolpicaData(items: list.map(DriverStanding.fromJson).toList(), isCached: payload.isCached, updatedAt: payload.updatedAt);
+  }
+
+  /// Belirli bir turdan SONRAKİ takımlar şampiyonası.
+  Future<JolpicaData<TeamStanding>> teamStandingsAfter(int season, int round) async {
+    final payload = await _load('team-standings-$season-r$round', '$season/$round/constructorStandings.json?limit=100');
+    final list = _standingList(payload.json, 'ConstructorStandings');
+    return JolpicaData(items: list.map(TeamStanding.fromJson).toList(), isCached: payload.isCached, updatedAt: payload.updatedAt);
+  }
+
+  Future<JolpicaData<T>> _roundData<T>(
+    String key,
+    String path,
+    String field,
+    T Function(Map<String, dynamic>) parse,
+  ) async {
+    final payload = await _load(key, path);
+    final races = _list(_raceTable(payload.json)['Races']);
+    final race = races.isEmpty ? const <String, dynamic>{} : _asMap(races.first);
+    return JolpicaData(
+      items: _list(race[field]).map((item) => parse(_asMap(item))).toList(),
+      isCached: payload.isCached,
+      updatedAt: payload.updatedAt,
+      label: race['raceName']?.toString(),
+    );
+  }
+
   Future<JolpicaData<DriverStanding>> driverStandings({int? season}) async {
     final year = season ?? DateTime.now().year;
     final payload = await _load('driver-standings-$year', '$year/driverStandings.json?limit=100');

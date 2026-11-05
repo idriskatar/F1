@@ -131,6 +131,57 @@ void main() {
       expect(r.color, 0xFFFF8000);
     });
 
+    test('DriverResult grid, tur, en hızlı tur ve isim alanlarını okur', () {
+      final r = DriverResult.fromJson((lastResults['MRData'] as Map)['RaceTable']['Races'][0]['Results'][0] as Map<String, dynamic>);
+      expect(r.name, 'Alex Tester');
+      expect(r.grid, 2);
+      expect(r.laps, 57);
+      expect(r.points, '25');
+      expect(r.fastestLapRank, 1);
+      expect(r.fastestLapTime, '1:23.456');
+    });
+
+    test('DriverResult süre yoksa durum metnini gösterir (puanı değil)', () {
+      final r = DriverResult.fromJson({
+        'position': '15',
+        'points': '0',
+        'status': '+1 Lap',
+        'Driver': {'code': 'zzz'},
+      });
+      expect(r.time, '+1 Lap');
+      expect(r.status, '+1 Lap');
+      expect(r.fastestLapTime, isNull);
+    });
+
+    test('QualifyingResult en iyi dereceyi son tur sırasıyla seçer', () {
+      final q3 = QualifyingResult.fromJson({
+        'position': '1',
+        'Driver': {'code': 'cq', 'givenName': 'Cara', 'familyName': 'Qualifier'},
+        'Constructor': {'constructorId': 'ferrari', 'name': 'T'},
+        'Q1': '1:25.1', 'Q2': '1:24.5', 'Q3': '1:23.9',
+      });
+      final q1Only = QualifyingResult.fromJson({'position': '20', 'Q1': '1:29.0'});
+      final none = QualifyingResult.fromJson(const {});
+
+      expect(q3.best, '1:23.9');
+      expect(q3.name, 'Cara Qualifier');
+      expect(q3.color, 0xFFE8002D);
+      expect(q1Only.best, '1:29.0');
+      expect(none.best, '—');
+    });
+
+    test('RaceWeekend sezon, pist adı ve sprint bilgisini taşır', () {
+      final sprint = RaceWeekend.fromJson(raceJson(
+        round: 2, name: 'Sprint GP', date: '2026-04-05', sessions: {'Sprint': '2026-04-04 11:00:00Z'},
+      ));
+      final normal = weekend('2026-11-08');
+
+      expect(sprint.season, 2026);
+      expect(sprint.circuitName, 'Test Circuit');
+      expect(sprint.hasSprint, isTrue);
+      expect(normal.hasSprint, isFalse);
+    });
+
     test('TeamStanding yanıtı ayrıştırır', () {
       final t = TeamStanding.fromJson({
         'position': '2',

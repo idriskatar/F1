@@ -6,6 +6,8 @@ Kişisel kullanım için hazırlanmış, premium koyu temalı Android/iOS Formul
 
 - Jolpica ile sezon takvimi, son yarış sınıflandırması ve pilot/takım puan durumu.
 - Ana sayfada sıradaki yarış, canlı geri sayım, sıradaki seans, son yarış podyumu ve şampiyona ilk 3 özeti (gerçek Jolpica verisi).
+- Takvimdeki bir yarışa dokununca açılan detay ekranı: yarış sınıflandırması (grid, tur, en hızlı tur, puan), sıralama turları (Q1/Q2/Q3), sprint hafta sonlarında sprint sonuçları ve o yarıştan sonraki pilot/takım puan durumu. Yarış henüz yapılmadıysa hafta sonu programı gösterilir.
+- Haberler sekmesi ve ana sayfada en yeni 3 haber: Formula 1 (resmi), Autosport ve Motorsport.com RSS akışları. Yalnızca başlık, kısa özet, kaynak adı ve tarih gösterilir; haber tarayıcıda kaynağında açılır. Kaynak filtresi, kaynak başına hata bildirimi ve çevrimdışı önbellek vardır.
 - API tarih ve saatlerinin cihazın yerel saat diliminde gösterilmesi.
 - Son başarılı API yanıtlarının SQLite üzerinde çevrimdışı önbelleği.
 - Yükleniyor, hata/yeniden dene, önbellek ve henüz sonuç yok durumları.
@@ -14,7 +16,17 @@ Kişisel kullanım için hazırlanmış, premium koyu temalı Android/iOS Formul
 
 ## Gerçek veri ve örnek alanlar
 
-Takvim ile Sonuçlar sekmeleri `https://api.jolpi.ca/ergast/f1/` üzerinden gerçek API verisi yükler. Ekranlar canlı API yanıtını veya çevrimdışı SQLite kopyasını kaynağıyla etiketler. Jolpica bir yarış sonucu henüz yayımlamadıysa sonuç tablosu yerine “henüz yayımlanmış sonuç yok” gösterilir. Haberler ve analiz sekmelerindeki içerikler şimdilik örnek/boş durum tasarımıdır; gerçek haber ve FastF1 tur analizi bu pakette henüz yoktur.
+Takvim ile Sonuçlar sekmeleri `https://api.jolpi.ca/ergast/f1/` üzerinden gerçek API verisi yükler. Ekranlar canlı API yanıtını veya çevrimdışı SQLite kopyasını kaynağıyla etiketler. Jolpica bir yarış sonucu henüz yayımlamadıysa sonuç tablosu yerine “henüz yayımlanmış sonuç yok” gösterilir. Analiz sekmesindeki içerik şimdilik örnek/boş durum tasarımıdır; FastF1 tur analizi bu pakette henüz yoktur.
+
+Haberler şu herkese açık RSS akışlarından gelir (adresler 5 Kasım 2026’da doğrulandı):
+
+| Kaynak | Akış |
+| --- | --- |
+| Formula 1 (resmi) | `https://www.formula1.com/en/latest/all.xml` — son 10 haber, öğelerde yayın tarihi yoktur |
+| Autosport | `https://www.autosport.com/rss/f1/news/` |
+| Motorsport.com | `https://www.motorsport.com/rss/f1/news/` |
+
+Tarihi olmayan resmi F1 haberleri tarih sıralı listenin sonunda yer alır; “Formula 1” filtresiyle ayrıca görülebilir. Bu akışlar üçüncü tarafların hizmetidir; adres veya kullanım koşulları değişebilir, bir kaynak yanıt vermezse uygulama o kaynağı uyarıyla işaretler ve varsa önbellekteki haberleri gösterir. Kaynakların kendi kullanım koşullarını (özellikle uygulamayı dağıtmayı düşünürseniz) ayrıca kontrol edin.
 
 Jolpica ücretsiz ve açık kaynaklıdır; bağımsız gönüllülerce işletilir. Erişim sınırı, kesinti veya API değişikliği olabilir. Uygulama bu durumlarda varsa yerel önbelleği kullanır. Uygulamaya ücretli API, abonelik veya zorunlu hosting eklenmemiştir.
 
@@ -63,7 +75,10 @@ Actions adımları Android’de `flutter analyze` ve `flutter test` çalıştır
 ## Teknik yapı
 
 - `lib/core/models`: Jolpica JSON modelleri ve formatlama.
-- `lib/data/remote/jolpica_repository.dart`: HTTP, toleranslı yanıt ayrıştırma, hata yönetimi ve SQLite önbellek fallback’i.
+- `lib/data/remote/jolpica_repository.dart`: HTTP, toleranslı yanıt ayrıştırma, hata yönetimi ve SQLite önbellek fallback’i; tur bazlı sonuç/sıralama/sprint/puan durumu sorguları.
+- `lib/core/models/news_models.dart` ve `lib/data/remote/news_repository.dart`: RSS/Atom ayrıştırma, kaynakları birleştirme/sıralama, kaynak bazlı hata ve önbellek.
+- `lib/features/calendar/race_detail_screen.dart`: yarış detay ekranı.
+- `test/`: sahte HTTP istemcisi ve sabit saatle model, repository ve ekran testleri (`test/support/fakes.dart`).
 - `lib/data/local/local_store.dart`: platform yerel SQLite cache.
 - `lib/features`: premium temalı mobil ekranlar.
 - `.github/workflows/build-mobile.yml`: Android ve iOS simülatör CI işleri.
@@ -71,7 +86,6 @@ Actions adımları Android’de `flutter analyze` ve `flutter test` çalıştır
 ## Sonraki işler
 
 - FastF1 ile yarış sonrası tur/sektör/lastik analizini içe aktarmak.
-- Kaynak belirten ücretsiz RSS haber akışını eklemek.
-- Flutter widget/model testlerini ve platform cihaz derlemelerini genişletmek.
+- Platform cihaz derlemelerini ve entegrasyon testlerini genişletmek (widget/model testleri büyük ölçüde eklendi).
 
 F1, Formula 1 ve takım/pilot adları ilgili sahiplerinin markalarıdır. Bu bağımsız kişisel proje Formula 1, FIA veya herhangi bir takımla bağlantılı değildir.

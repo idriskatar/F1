@@ -7,6 +7,8 @@ class RaceWeekend {
     required this.sessions,
     required this.round,
     this.raceStart,
+    this.season = 0,
+    this.circuitName = '',
   });
 
   final String name;
@@ -18,6 +20,13 @@ class RaceWeekend {
 
   /// Yarışın UTC başlangıç zamanı; API vermediyse null.
   final DateTime? raceStart;
+
+  /// Sezon yılı ve pist adı (tur detay sorguları için); bilinmiyorsa 0 / boş.
+  final int season;
+  final String circuitName;
+
+  /// Sprint seansı olan hafta sonu mu?
+  bool get hasSprint => sessions.any((s) => s.name == 'Sprint');
 
   /// [now] anından sonra başlayacak ilk seans (seanslar zamana göre sıralıdır).
   RaceSession? nextSession(DateTime now) {
@@ -81,6 +90,8 @@ class RaceWeekend {
       round: round,
       sessions: sessions,
       raceStart: raceDate,
+      season: int.tryParse('${json['season'] ?? ''}') ?? 0,
+      circuitName: _text(circuit['circuitName'], ''),
     );
   }
 }
@@ -96,30 +107,97 @@ class RaceSession {
 enum SessionStatus { completed, upcoming, inProgress }
 
 class DriverResult {
-  const DriverResult({required this.position, required this.code, required this.team, required this.time, required this.color});
+  const DriverResult({
+    required this.position,
+    required this.code,
+    required this.team,
+    required this.time,
+    required this.color,
+    this.name = '',
+    this.grid = 0,
+    this.laps = 0,
+    this.points = '',
+    this.status = '',
+    this.fastestLapTime,
+    this.fastestLapRank = 0,
+  });
   final int position;
   final String code;
   final String team;
+
+  /// Bitiş süresi/farkı; süre yoksa durum metni (örn. "+1 Lap", "Engine").
   final String time;
   final int color;
+  final String name;
+  final int grid;
+  final int laps;
+  final String points;
+  final String status;
+  final String? fastestLapTime;
+
+  /// En hızlı tur sıralaması (1 = yarışın en hızlı turu); bilinmiyorsa 0.
+  final int fastestLapRank;
 
   factory DriverResult.fromJson(Map<String, dynamic> json) {
     final driver = _map(json['Driver']);
-    // Jolpica/Ergast sonuç kayıtlarında `Constructor` bir nesnedir; yine de
-    // liste olarak gelirse ilk öğeyi kullan.
-    final rawTeam = json['Constructor'];
-    final team = rawTeam is List
-        ? (rawTeam.isEmpty ? <String, dynamic>{} : _map(rawTeam.first))
-        : _map(rawTeam);
+    final team = _teamMap(json['Constructor']);
     final timeData = _map(json['Time']);
-    final status = json['status']?.toString();
-    final time = _text(timeData['time'], _text(json['points'], status ?? '—'));
+    final status = _text(json['status'], '');
+    final fastest = _map(json['FastestLap']);
+    final fastestTime = _text(_map(fastest['Time'])['time'], '');
+    final code = _text(driver['code'], _text(driver['familyName'], '—')).toUpperCase();
     return DriverResult(
       position: int.tryParse('${json['position'] ?? ''}') ?? 0,
-      code: _text(driver['code'], _text(driver['familyName'], '—')).toUpperCase(),
+      code: code,
       team: _text(team['name'], 'Unknown team'),
-      time: time,
+      time: _text(timeData['time'], status.isEmpty ? '—' : status),
       color: teamColor(_text(team['constructorId'], '')),
+      name: _driverName(driver),
+      grid: int.tryParse('${json['grid'] ?? ''}') ?? 0,
+      laps: int.tryParse('${json['laps'] ?? ''}') ?? 0,
+      points: _text(json['points'], ''),
+      status: status,
+      fastestLapTime: fastestTime.isEmpty ? null : fastestTime,
+      fastestLapRank: int.tryParse('${fastest['rank'] ?? ''}') ?? 0,
+    );
+  }
+}
+
+class QualifyingResult {
+  const QualifyingResult({
+    required this.position,
+    required this.code,
+    required this.name,
+    required this.team,
+    required this.color,
+    this.q1 = '',
+    this.q2 = '',
+    this.q3 = '',
+  });
+  final int position;
+  final String code;
+  final String name;
+  final String team;
+  final int color;
+  final String q1;
+  final String q2;
+  final String q3;
+
+  /// Pilotun ulaştığı son turdaki derecesi.
+  String get best => q3.isNotEmpty ? q3 : (q2.isNotEmpty ? q2 : (q1.isNotEmpty ? q1 : '—'));
+
+  factory QualifyingResult.fromJson(Map<String, dynamic> json) {
+    final driver = _map(json['Driver']);
+    final team = _teamMap(json['Constructor']);
+    return QualifyingResult(
+      position: int.tryParse('${json['position'] ?? ''}') ?? 0,
+      code: _text(driver['code'], _text(driver['familyName'], '—')).toUpperCase(),
+      name: _driverName(driver),
+      team: _text(team['name'], 'Unknown team'),
+      color: teamColor(_text(team['constructorId'], '')),
+      q1: _text(json['Q1'], ''),
+      q2: _text(json['Q2'], ''),
+      q3: _text(json['Q3'], ''),
     );
   }
 }
@@ -203,6 +281,14 @@ int teamColor(String id) => switch (id.toLowerCase()) {
 };
 
 Map<String, dynamic> _map(Object? value) => value is Map<String, dynamic> ? value : const {};
+
+/// Jolpica/Ergast sonuç kayıtlarında `Constructor` bir nesnedir; yine de liste
+/// olarak gelirse ilk öğeyi kullan.
+Map<String, dynamic> _teamMap(Object? raw) =>
+    raw is List ? (raw.isEmpty ? const {} : _map(raw.first)) : _map(raw);
+
+String _driverName(Map<String, dynamic> driver) =>
+    '${_text(driver['givenName'], '')} ${_text(driver['familyName'], '')}'.trim();
 String _text(Object? value, String fallback) => value == null || value.toString().isEmpty ? fallback : value.toString();
 
 DateTime? _parseUtc(String? date, String? time) {

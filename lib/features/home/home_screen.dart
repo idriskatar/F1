@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../core/models/race_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/remote/jolpica_repository.dart';
+import '../../data/remote/news_repository.dart';
 import '../../shared/widgets/section_title.dart';
 
 /// Alt gezinme çubuğundaki sekme indeksleri (AppShell ile aynı sırada).
@@ -11,9 +12,10 @@ const _newsTab = 2;
 const _resultsTab = 3;
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.repository, this.clock, this.onOpenTab});
+  const HomeScreen({super.key, required this.repository, required this.newsRepository, this.clock, this.onOpenTab});
 
   final JolpicaRepository repository;
+  final NewsRepository newsRepository;
 
   /// Testlerde sabit saat vermek için; boşsa `DateTime.now`.
   final DateTime Function()? clock;
@@ -28,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late Future<JolpicaData<DriverResult>> _results;
   late Future<JolpicaData<DriverStanding>> _drivers;
   late Future<JolpicaData<TeamStanding>> _teams;
+  late Future<NewsFeedResult> _news;
 
   DateTime _now() => (widget.clock ?? DateTime.now)();
 
@@ -43,13 +46,14 @@ class _HomeScreenState extends State<HomeScreen> {
     _results = repo.latestResults();
     _drivers = repo.driverStandings();
     _teams = repo.teamStandings();
+    _news = widget.newsRepository.fetchAll();
   }
 
   Future<void> _refresh() async {
     setState(_load);
     // Hatalar ilgili bölümde gösterilir; yenileme göstergesi yine de kapanmalı.
     await Future.wait<Object?>(
-      [_next, _results, _drivers, _teams].map((f) => f.then<Object?>((_) => null, onError: (_) => null)),
+      [_next, _results, _drivers, _teams, _news].map((f) => f.then<Object?>((_) => null, onError: (_) => null)),
     );
   }
 
@@ -116,10 +120,10 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 22),
             SectionTitle('Son haberler', action: 'Tüm haberler', onAction: () => _open(_newsTab)),
             const SizedBox(height: 12),
-            const _InfoTile(
-              icon: Icons.newspaper,
-              title: 'Haber akışı hazırlanıyor',
-              subtitle: 'Ücretsiz RSS kaynakları bağlandığında haberler listelenecek.',
+            _section<NewsFeedResult>(
+              future: _news,
+              errorTitle: 'Haberler yüklenemedi',
+              builder: (data) => _NewsPreview(data: data, onTap: () => _open(_newsTab)),
             ),
           ],
         ),
@@ -385,6 +389,50 @@ class _StandingsPanel extends StatelessWidget {
               const SizedBox(width: 4),
               const Text('puan', style: TextStyle(color: AppColors.muted, fontSize: 10)),
             ]),
+          ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Son haberler
+// ---------------------------------------------------------------------------
+
+class _NewsPreview extends StatelessWidget {
+  const _NewsPreview({required this.data, required this.onTap});
+  final NewsFeedResult data;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = data.items.take(3).toList();
+    if (items.isEmpty) {
+      return _InfoTile(
+        icon: Icons.newspaper,
+        title: 'Haber bulunamadı',
+        subtitle: data.errors.isEmpty ? 'Kaynaklar şu an haber döndürmedi.' : data.errors.values.first,
+      );
+    }
+    return _Panel(
+      title: 'EN YENİ HABERLER',
+      children: [
+        for (final item in items)
+          InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 9),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 3),
+                Text(
+                  item.publishedAt == null
+                      ? item.sourceName
+                      : '${item.sourceName} • ${MaterialLocalizationsDate.dayTime(item.publishedAt!.toLocal())}',
+                  style: const TextStyle(color: AppColors.muted, fontSize: 10.5),
+                ),
+              ]),
+            ),
           ),
       ],
     );
