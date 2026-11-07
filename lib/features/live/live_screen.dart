@@ -283,7 +283,7 @@ class _LiveScreenState extends State<LiveScreen> {
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
     decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
     child: Row(children: [
-      SizedBox(width: 30, child: Text(driver.position == 0 ? '—' : '${driver.position.toString().padLeft(2, '0')}', style: const TextStyle(color: AppColors.red, fontWeight: FontWeight.w900, fontSize: 13))),
+      SizedBox(width: 30, child: Text(driver.position == 0 ? '—' : driver.position.toString().padLeft(2, '0'), style: const TextStyle(color: AppColors.red, fontWeight: FontWeight.w900, fontSize: 13))),
       SizedBox(width: 38, child: Text(driver.racingNumber, style: const TextStyle(color: AppColors.muted, fontSize: 11, fontWeight: FontWeight.w700))),
       Container(width: 3, height: 34, margin: const EdgeInsets.only(right: 9), decoration: BoxDecoration(color: Color(driver.teamColor), borderRadius: BorderRadius.circular(3))),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

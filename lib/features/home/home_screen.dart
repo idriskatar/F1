@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/models/news_models.dart';
 import '../../core/models/race_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/remote/jolpica_repository.dart';
@@ -16,11 +15,11 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late final JolpicaRepository _api=widget.repository??JolpicaRepository();
   late final NewsRepository _news=widget.newsRepository??NewsRepository();
-  late Future<NextRaceData> _next=_api.nextRace(now:_now());
-  late Future<JolpicaData<DriverResult>> _results=_api.latestResults();
-  late Future<JolpicaData<DriverStanding>> _drivers=_api.driverStandings();
-  late Future<JolpicaData<TeamStanding>> _teams=_api.teamStandings();
-  late Future<NewsFeedResult> _feed=_news.fetchAll();
+  late final Future<NextRaceData> _next=_api.nextRace(now:_now());
+  late final Future<JolpicaData<DriverResult>> _results=_api.latestResults();
+  late final Future<JolpicaData<DriverStanding>> _drivers=_api.driverStandings();
+  late final Future<JolpicaData<TeamStanding>> _teams=_api.teamStandings();
+  late final Future<NewsFeedResult> _feed=_news.fetchAll();
   DateTime _now()=> (widget.clock??DateTime.now)();
   @override void dispose(){ if(widget.repository==null)_api.close(); if(widget.newsRepository==null)_news.close(); super.dispose(); }
   @override Widget build(BuildContext context)=>SafeArea(child:ListView(padding:const EdgeInsets.fromLTRB(20,14,20,24),children:[
