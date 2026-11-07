@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'lib/**'
+      - 'test/**'
       - 'pubspec.*'
       - 'android/**'
       - 'ios/**'
@@ -33,17 +34,18 @@ jobs:
           if [ ! -d android ] || [ ! -d ios ]; then
             flutter create --platforms=android,ios .
           fi
-      - name: Set installed app name
-        run: python tool/configure_app_name.py
-      - name: Ensure Android network permission
+      - name: Configure Android network access and secure key backup
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
           path = Path('android/app/src/main/AndroidManifest.xml')
           content = path.read_text()
           permission = '<uses-permission android:name="android.permission.INTERNET" />'
           if permission not in content:
               content = content.replace('<application', f'{permission}\n    <application', 1)
+          if 'android:allowBackup=' not in content:
+              content = re.sub(r'<application\b', '<application android:allowBackup="false"', content, count=1)
               path.write_text(content)
           PY
       - run: flutter pub get
@@ -71,8 +73,6 @@ jobs:
           if [ ! -d android ] || [ ! -d ios ]; then
             flutter create --platforms=android,ios .
           fi
-      - name: Set installed app name
-        run: python3 tool/configure_app_name.py
       - run: flutter pub get
       - run: flutter build ios --simulator --no-codesign
       - name: Package simulator app

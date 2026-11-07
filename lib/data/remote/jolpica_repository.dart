@@ -6,20 +6,8 @@ import '../../core/models/race_models.dart';
 import '../local/local_store.dart';
 
 class JolpicaData<T> {
-  const JolpicaData({required this.items, required this.isCached, required this.updatedAt, this.label});
+  const JolpicaData({required this.items, required this.isCached, required this.updatedAt});
   final List<T> items;
-  final bool isCached;
-  final DateTime updatedAt;
-
-  /// Verinin başlığı (örn. son yarışın adı); yoksa null.
-  final String? label;
-}
-
-class NextRaceData {
-  const NextRaceData({required this.race, required this.isCached, required this.updatedAt});
-
-  /// Sıradaki yarış; sezon bittiyse ve yeni takvim yoksa null.
-  final RaceWeekend? race;
   final bool isCached;
   final DateTime updatedAt;
 }
@@ -43,78 +31,14 @@ class JolpicaRepository {
     );
   }
 
-  /// Takvimden sıradaki yarışı bulur. Mevcut sezonda yarış kalmadıysa bir
-  /// sonraki sezonun takvimini dener; o da yoksa `race` null döner.
-  Future<NextRaceData> nextRace({DateTime? now}) async {
-    final current = (now ?? DateTime.now()).toUtc();
-    final thisYear = await calendar(season: current.year);
-    var race = upcomingRace(thisYear.items, current);
-    var source = thisYear;
-    if (race == null) {
-      try {
-        final nextYear = await calendar(season: current.year + 1);
-        race = upcomingRace(nextYear.items, current);
-        if (race != null) source = nextYear;
-      } catch (_) {
-        // Gelecek sezon takvimi henüz yayımlanmamış olabilir.
-      }
-    }
-    return NextRaceData(race: race, isCached: source.isCached, updatedAt: source.updatedAt);
-  }
-
   Future<JolpicaData<DriverResult>> latestResults() async {
     final payload = await _load('latest-results', 'current/last/results.json?limit=100');
     final races = _list(_raceTable(payload.json)['Races']);
     final results = races.isEmpty ? const [] : _list(_asMap(races.first)['Results']);
-    final raceName = races.isEmpty ? null : _asMap(races.first)['raceName']?.toString();
     return JolpicaData(
       items: results.map((item) => DriverResult.fromJson(_asMap(item))).toList(),
       isCached: payload.isCached,
       updatedAt: payload.updatedAt,
-      label: raceName,
-    );
-  }
-
-  /// Belirli bir turun yarış sınıflandırması. Yarış yapılmadıysa `items` boştur.
-  Future<JolpicaData<DriverResult>> raceResults(int season, int round) =>
-      _roundData('results-$season-$round', '$season/$round/results.json?limit=100', 'Results', DriverResult.fromJson);
-
-  /// Belirli bir turun sprint sınıflandırması (yalnızca sprint hafta sonları).
-  Future<JolpicaData<DriverResult>> sprintResults(int season, int round) =>
-      _roundData('sprint-$season-$round', '$season/$round/sprint.json?limit=100', 'SprintResults', DriverResult.fromJson);
-
-  /// Belirli bir turun sıralama turları (Q1/Q2/Q3) sonuçları.
-  Future<JolpicaData<QualifyingResult>> qualifying(int season, int round) =>
-      _roundData('quali-$season-$round', '$season/$round/qualifying.json?limit=100', 'QualifyingResults', QualifyingResult.fromJson);
-
-  /// Belirli bir turdan SONRAKİ pilotlar şampiyonası.
-  Future<JolpicaData<DriverStanding>> driverStandingsAfter(int season, int round) async {
-    final payload = await _load('driver-standings-$season-r$round', '$season/$round/driverStandings.json?limit=100');
-    final list = _standingList(payload.json, 'DriverStandings');
-    return JolpicaData(items: list.map(DriverStanding.fromJson).toList(), isCached: payload.isCached, updatedAt: payload.updatedAt);
-  }
-
-  /// Belirli bir turdan SONRAKİ takımlar şampiyonası.
-  Future<JolpicaData<TeamStanding>> teamStandingsAfter(int season, int round) async {
-    final payload = await _load('team-standings-$season-r$round', '$season/$round/constructorStandings.json?limit=100');
-    final list = _standingList(payload.json, 'ConstructorStandings');
-    return JolpicaData(items: list.map(TeamStanding.fromJson).toList(), isCached: payload.isCached, updatedAt: payload.updatedAt);
-  }
-
-  Future<JolpicaData<T>> _roundData<T>(
-    String key,
-    String path,
-    String field,
-    T Function(Map<String, dynamic>) parse,
-  ) async {
-    final payload = await _load(key, path);
-    final races = _list(_raceTable(payload.json)['Races']);
-    final race = races.isEmpty ? const <String, dynamic>{} : _asMap(races.first);
-    return JolpicaData(
-      items: _list(race[field]).map((item) => parse(_asMap(item))).toList(),
-      isCached: payload.isCached,
-      updatedAt: payload.updatedAt,
-      label: race['raceName']?.toString(),
     );
   }
 

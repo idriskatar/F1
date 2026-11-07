@@ -4,14 +4,13 @@ import '../../core/theme/app_theme.dart';
 import '../../data/remote/jolpica_repository.dart';
 
 class ResultsScreen extends StatefulWidget {
-  const ResultsScreen({super.key, required this.repository});
-  final JolpicaRepository repository;
+  const ResultsScreen({super.key});
   @override
   State<ResultsScreen> createState() => _ResultsScreenState();
 }
 
 class _ResultsScreenState extends State<ResultsScreen> {
-  JolpicaRepository get _repository => widget.repository;
+  final _repository = JolpicaRepository();
   late Future<(JolpicaData<DriverResult>, JolpicaData<DriverStanding>, JolpicaData<TeamStanding>)> _data;
 
   @override
@@ -36,6 +35,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
   Future<void> _refresh() async {
     setState(() => _data = _load());
     await _data;
+  }
+
+  @override
+  void dispose() {
+    _repository.close();
+    super.dispose();
   }
 
   @override
