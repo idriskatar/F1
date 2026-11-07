@@ -60,8 +60,20 @@ class OpenF1Repository {
 
   Future<CompletedSessionData?> _fetchLatest(DateTime now) async {
     final cutoff = now.subtract(_historicalDelay);
+    OpenF1Exception? authorizationError;
     for (var year = now.year; year >= 2023; year--) {
-      final sessions = await _getList('/sessions', {'year': '$year'});
+      final List<Map<String, dynamic>> sessions;
+      try {
+        sessions = await _getList('/sessions', {'year': '$year'});
+      } on OpenF1Exception catch (error) {
+        // A denial for the newest season should not prevent loading public
+        // historical sessions from an earlier year.
+        if (error.statusCode == 401 || error.statusCode == 403) {
+          authorizationError = error;
+          continue;
+        }
+        rethrow;
+      }
       final completed = sessions
           .where((session) => session['is_cancelled'] != true)
           .map(_SessionMeta.tryParse)
@@ -78,6 +90,10 @@ class OpenF1Repository {
           results = await _getList('/session_result', {'session_key': '${session.sessionKey}'});
         } on OpenF1Exception catch (error) {
           if (error.message.contains('HTTP 404')) continue;
+          if (error.statusCode == 401 || error.statusCode == 403) {
+            authorizationError = error;
+            break;
+          }
           rethrow;
         }
         if (results.isEmpty) continue;
@@ -88,6 +104,11 @@ class OpenF1Repository {
         return _combine(session, results, details[0], details[1].isEmpty ? null : details[1].first);
       }
       if (completed.isNotEmpty) continue;
+    }
+    if (authorizationError != null) {
+      throw const OpenF1Exception(
+        'OpenF1 tarihsel seans isteğini reddetti (401/403). Canlı RapidAPI anahtarı OpenF1 anahtarı değildir; daha sonra yeniden deneyin.',
+      );
     }
     return null;
   }
@@ -101,7 +122,7 @@ class OpenF1Repository {
           })
           .timeout(const Duration(seconds: 12));
       if (response.statusCode != 200) {
-        throw OpenF1Exception('OpenF1 HTTP ${response.statusCode} yanıtı verdi.');
+        throw OpenF1Exception('OpenF1 HTTP ${response.statusCode} yanıtı verdi.', statusCode: response.statusCode);
       }
       final json = jsonDecode(response.body);
       if (json is! List) throw const OpenF1Exception('OpenF1 yanıt biçimi beklenenden farklı.');
@@ -174,8 +195,9 @@ class OpenF1Repository {
 }
 
 class OpenF1Exception implements Exception {
-  const OpenF1Exception(this.message);
+  const OpenF1Exception(this.message, {this.statusCode});
   final String message;
+  final int? statusCode;
   @override
   String toString() => message;
 }

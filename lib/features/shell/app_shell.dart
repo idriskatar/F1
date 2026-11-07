@@ -3,7 +3,7 @@ import '../../data/remote/jolpica_repository.dart';
 import '../../data/remote/news_repository.dart';
 import '../../data/remote/openf1_repository.dart';
 import '../live/live_screen.dart';
-import '../settings/settings_screen.dart';
+import '../more/more_screen.dart';
 import '../home/home_screen.dart';
 import '../calendar/calendar_screen.dart';
 import '../news/news_screen.dart';
@@ -56,7 +56,7 @@ class _AppShellState extends State<AppShell> {
       NewsScreen(repository: _news),
       ResultsScreen(repository: _repository),
       AnalysisScreen(repository: _sessionRepository, active: _index == 5),
-      SettingsScreen(themeId: widget.themeId, onThemeChanged: widget.onThemeChanged ?? (_) {}),
+      MoreScreen(themeId: widget.themeId, onThemeChanged: widget.onThemeChanged ?? (_) {}),
     ];
 
   @override
@@ -78,6 +78,7 @@ class _AppShellState extends State<AppShell> {
       body: IndexedStack(index: _index, children: _screens()),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
         onDestinationSelected: (value) => setState(() => _index = value),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Ana sayfa'),
@@ -86,7 +87,7 @@ class _AppShellState extends State<AppShell> {
           NavigationDestination(icon: Icon(Icons.newspaper_outlined), selectedIcon: Icon(Icons.newspaper), label: 'Haberler'),
           NavigationDestination(icon: Icon(Icons.emoji_events_outlined), selectedIcon: Icon(Icons.emoji_events), label: 'Sonuçlar'),
           NavigationDestination(icon: Icon(Icons.query_stats_outlined), selectedIcon: Icon(Icons.query_stats), label: 'Analiz'),
-          NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Ayarlar'),
+          NavigationDestination(icon: Icon(Icons.more_horiz_rounded), selectedIcon: Icon(Icons.more_horiz_rounded), label: 'Daha fazla'),
         ],
       ),
       ),

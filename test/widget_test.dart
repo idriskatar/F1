@@ -27,11 +27,11 @@ void main() {
     expect(find.text('SIRADAKİ YARIŞ'), findsOneWidget);
 
     final nav = find.byType(NavigationBar);
-    await tester.tap(find.descendant(of: nav, matching: find.text('Takvim')));
+    await tester.tap(find.descendant(of: nav, matching: find.byIcon(Icons.calendar_month_outlined)));
     await settle(tester);
     expect(find.text('Sezon programı • saatler cihazının yerel saatinde'), findsOneWidget);
 
-    await tester.tap(find.descendant(of: nav, matching: find.text('Haberler')));
+    await tester.tap(find.descendant(of: nav, matching: find.byIcon(Icons.newspaper_outlined)));
     await settle(tester);
     expect(find.widgetWithText(ChoiceChip, 'TRF1.net'), findsOneWidget);
 
