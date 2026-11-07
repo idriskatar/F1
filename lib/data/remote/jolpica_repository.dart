@@ -6,10 +6,16 @@ import '../../core/models/race_models.dart';
 import '../local/local_store.dart';
 
 class JolpicaData<T> {
-  const JolpicaData({required this.items, required this.isCached, required this.updatedAt});
+  const JolpicaData({required this.items, required this.isCached, required this.updatedAt, this.label = ''});
   final List<T> items;
   final bool isCached;
   final DateTime updatedAt;
+  final String label;
+}
+
+class NextRaceData {
+  const NextRaceData({required this.race, required this.isCached, required this.updatedAt});
+  final RaceWeekend? race; final bool isCached; final DateTime updatedAt;
 }
 
 class JolpicaRepository {
@@ -39,7 +45,46 @@ class JolpicaRepository {
       items: results.map((item) => DriverResult.fromJson(_asMap(item))).toList(),
       isCached: payload.isCached,
       updatedAt: payload.updatedAt,
+      label: races.isEmpty ? '' : '${_asMap(races.first)['raceName'] ?? ''}',
     );
+  }
+
+  Future<NextRaceData> nextRace({DateTime? now}) async {
+    final current = now ?? DateTime.now(); final year = current.year;
+    final first = await calendar(season: year); final upcoming = upcomingRace(first.items, current);
+    if (upcoming != null) return NextRaceData(race: upcoming, isCached: first.isCached, updatedAt: first.updatedAt);
+    try {
+      final next = await calendar(season: year + 1);
+      return NextRaceData(race: upcomingRace(next.items, current), isCached: first.isCached || next.isCached, updatedAt: next.updatedAt);
+    } on JolpicaException { return NextRaceData(race: null, isCached: first.isCached, updatedAt: first.updatedAt); }
+  }
+
+  Future<JolpicaData<DriverResult>> raceResults(int season, int round) async {
+    final p = await _load('race-results-$season-$round', '$season/$round/results.json?limit=100');
+    final races = _list(_raceTable(p.json)['Races']); final race = races.isEmpty ? <String,dynamic>{} : _asMap(races.first);
+    return JolpicaData(items: _list(race['Results']).map((e) => DriverResult.fromJson(_asMap(e))).toList(), isCached: p.isCached, updatedAt: p.updatedAt, label: '${race['raceName'] ?? ''}');
+  }
+
+  Future<JolpicaData<QualifyingResult>> qualifying(int season, int round) async {
+    final p = await _load('qualifying-$season-$round', '$season/$round/qualifying.json?limit=100');
+    final races = _list(_raceTable(p.json)['Races']); final race = races.isEmpty ? <String,dynamic>{} : _asMap(races.first);
+    return JolpicaData(items: _list(race['QualifyingResults']).map((e) => QualifyingResult.fromJson(_asMap(e))).toList(), isCached: p.isCached, updatedAt: p.updatedAt, label: '${race['raceName'] ?? ''}');
+  }
+
+  Future<JolpicaData<DriverResult>> sprintResults(int season, int round) async {
+    final p = await _load('sprint-$season-$round', '$season/$round/sprint.json?limit=100');
+    final races = _list(_raceTable(p.json)['Races']); final race = races.isEmpty ? <String,dynamic>{} : _asMap(races.first);
+    return JolpicaData(items: _list(race['SprintResults']).map((e) => DriverResult.fromJson(_asMap(e))).toList(), isCached: p.isCached, updatedAt: p.updatedAt, label: '${race['raceName'] ?? ''}');
+  }
+
+  Future<JolpicaData<DriverStanding>> driverStandingsAfter(int season, int round) async {
+    final p = await _load('driver-standings-$season-$round', '$season/$round/driverStandings.json?limit=100');
+    return JolpicaData(items: _standingList(p.json, 'DriverStandings').map(DriverStanding.fromJson).toList(), isCached: p.isCached, updatedAt: p.updatedAt);
+  }
+
+  Future<JolpicaData<TeamStanding>> teamStandingsAfter(int season, int round) async {
+    final p = await _load('team-standings-$season-$round', '$season/$round/constructorStandings.json?limit=100');
+    return JolpicaData(items: _standingList(p.json, 'ConstructorStandings').map(TeamStanding.fromJson).toList(), isCached: p.isCached, updatedAt: p.updatedAt);
   }
 
   Future<JolpicaData<DriverStanding>> driverStandings({int? season}) async {

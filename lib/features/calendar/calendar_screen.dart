@@ -3,15 +3,18 @@ import '../../core/models/race_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/remote/jolpica_repository.dart';
 import '../../shared/widgets/demo_notice.dart';
+import 'race_detail_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
-  const CalendarScreen({super.key});
+  const CalendarScreen({super.key, this.repository, this.clock});
+  final JolpicaRepository? repository;
+  final DateTime Function()? clock;
   @override
   State<CalendarScreen> createState() => _CalendarScreenState();
 }
 
 class _CalendarScreenState extends State<CalendarScreen> {
-  final _repository = JolpicaRepository();
+  late final JolpicaRepository _repository = widget.repository ?? JolpicaRepository();
   late Future<JolpicaData<RaceWeekend>> _calendar;
 
   @override
@@ -56,7 +59,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 _SourceBadge(cached: data.isCached, updatedAt: data.updatedAt),
                 const SizedBox(height: 12),
-                ...data.items.map(_weekendCard),
+                ...data.items.map((race) => _weekendCard(context, race)),
               ]);
             },
           ),
@@ -65,7 +68,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
     ),
   );
 
-  Widget _weekendCard(RaceWeekend weekend) => Container(
+  Widget _weekendCard(BuildContext context, RaceWeekend weekend) => InkWell(
+    borderRadius: BorderRadius.circular(18),
+    onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => RaceDetailScreen(weekend: weekend, repository: _repository, clock: widget.clock))),
+    child: Container(
     margin: const EdgeInsets.only(bottom: 14),
     padding: const EdgeInsets.all(18),
     decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.border)),
@@ -74,6 +80,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
       const SizedBox(height: 7),
       Text(weekend.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
       Text('${weekend.location}${weekend.country.isEmpty ? '' : ', ${weekend.country}'} • ${weekend.dateLabel}', style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+      const SizedBox(height: 5),
+      const Text('Sonuçlar ve puan durumu', style: TextStyle(color: AppColors.muted, fontSize: 11)),
       const SizedBox(height: 12),
       if (weekend.sessions.isEmpty) const Text('Seans saatleri henüz yayımlanmadı.', style: TextStyle(color: AppColors.muted, fontSize: 12)),
       ...weekend.sessions.map((session) => Padding(
@@ -86,7 +94,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         ]),
       )),
     ]),
-  );
+  ));
 }
 
 class _SourceBadge extends StatelessWidget {

@@ -9,12 +9,12 @@ Kişisel kullanım için hazırlanmış, premium koyu temalı Android/iOS Formul
 - API tarih ve saatlerinin cihazın yerel saat diliminde gösterilmesi.
 - Son başarılı API yanıtlarının SQLite üzerinde çevrimdışı önbelleği.
 - Yükleniyor, hata/yeniden dene, önbellek ve henüz sonuç yok durumları.
-- Premium koyu arayüz ve beş sekmeli mobil iskelet.
+- Premium koyu arayüz ve altı sekme: Ana sayfa, Takvim, Canlı, Haberler, Sonuçlar ve Analiz.
 - Ücretsiz GitHub Actions Android APK ve imzasız iOS simülatör derlemesi.
 
 ## Gerçek veri ve örnek alanlar
 
-Takvim ile Sonuçlar sekmeleri `https://api.jolpi.ca/ergast/f1/` üzerinden gerçek API verisi yükler. Canlı sekmesi RapidAPI başlığıyla F1 Live Pulse `/timingData` uç noktasını çağırır. Ekranlar canlı API yanıtını veya çevrimdışı Jolpica kopyasını kaynağıyla etiketler. Jolpica bir yarış sonucu henüz yayımlamadıysa sonuç tablosu yerine “henüz yayımlanmış sonuç yok” gösterilir. Ana sayfa, haberler ve analiz sekmelerindeki içerikler şimdilik örnek/boş durum tasarımıdır; gerçek haber, FastF1 tur analizi ve otomatik senkronizasyon bu pakette henüz yoktur.
+Ana sayfa, Takvim, Sonuçlar ve yarış detayı `https://api.jolpi.ca/ergast/f1/` üzerinden gerçek API verisi yükler. Haberler sekmesi herkese açık RSS akışlarını gösterir; haber başlığı/özeti ve yayıncı bağlantısı yayıncı verisidir. Canlı sekmesi RapidAPI başlığıyla F1 Live Pulse `/timingData` uç noktasını çağırır. Canlı yanıt, Jolpica önbelleği ve demo/henüz veri yok durumları arayüzde ayrı etiketlenir. Jolpica bir yarış sonucu henüz yayımlamadıysa sonuç tablosu yerine “henüz yayımlanmış sonuç yok” gösterilir. Analiz sekmesi örnek/boş durum tasarımıdır; FastF1 tur analizi ve otomatik senkronizasyon henüz yoktur.
 
 Canlı sekmesinde **API anahtarını gir** alanına RapidAPI hesabındaki F1 Live Pulse `X-RapidAPI-Key` değerini yapıştır. Anahtar kaynak koduna veya ZIP’e yazılmaz; cihazın Android Keystore/iOS Keychain altyapısını kullanan güvenli depoda saklanır. Uygulama anahtarı yalnızca `X-RapidAPI-Key` ve `X-RapidAPI-Host: f1-live-pulse.p.rapidapi.com` başlıklarıyla API isteğinde kullanır. Zamanlama yalnızca Canlı sekmesi açıkken 30 saniyede bir yenilenir; ayrıca elle yenileme düğmesi vardır. RapidAPI planlarının kota ve aşım kuralları API’ye/aboneliğe göre değişebilir; RapidAPI panelinde F1 Live Pulse planının ücretsiz kota ve aşım koşullarını kontrol et. 429 sınır yanıtı uygulamada açıklayıcı biçimde gösterilir.
 
@@ -55,7 +55,7 @@ git push -u origin main
 
 ## GitHub Actions ile derleme ve indirme
 
-1. Deponun **Actions** sekmesini açın ve **F1 Tracker Mobile Build** iş akışını seçin.
+1. Deponun **Actions** sekmesini açın ve **F1 Tracker Mobile Build** iş akışını seçin. Workflow dosyasının tam yolu `.github/workflows/build-mobile.yml` (uzantısı `.yml`) şeklindedir.
 2. Elle başlatmak için **Run workflow → Run workflow** seçin. `main` dalına bu workflow veya uygulama dosyalarından birini içeren commit gönderildiğinde de otomatik çalışır.
 3. Çalışma tamamlandığında iş akışı özetindeki **Artifacts** bölümünden `f1-tracker-android` ve/veya `f1-tracker-ios-simulator` dosyasını indirin.
 4. Android arşivini açın; içindeki `app-release.apk` Android cihaza kurulabilir. iOS arşivi yalnızca simülatör için derlenmiş, imzasız `Runner.app` içerir; TestFlight veya fiziksel iPhone kurulumu için Apple imzalama/provisioning gerekir ve bu workflow bunları yapmaz.
@@ -73,9 +73,7 @@ Actions adımları Android’de `flutter analyze` ve `flutter test` çalıştır
 
 ## Sonraki işler
 
-- Ana sayfaya gerçek sıradaki yarış ve şampiyona özeti bağlamak.
 - FastF1 ile yarış sonrası tur/sektör/lastik analizini içe aktarmak.
-- Kaynak belirten ücretsiz RSS haber akışını eklemek.
 - Flutter widget/model testlerini ve platform cihaz derlemelerini genişletmek.
 
 F1, Formula 1 ve takım/pilot adları ilgili sahiplerinin markalarıdır. Bu bağımsız kişisel proje Formula 1, FIA veya herhangi bir takımla bağlantılı değildir.

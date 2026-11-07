@@ -7,7 +7,7 @@ import '../../core/models/live_timing_model.dart';
 
 class RapidApiKeyStore {
   RapidApiKeyStore({FlutterSecureStorage? storage})
-      : _storage = storage ?? FlutterSecureStorage();
+      : _storage = storage ?? const FlutterSecureStorage();
 
   static const _keyName = 'rapidapi_f1_live_pulse_key';
   final FlutterSecureStorage _storage;
