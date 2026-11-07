@@ -1,68 +1,15 @@
 class LiveTimingDriver {
-  const LiveTimingDriver({
-    required this.position,
-    required this.racingNumber,
-    required this.code,
-    required this.name,
-    required this.team,
-    required this.teamColor,
-    required this.bestLapTime,
-    required this.compound,
-    required this.retired,
-    required this.inPit,
-    required this.stopped,
-  });
+  const LiveTimingDriver({required this.position,required this.number,required this.code,required this.name,required this.team,required this.teamColor,required this.lapTime,required this.status});
+  final int position,teamColor;
+  final String number,code,name,team,lapTime,status;
 
-  final int position;
-  final String racingNumber;
-  final String code;
-  final String name;
-  final String team;
-  final int teamColor;
-  final String bestLapTime;
-  final String compound;
-  final bool retired;
-  final bool inPit;
-  final bool stopped;
-
-  factory LiveTimingDriver.fromJson(Map<String, dynamic> json) {
-    final driver = _map(_value(json, const ['driver', 'Driver']));
-    final pos = _value(json, const ['position', 'Position']);
-    final number = _value(json, const ['racingNumber', 'RacingNumber', 'number']);
-    final teamColor = _string(_value(driver, const ['TeamColour', 'teamColour', 'teamColor']));
-    return LiveTimingDriver(
-      position: int.tryParse(_string(pos)) ?? 0,
-      racingNumber: _string(number, '—'),
-      code: _string(_value(driver, const ['Tla', 'tla', 'code']), '—').toUpperCase(),
-      name: _string(_value(driver, const ['FullName', 'fullName', 'BroadcastName']), 'Unknown driver'),
-      team: _string(_value(driver, const ['TeamName', 'teamName']), 'Unknown team'),
-      teamColor: _parseColor(teamColor),
-      bestLapTime: _string(_value(json, const ['bestLapTime', 'BestLapTime']), '—'),
-      compound: _string(_value(json, const ['compound', 'Compound']), '—').toUpperCase(),
-      retired: _bool(_value(json, const ['retired', 'Retired'])),
-      inPit: _bool(_value(json, const ['inPit', 'InPit'])),
-      stopped: _bool(_value(json, const ['stopped', 'Stopped'])),
-    );
+  factory LiveTimingDriver.fromJson(Map<String,dynamic> json) {
+    final driver=_asMap(json['driver']??json['Driver']);
+    final color='${driver['TeamColour']??driver['teamColour']??driver['teamColor']??''}'.replaceFirst('#','');
+    final parsedColor=int.tryParse(color,radix:16)??0x808D95A3;
+    final number=json['racingNumber']??json['RacingNumber']??json['number']??'—';
+    final code='${driver['Tla']??driver['tla']??driver['code']??'—'}'.toUpperCase();
+    return LiveTimingDriver(position:int.tryParse('${json['position']??json['Position']??''}')??0,number:'$number',code:code,name:'${driver['FullName']??driver['fullName']??driver['BroadcastName']??'Unknown driver'}',team:'${driver['TeamName']??driver['teamName']??'Unknown team'}',teamColor:color.length<=6?0xFF000000|parsedColor:parsedColor,lapTime:'${json['bestLapTime']??json['BestLapTime']??'—'}',status:json['retired']==true?'OUT':json['inPit']==true?'PIT':'');
   }
 }
-
-Map<String, dynamic> _map(Object? value) => value is Map<String, dynamic> ? value : const {};
-
-Object? _value(Map<String, dynamic> map, List<String> keys) {
-  for (final key in keys) {
-    if (map.containsKey(key)) return map[key];
-  }
-  return null;
-}
-
-String _string(Object? value, [String fallback = '']) =>
-    value == null || value.toString().isEmpty ? fallback : value.toString();
-
-bool _bool(Object? value) => value == true || value == 1 || value == 'true';
-
-int _parseColor(String value) {
-  final normalized = value.replaceFirst('#', '').trim();
-  final parsed = int.tryParse(normalized, radix: 16);
-  if (parsed == null) return 0xFF8D95A3;
-  return normalized.length <= 6 ? 0xFF000000 | parsed : parsed;
-}
+Map<String,dynamic> _asMap(Object? value)=>value is Map<String,dynamic>?value:const {};

@@ -171,14 +171,14 @@ class _Header extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
       child: Row(children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('TUR ${weekend.round}', style: const TextStyle(color: AppColors.red, fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 10)),
+            Text('TUR ${weekend.round}', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 10)),
             const SizedBox(height: 3),
             Text(place, style: const TextStyle(fontWeight: FontWeight.w700), maxLines: 2, overflow: TextOverflow.ellipsis),
-            Text(weekend.dateLabel, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+            Text(weekend.dateLabel, style: TextStyle(color: AppColors.muted, fontSize: 12)),
           ]),
         ),
         if (status.text.isNotEmpty)
@@ -280,13 +280,13 @@ class _ResultRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 9),
       child: Row(children: [
-        SizedBox(width: 28, child: Text(r.position > 0 ? '${r.position}' : '—', style: const TextStyle(color: AppColors.red, fontWeight: FontWeight.w900))),
+        SizedBox(width: 28, child: Text(r.position > 0 ? '${r.position}' : '—', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w900))),
         Container(width: 3, height: 32, color: Color(r.color)),
         const SizedBox(width: 10),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(r.name.isEmpty ? r.code : r.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
-            Text(subtitle, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.muted, fontSize: 10.5)),
+            Text(subtitle, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.muted, fontSize: 10.5)),
             if (r.fastestLapRank == 1 && r.fastestLapTime != null)
               Row(children: [
                 const Icon(Icons.timer_outlined, size: 12, color: Color(0xFFB36BFF)),
@@ -298,7 +298,7 @@ class _ResultRow extends StatelessWidget {
         const SizedBox(width: 8),
         Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
           Text(r.time, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
-          if (showPoints) Text('+${r.points} puan', style: const TextStyle(color: AppColors.muted, fontSize: 10)),
+          if (showPoints) Text('+${r.points} puan', style: TextStyle(color: AppColors.muted, fontSize: 10)),
         ]),
       ]),
     );
@@ -320,14 +320,14 @@ class _QualifyingRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 9),
       child: Row(children: [
-        SizedBox(width: 28, child: Text(r.position > 0 ? '${r.position}' : '—', style: const TextStyle(color: AppColors.red, fontWeight: FontWeight.w900))),
+        SizedBox(width: 28, child: Text(r.position > 0 ? '${r.position}' : '—', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w900))),
         Container(width: 3, height: 32, color: Color(r.color)),
         const SizedBox(width: 10),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(r.name.isEmpty ? r.code : r.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
-            Text(r.team, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.muted, fontSize: 10.5)),
-            if (stages.isNotEmpty) Text(stages, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.muted, fontSize: 10)),
+            Text(r.team, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.muted, fontSize: 10.5)),
+            if (stages.isNotEmpty) Text(stages, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.muted, fontSize: 10)),
           ]),
         ),
         const SizedBox(width: 8),
@@ -349,14 +349,14 @@ class _StandingRow extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 9),
     child: Row(children: [
-      SizedBox(width: 28, child: Text('$position', style: const TextStyle(color: AppColors.red, fontWeight: FontWeight.w900))),
+      SizedBox(width: 28, child: Text('$position', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w900))),
       Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
-          if (team.isNotEmpty) Text(team, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.muted, fontSize: 10.5)),
+          if (team.isNotEmpty) Text(team, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.muted, fontSize: 10.5)),
         ]),
       ),
-      Text(wins, style: const TextStyle(color: AppColors.muted, fontSize: 11)),
+      Text(wins, style: TextStyle(color: AppColors.muted, fontSize: 11)),
       const SizedBox(width: 12),
       SizedBox(width: 42, child: Text(points, textAlign: TextAlign.end, style: const TextStyle(fontWeight: FontWeight.w900))),
     ]),
@@ -373,7 +373,7 @@ class _Heading extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
-    child: Text(text, style: const TextStyle(color: AppColors.muted, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+    child: Text(text, style: TextStyle(color: AppColors.muted, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
   );
 }
 
@@ -399,7 +399,7 @@ class _SourceLine extends StatelessWidget {
     const SizedBox(width: 6),
     Text(
       '${cached ? 'Jolpica önbelleği' : 'Jolpica'} • ${MaterialLocalizationsDate.dayTime(updatedAt.toLocal())}',
-      style: const TextStyle(color: AppColors.muted, fontSize: 11),
+      style: TextStyle(color: AppColors.muted, fontSize: 11),
     ),
   ]);
 }
@@ -420,7 +420,7 @@ class _EmptyCard extends StatelessWidget {
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
         const SizedBox(height: 4),
-        Text(subtitle, style: const TextStyle(color: AppColors.muted, fontSize: 11)),
+        Text(subtitle, style: TextStyle(color: AppColors.muted, fontSize: 11)),
       ])),
     ]),
   );
@@ -437,7 +437,7 @@ class _ErrorCard extends StatelessWidget {
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const Text('Veriler yüklenemedi', style: TextStyle(fontWeight: FontWeight.w800)),
       const SizedBox(height: 6),
-      Text(message, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+      Text(message, style: TextStyle(color: AppColors.muted, fontSize: 12)),
       Align(alignment: Alignment.centerRight, child: TextButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh), label: const Text('Yeniden dene'))),
     ]),
   );

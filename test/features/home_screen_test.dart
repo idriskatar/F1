@@ -103,7 +103,7 @@ void main() {
     await tester.tap(find.text('Sonuçlar'));
     await tester.tap(find.text('Tüm haberler'));
 
-    expect(opened, [3, 2]);
+    expect(opened, [4, 3]); // Live tab was added before News and Results.
 
     await tester.pumpWidget(const SizedBox());
   });

@@ -30,3 +30,29 @@ with info_plist.open("wb") as file:
     plistlib.dump(plist, file, sort_keys=False)
 
 print("Configured Android and iOS display names: F1 Tracker")
+
+# flutter_secure_storage 10+ requires Android API 23 or newer.
+gradle_files = [
+    ROOT / "android/app/build.gradle.kts",
+    ROOT / "android/app/build.gradle",
+]
+for gradle_file in gradle_files:
+    if not gradle_file.exists():
+        continue
+    text = gradle_file.read_text(encoding="utf-8")
+    text, kotlin_count = re.subn(
+        r"\bminSdk\s*=\s*flutter\.minSdkVersion",
+        "minSdk = 23",
+        text,
+        count=1,
+    )
+    text, groovy_count = re.subn(
+        r"\bminSdkVersion\s+flutter\.minSdkVersion",
+        "minSdkVersion 23",
+        text,
+        count=1,
+    )
+    if kotlin_count or groovy_count:
+        gradle_file.write_text(text, encoding="utf-8")
+        print("Configured Android minimum SDK: 23")
+    break

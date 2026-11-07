@@ -5,27 +5,45 @@ Kişisel kullanım için hazırlanmış, premium koyu temalı Android/iOS Formul
 ## Bu pakette
 
 - Jolpica ile sezon takvimi, son yarış sınıflandırması ve pilot/takım puan durumu.
-- F1 Live Pulse ile canlı sürücü zamanlaması (RapidAPI Free plan anahtarı gerekir).
+- Ana sayfada sıradaki yarış, canlı geri sayım, sıradaki seans, son yarış podyumu ve şampiyona ilk 3 özeti (gerçek Jolpica verisi).
+- Takvimdeki bir yarışa dokununca açılan detay ekranı: yarış sınıflandırması (grid, tur, en hızlı tur, puan), sıralama turları (Q1/Q2/Q3), sprint hafta sonlarında sprint sonuçları ve o yarıştan sonraki pilot/takım puan durumu. Yarış henüz yapılmadıysa hafta sonu programı gösterilir.
+- Haberler sekmesi ve ana sayfada en yeni 3 haber: TRF1.net ve Motorsport.com Türkiye RSS akışları. Yalnızca başlık, kısa özet, kaynak adı ve tarih gösterilir; haber tarayıcıda kaynağında açılır. Kaynak filtresi, kaynak başına hata bildirimi ve çevrimdışı önbellek vardır.
+- Analiz sekmesinde OpenF1 üzerinden son tamamlanmış seansın sıralaması gösterilir. Bu hafta sonunda tamamlanmış seans yoksa önceki Grand Prix’nin son seansına geçer; ağ yoksa son başarılı sonuç önbellekten yüklenir.
 - API tarih ve saatlerinin cihazın yerel saat diliminde gösterilmesi.
 - Son başarılı API yanıtlarının SQLite üzerinde çevrimdışı önbelleği.
 - Yükleniyor, hata/yeniden dene, önbellek ve henüz sonuç yok durumları.
-- Premium koyu arayüz ve altı sekme: Ana sayfa, Takvim, Canlı, Haberler, Sonuçlar ve Analiz.
+- Koyu, açık ve Pitwall temaları; tercih cihazda saklanır.
+- Ayarlar sekmesinden değiştirilebilir RapidAPI anahtarı (Android Keystore/iOS Keychain güvenli depolaması).
+- Android sistem geri tuşu; açık yarış detayını kapatır, ana sekmeye döner ve Ana sayfadayken uygulamadan çıkar.
+- Yedi sekmeli mobil gezinme: Ana sayfa, Takvim, Canlı, Haberler, Sonuçlar, Analiz ve Ayarlar.
 - Ücretsiz GitHub Actions Android APK ve imzasız iOS simülatör derlemesi.
 
 ## Gerçek veri ve örnek alanlar
 
-Ana sayfa, Takvim, Sonuçlar ve yarış detayı `https://api.jolpi.ca/ergast/f1/` üzerinden gerçek API verisi yükler. Haberler sekmesi herkese açık RSS akışlarını gösterir; haber başlığı/özeti ve yayıncı bağlantısı yayıncı verisidir. Canlı sekmesi RapidAPI başlığıyla F1 Live Pulse `/timingData` uç noktasını çağırır. Canlı yanıt, Jolpica önbelleği ve demo/henüz veri yok durumları arayüzde ayrı etiketlenir. Jolpica bir yarış sonucu henüz yayımlamadıysa sonuç tablosu yerine “henüz yayımlanmış sonuç yok” gösterilir. Analiz sekmesi örnek/boş durum tasarımıdır; FastF1 tur analizi ve otomatik senkronizasyon henüz yoktur.
+Takvim ile Sonuçlar sekmeleri `https://api.jolpi.ca/ergast/f1/` üzerinden gerçek API verisi yükler. Ekranlar canlı API yanıtını veya çevrimdışı SQLite kopyasını kaynağıyla etiketler. Jolpica bir yarış sonucu henüz yayımlamadıysa sonuç tablosu yerine “henüz yayımlanmış sonuç yok” gösterilir. Analiz sekmesi OpenF1’den tarihsel seans sıralaması getirir; tur temposu, lastik, sektör ve pit-stop grafikleri daha sonra aynı seans verisine bağlanacaktır.
 
-Canlı sekmesinde **API anahtarını gir** alanına RapidAPI hesabındaki F1 Live Pulse `X-RapidAPI-Key` değerini yapıştır. Anahtar kaynak koduna veya ZIP’e yazılmaz; cihazın Android Keystore/iOS Keychain altyapısını kullanan güvenli depoda saklanır. Uygulama anahtarı yalnızca `X-RapidAPI-Key` ve `X-RapidAPI-Host: f1-live-pulse.p.rapidapi.com` başlıklarıyla API isteğinde kullanır. Zamanlama yalnızca Canlı sekmesi açıkken 30 saniyede bir yenilenir; ayrıca elle yenileme düğmesi vardır. RapidAPI planlarının kota ve aşım kuralları API’ye/aboneliğe göre değişebilir; RapidAPI panelinde F1 Live Pulse planının ücretsiz kota ve aşım koşullarını kontrol et. 429 sınır yanıtı uygulamada açıklayıcı biçimde gösterilir.
+Haberler şu herkese açık Türkçe RSS akışlarından gelir:
+
+| Kaynak | Akış |
+| --- | --- |
+| TRF1.net | `https://trf1.net/feed/` |
+| Motorsport.com Türkiye | `https://tr.motorsport.com/rss/f1/news/` |
+
+Bu akışlar üçüncü tarafların hizmetidir; adres veya kullanım koşulları değişebilir, bir kaynak yanıt vermezse uygulama o kaynağı uyarıyla işaretler ve varsa önbellekteki haberleri gösterir. Kaynakların kendi kullanım koşullarını (özellikle uygulamayı dağıtmayı düşünürseniz) ayrıca kontrol edin.
 
 Jolpica ücretsiz ve açık kaynaklıdır; bağımsız gönüllülerce işletilir. Erişim sınırı, kesinti veya API değişikliği olabilir. Uygulama bu durumlarda varsa yerel önbelleği kullanır. Uygulamaya ücretli API, abonelik veya zorunlu hosting eklenmemiştir.
 
+OpenF1, 2023 sezonundan itibaren tarihsel seans verisini kimlik doğrulama olmadan sunar. Analiz sekmesi yalnızca bitişi en az 30 dakika geçmiş seansları sorgulayarak tarihsel uçları kullanır; canlı veri aboneliği gerektirmez. Seans sonuçları OpenF1 tarafından resmi sonuç yayımlandıktan birkaç dakika sonra eklenir. Kaynak/API koşulları değişebilir.
+
+Canlı sekmesi F1 Live Pulse RapidAPI uç noktasını çağırır. Anahtarı **Ayarlar → Canlı veri API anahtarı** bölümünden ekleyebilir, istediğiniz zaman yenisiyle değiştirebilir veya silebilirsiniz. Anahtar uygulamanın koduna ya da GitHub deposuna yazılmaz; cihazın güvenli depolamasında tutulur. Live Pulse verisi için RapidAPI tarafında ücretsiz plan etkin olmalıdır; ücretsiz kota sağlayıcı limitlerine bağlıdır. Takvim, Jolpica sonuçları ve OpenF1 analizleri anahtar istemez.
+
 ## Bilgisayarda çalıştırma
 
-Gereksinimler: Flutter stable (Dart 3.4+), Android/iOS platform araçları. Android ve iOS runner klasörleri başlangıç ZIP’inde bulunmayabilir. Klasörler yoksa proje kökünde bir kez üretin:
+Gereksinimler: Flutter stable (Dart 3.4+), Android/iOS platform araçları. Güvenli RapidAPI anahtarı deposu Android 6.0 / API 23 veya üzerini gerektirir. Android ve iOS runner klasörleri başlangıç ZIP’inde bulunmayabilir. Klasörler yoksa proje kökünde bir kez üretin:
 
 ```bash
 flutter create --platforms=android,ios .
+python3 tool/configure_app_name.py
 flutter pub get
 flutter analyze
 flutter test
@@ -33,6 +51,7 @@ flutter run
 ```
 
 iOS derlemesi için macOS ve Xcode gerekir. Yerel Android sürüm derlemesi: `flutter build apk --release`.
+Kurulumda görünen uygulama adı **F1 Tracker** olarak yapılandırılır. GitHub Actions bu ayarı derleme sırasında uygular; yerel Android/iOS runner klasörlerini yeni oluşturduğunuzda yukarıdaki yapılandırma betiğini çalıştırın. Dart paket adı ve import yolu `f1_tracker` olarak kalır.
 
 ## GitHub’a yükleme ve commit
 
@@ -55,7 +74,7 @@ git push -u origin main
 
 ## GitHub Actions ile derleme ve indirme
 
-1. Deponun **Actions** sekmesini açın ve **F1 Tracker Mobile Build** iş akışını seçin. Workflow dosyasının tam yolu `.github/workflows/build-mobile.yml` (uzantısı `.yml`) şeklindedir.
+1. Deponun **Actions** sekmesini açın ve **F1 Tracker Mobile Build** iş akışını seçin.
 2. Elle başlatmak için **Run workflow → Run workflow** seçin. `main` dalına bu workflow veya uygulama dosyalarından birini içeren commit gönderildiğinde de otomatik çalışır.
 3. Çalışma tamamlandığında iş akışı özetindeki **Artifacts** bölümünden `f1-tracker-android` ve/veya `f1-tracker-ios-simulator` dosyasını indirin.
 4. Android arşivini açın; içindeki `app-release.apk` Android cihaza kurulabilir. iOS arşivi yalnızca simülatör için derlenmiş, imzasız `Runner.app` içerir; TestFlight veya fiziksel iPhone kurulumu için Apple imzalama/provisioning gerekir ve bu workflow bunları yapmaz.
@@ -64,9 +83,15 @@ Actions adımları Android’de `flutter analyze` ve `flutter test` çalıştır
 
 ## Teknik yapı
 
-- `lib/core/models`: Jolpica JSON modelleri ve formatlama.
-- `lib/data/remote/jolpica_repository.dart`: HTTP, toleranslı yanıt ayrıştırma, hata yönetimi ve SQLite önbellek fallback’i.
-- `lib/data/remote/f1_live_pulse_client.dart`: canlı zamanlama HTTP istemcisi ve cihaz güvenli anahtar deposu.
+- `lib/core/models`: Jolpica ve OpenF1 JSON modelleri ve formatlama.
+- `lib/data/remote/jolpica_repository.dart`: HTTP, toleranslı yanıt ayrıştırma, hata yönetimi ve SQLite önbellek fallback’i; tur bazlı sonuç/sıralama/sprint/puan durumu sorguları.
+- `lib/data/remote/openf1_repository.dart`: Son tarihsel seansı, sonuçlarını ve pilot bilgilerini yükler; SQLite çevrimdışı fallback’i sağlar.
+- `lib/data/remote/f1_live_pulse_client.dart` ve `lib/data/local/rapid_api_key_store.dart`: RapidAPI canlı zamanlama istemcisi ve cihaz güvenliğinde API anahtarı saklama.
+- `lib/features/settings/settings_screen.dart` ve `lib/core/theme/app_theme.dart`: API anahtarı/tema tercihleri ile koyu, açık ve Pitwall renk paletleri.
+- `lib/features/shell/app_shell.dart`: sekme gezinmesi ve Android sistem geri tuşunun sekme/detay davranışı.
+- `lib/core/models/news_models.dart` ve `lib/data/remote/news_repository.dart`: RSS/Atom ayrıştırma, kaynakları birleştirme/sıralama, kaynak bazlı hata ve önbellek.
+- `lib/features/calendar/race_detail_screen.dart`: yarış detay ekranı.
+- `test/`: sahte HTTP istemcisi ve sabit saatle model, repository ve ekran testleri (`test/support/fakes.dart`).
 - `lib/data/local/local_store.dart`: platform yerel SQLite cache.
 - `lib/features`: premium temalı mobil ekranlar.
 - `.github/workflows/build-mobile.yml`: Android ve iOS simülatör CI işleri.
@@ -74,6 +99,6 @@ Actions adımları Android’de `flutter analyze` ve `flutter test` çalıştır
 ## Sonraki işler
 
 - FastF1 ile yarış sonrası tur/sektör/lastik analizini içe aktarmak.
-- Flutter widget/model testlerini ve platform cihaz derlemelerini genişletmek.
+- Platform cihaz derlemelerini ve entegrasyon testlerini genişletmek (widget/model testleri büyük ölçüde eklendi).
 
 F1, Formula 1 ve takım/pilot adları ilgili sahiplerinin markalarıdır. Bu bağımsız kişisel proje Formula 1, FIA veya herhangi bir takımla bağlantılı değildir.
