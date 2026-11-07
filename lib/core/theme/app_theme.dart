@@ -31,7 +31,6 @@ class AppTheme {
       brightness: light ? Brightness.light : Brightness.dark,
       colorScheme: scheme,
       scaffoldBackgroundColor: background,
-      fontFamily: 'Roboto',
       appBarTheme: AppBarTheme(backgroundColor: background, foregroundColor: light ? const Color(0xFF15181F) : Colors.white, elevation: 0, centerTitle: false),
       cardTheme: CardThemeData(color: surface, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: border))),
       dividerColor: border,

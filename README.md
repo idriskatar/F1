@@ -13,10 +13,10 @@ Kişisel kullanım için hazırlanmış, premium koyu temalı Android/iOS Formul
 - Son başarılı API yanıtlarının SQLite üzerinde çevrimdışı önbelleği.
 - Yükleniyor, hata/yeniden dene, önbellek ve henüz sonuç yok durumları.
 - Koyu, açık ve Pitwall temaları; tercih cihazda saklanır.
-- Daha fazla sekmesindeki Ayarlar ekranından değiştirilebilir RapidAPI anahtarı (Android Keystore/iOS Keychain güvenli depolaması); koyu, açık ve Pitwall temaları.
+- Sol üstteki hamburger menüsünden açılan Ayarlar ekranında değiştirilebilir RapidAPI anahtarı (Android Keystore/iOS Keychain güvenli depolaması); koyu, açık ve Pitwall temaları.
 - Hakkında (geliştirici: İdris KATAR), Gizlilik politikası ve Flutter'ın açık kaynak lisans ekranı.
 - Android sistem geri tuşu; açık yarış detayını kapatır, ana sekmeye döner ve Ana sayfadayken uygulamadan çıkar.
-- Yedi simgeli mobil gezinme: Ana sayfa, Takvim, Canlı, Haberler, Sonuçlar, Analiz ve Daha fazla. Dikey ekranda alt çubukta metin etiketleri gösterilmez; Ayarlar ve bilgilendirme sayfaları Daha fazla bölümündedir.
+- Altı simgeli alt gezinme: Ana sayfa, Takvim, Canlı, Haberler, Sonuçlar ve Analiz. Alt çubukta metin etiketleri gizlidir. Ayarlar, Hakkında, Gizlilik ve lisanslar sol üstteki üç çizgili menüden açılır.
 - Ücretsiz GitHub Actions Android APK ve imzasız iOS simülatör derlemesi.
 
 ## Gerçek veri ve örnek alanlar
@@ -36,7 +36,7 @@ Jolpica ücretsiz ve açık kaynaklıdır; bağımsız gönüllülerce işletili
 
 OpenF1, 2023 sezonundan itibaren tarihsel seans verisini kimlik doğrulama olmadan sunar. Analiz sekmesi yalnızca bitişi en az 30 dakika geçmiş seansları sorgulayarak tarihsel uçları kullanır; canlı veri aboneliği gerektirmez. Seans sonuçları OpenF1 tarafından resmi sonuç yayımlandıktan birkaç dakika sonra eklenir. Kaynak/API koşulları değişebilir.
 
-Canlı sekmesi F1 Live Pulse RapidAPI uç noktasını çağırır. Anahtarı **Daha fazla → Ayarlar → Canlı veri API anahtarı** bölümünden ekleyebilir, istediğiniz zaman yenisiyle değiştirebilir veya silebilirsiniz. Anahtar uygulamanın koduna ya da GitHub deposuna yazılmaz; cihazın güvenli depolamasında tutulur. Live Pulse verisi için RapidAPI tarafında ücretsiz plan etkin olmalıdır; ücretsiz kota sağlayıcı limitlerine bağlıdır. Takvim, Jolpica sonuçları ve OpenF1 analizleri anahtar istemez. Live Pulse yanıt şeması sağlayıcı tarafından değiştirilebilir; uygulama desteklenen yaygın liste/sözlük biçimlerini ayrıştırır ve tanınmayan yanıtın üst seviye alan adlarını hata mesajında gösterir.
+Canlı sekmesi F1 Live Pulse RapidAPI uç noktasını çağırır. Anahtarı **sol üst menü → Ayarlar → Canlı veri API anahtarı** bölümünden ekleyebilir, istediğiniz zaman yenisiyle değiştirebilir veya silebilirsiniz. Anahtar uygulamanın koduna ya da GitHub deposuna yazılmaz; cihazın güvenli depolamasında tutulur. Live Pulse verisi için RapidAPI tarafında ücretsiz plan etkin olmalıdır; ücretsiz kota sağlayıcı limitlerine bağlıdır. Takvim, Jolpica sonuçları ve OpenF1 analizleri anahtar istemez. Live Pulse yanıt şeması sağlayıcı tarafından değiştirilebilir; uygulama desteklenen yaygın liste/sözlük biçimlerini ayrıştırır ve tanınmayan yanıtın üst seviye alan adlarını hata mesajında gösterir.
 
 **Analiz 401 uyarısı:** Analiz OpenF1 kullanır ve RapidAPI anahtarı OpenF1 kimlik doğrulaması yerine geçmez. OpenF1 dokümanına göre 2023 ve sonrası tarihsel veriler ücretsiz/anahtarsız erişilebilir; servis 401/403 döndürürse uygulama daha eski sezonları da dener ve erişim hâlâ reddedilirse bunu ayrı bir hata olarak bildirir. [OpenF1 dokümanı](https://openf1.org/docs/) ve [kimlik doğrulama rehberi](https://openf1.org/auth.html).
 
@@ -90,7 +90,7 @@ Actions adımları Android’de `flutter analyze` ve `flutter test` çalıştır
 - `lib/data/remote/jolpica_repository.dart`: HTTP, toleranslı yanıt ayrıştırma, hata yönetimi ve SQLite önbellek fallback’i; tur bazlı sonuç/sıralama/sprint/puan durumu sorguları.
 - `lib/data/remote/openf1_repository.dart`: Son tarihsel seansı, sonuçlarını ve pilot bilgilerini yükler; SQLite çevrimdışı fallback’i sağlar.
 - `lib/data/remote/f1_live_pulse_client.dart` ve `lib/data/local/rapid_api_key_store.dart`: RapidAPI canlı zamanlama istemcisi ve cihaz güvenliğinde API anahtarı saklama.
-- `lib/features/settings/settings_screen.dart`, `lib/features/more/more_screen.dart` ve `lib/core/theme/app_theme.dart`: güvenli API anahtarı/tema tercihleri, hakkında/gizlilik/lisans sayfaları ve renk paletleri.
+- `lib/features/settings/settings_screen.dart`, `lib/features/more/more_screen.dart` ve `lib/core/theme/app_theme.dart`: güvenli API anahtarı/tema tercihleri, hakkında/gizlilik/lisans sayfaları, sistem fontu ve renk paletleri.
 - `lib/features/shell/app_shell.dart`: sekme gezinmesi ve Android sistem geri tuşunun sekme/detay davranışı.
 - `lib/core/models/news_models.dart` ve `lib/data/remote/news_repository.dart`: RSS/Atom ayrıştırma, kaynakları birleştirme/sıralama, kaynak bazlı hata ve önbellek.
 - `lib/features/calendar/race_detail_screen.dart`: yarış detay ekranı.

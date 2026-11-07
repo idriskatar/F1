@@ -66,22 +66,8 @@ class _HomeScreenState extends State<HomeScreen> {
         onRefresh: _refresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 38, height: 30,
-                  decoration: BoxDecoration(color: AppColors.red, borderRadius: BorderRadius.circular(8)),
-                  child: const Icon(Icons.flag_rounded, color: Colors.white),
-                ),
-                const SizedBox(width: 10),
-                const Text('F1 TRACKER', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, letterSpacing: 1.8)),
-                const Spacer(),
-                IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none_rounded)),
-              ],
-            ),
-            const SizedBox(height: 18),
             _section<NextRaceData>(
               future: _next,
               errorTitle: 'Sıradaki yarış yüklenemedi',

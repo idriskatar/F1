@@ -56,8 +56,13 @@ class _AppShellState extends State<AppShell> {
       NewsScreen(repository: _news),
       ResultsScreen(repository: _repository),
       AnalysisScreen(repository: _sessionRepository, active: _index == 5),
-      MoreScreen(themeId: widget.themeId, onThemeChanged: widget.onThemeChanged ?? (_) {}),
     ];
+
+  void _openMore() {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => MoreScreen(themeId: widget.themeId, onThemeChanged: widget.onThemeChanged ?? (_) {}),
+    ));
+  }
 
   @override
   void dispose() {
@@ -75,6 +80,23 @@ class _AppShellState extends State<AppShell> {
         if (!didPop && _index != 0) setState(() => _index = 0);
       },
       child: Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'Menü',
+          icon: const Icon(Icons.menu_rounded),
+          onPressed: _openMore,
+        ),
+        title: Row(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 30,
+            height: 26,
+            decoration: BoxDecoration(color: const Color(0xFFE10600), borderRadius: BorderRadius.circular(6)),
+            child: const Icon(Icons.flag_rounded, color: Colors.white, size: 17),
+          ),
+          const SizedBox(width: 9),
+          const Text('F1 TRACKER', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.3)),
+        ]),
+      ),
       body: IndexedStack(index: _index, children: _screens()),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
@@ -87,7 +109,6 @@ class _AppShellState extends State<AppShell> {
           NavigationDestination(icon: Icon(Icons.newspaper_outlined), selectedIcon: Icon(Icons.newspaper), label: 'Haberler'),
           NavigationDestination(icon: Icon(Icons.emoji_events_outlined), selectedIcon: Icon(Icons.emoji_events), label: 'Sonuçlar'),
           NavigationDestination(icon: Icon(Icons.query_stats_outlined), selectedIcon: Icon(Icons.query_stats), label: 'Analiz'),
-          NavigationDestination(icon: Icon(Icons.more_horiz_rounded), selectedIcon: Icon(Icons.more_horiz_rounded), label: 'Daha fazla'),
         ],
       ),
       ),

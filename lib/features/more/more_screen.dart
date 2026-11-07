@@ -14,43 +14,44 @@ class MoreScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            Text('Daha fazla', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
-            const SizedBox(height: 6),
-            Text('Uygulama tercihleri ve bilgiler', style: TextStyle(color: AppColors.muted)),
-            const SizedBox(height: 20),
-            _MoreTile(
-              icon: Icons.settings_outlined,
-              title: 'Ayarlar',
-              subtitle: 'Tema ve canlı veri API anahtarı',
-              onTap: () => _open(context, SettingsScreen(themeId: themeId, onThemeChanged: onThemeChanged)),
-            ),
-            _MoreTile(
-              icon: Icons.info_outline_rounded,
-              title: 'Hakkında',
-              subtitle: 'Uygulama ve geliştirici bilgileri',
-              onTap: () => _open(context, const _AboutPage()),
-            ),
-            _MoreTile(
-              icon: Icons.privacy_tip_outlined,
-              title: 'Gizlilik politikası',
-              subtitle: 'Verilerin nasıl kullanıldığı',
-              onTap: () => _open(context, const _PrivacyPage()),
-            ),
-            _MoreTile(
-              icon: Icons.article_outlined,
-              title: 'Açık kaynak lisansları',
-              subtitle: 'Uygulamada kullanılan paketler',
-              onTap: () => showLicensePage(
-                context: context,
-                applicationName: 'F1 Tracker',
-                applicationVersion: '0.1.0',
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('Menü')),
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              Text('Uygulama tercihleri ve bilgiler', style: TextStyle(color: AppColors.muted)),
+              const SizedBox(height: 20),
+              _MoreTile(
+                icon: Icons.settings_outlined,
+                title: 'Ayarlar',
+                subtitle: 'Tema ve canlı veri API anahtarı',
+                onTap: () => _open(context, SettingsScreen(themeId: themeId, onThemeChanged: onThemeChanged)),
               ),
-            ),
-          ],
+              _MoreTile(
+                icon: Icons.info_outline_rounded,
+                title: 'Hakkında',
+                subtitle: 'Uygulama ve geliştirici bilgileri',
+                onTap: () => _open(context, const _AboutPage()),
+              ),
+              _MoreTile(
+                icon: Icons.privacy_tip_outlined,
+                title: 'Gizlilik politikası',
+                subtitle: 'Verilerin nasıl kullanıldığı',
+                onTap: () => _open(context, const _PrivacyPage()),
+              ),
+              _MoreTile(
+                icon: Icons.article_outlined,
+                title: 'Açık kaynak lisansları',
+                subtitle: 'Uygulamada kullanılan paketler',
+                onTap: () => showLicensePage(
+                  context: context,
+                  applicationName: 'F1 Tracker',
+                  applicationVersion: '0.1.0',
+                ),
+              ),
+            ],
+          ),
         ),
       );
 }
