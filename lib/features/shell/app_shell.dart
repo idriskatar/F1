@@ -50,13 +50,22 @@ class _AppShellState extends State<AppShell> {
         newsRepository: _news,
         clock: widget.clock,
         onOpenTab: (value) => setState(() => _index = value),
+        onOpenLive: _openLive,
       ),
       CalendarScreen(repository: _repository, clock: widget.clock),
-      LiveScreen(isActive: _index == 2),
       NewsScreen(repository: _news),
       ResultsScreen(repository: _repository),
-      AnalysisScreen(repository: _sessionRepository, active: _index == 5),
+      AnalysisScreen(repository: _sessionRepository, active: _index == 4),
     ];
+
+  void _openLive() {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => Scaffold(
+        appBar: AppBar(title: const Text('Canlı')),
+        body: const LiveScreen(isActive: true),
+      ),
+    ));
+  }
 
   void _openMore() {
     Navigator.of(context).push(MaterialPageRoute<void>(
@@ -100,12 +109,11 @@ class _AppShellState extends State<AppShell> {
       body: IndexedStack(index: _index, children: _screens()),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         onDestinationSelected: (value) => setState(() => _index = value),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Ana sayfa'),
           NavigationDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month), label: 'Takvim'),
-          NavigationDestination(icon: Icon(Icons.sensors_outlined), selectedIcon: Icon(Icons.sensors), label: 'Canlı'),
           NavigationDestination(icon: Icon(Icons.newspaper_outlined), selectedIcon: Icon(Icons.newspaper), label: 'Haberler'),
           NavigationDestination(icon: Icon(Icons.emoji_events_outlined), selectedIcon: Icon(Icons.emoji_events), label: 'Sonuçlar'),
           NavigationDestination(icon: Icon(Icons.query_stats_outlined), selectedIcon: Icon(Icons.query_stats), label: 'Analiz'),

@@ -38,6 +38,25 @@ class RaceWeekend {
     return null;
   }
 
+  /// Returns the currently scheduled broadcast session, excluding practice.
+  /// Jolpica provides start times but no end times, so short broadcast windows
+  /// are estimated from the published session type.
+  RaceSession? activeBroadcastSession(DateTime now) {
+    final nowUtc = now.toUtc();
+    for (final session in sessions) {
+      final start = session.startUtc;
+      final duration = switch (session.name) {
+        'Sıralama Turları' || 'Sprint Sıralaması' || 'Sprint' => const Duration(minutes: 90),
+        'Yarış' => const Duration(hours: 3),
+        _ => null,
+      };
+      if (start != null && duration != null && !nowUtc.isBefore(start) && nowUtc.isBefore(start.add(duration))) {
+        return session;
+      }
+    }
+    return null;
+  }
+
   factory RaceWeekend.fromJson(Map<String, dynamic> json) {
     final circuit = _map(json['Circuit']);
     final location = _map(circuit['Location']);
