@@ -1,110 +1,542 @@
-import 'package:f1_tracker/core/theme/app_theme.dart';
-import 'package:f1_tracker/features/home/home_screen.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
+import '../../core/models/race_models.dart';
+import '../../core/theme/app_theme.dart';
+import '../../data/remote/jolpica_repository.dart';
+import '../../data/remote/news_repository.dart';
+import '../../shared/widgets/section_title.dart';
 
-import '../support/fakes.dart';
+/// Alt gezinme çubuğundaki sekme indeksleri (AppShell ile aynı sırada).
+const _newsTab = 2;
+const _resultsTab = 3;
 
-/// Sayaç Timer.periodic kullandığı için pumpAndSettle yerine sınırlı sayıda pump.
-Future<void> settle(WidgetTester tester) async {
-  for (var i = 0; i < 5; i++) {
-    await tester.pump(const Duration(milliseconds: 10));
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key, required this.repository, required this.newsRepository, this.clock, this.onOpenTab, this.onOpenLive});
+
+  final JolpicaRepository repository;
+  final NewsRepository newsRepository;
+
+  /// Testlerde sabit saat vermek için; boşsa `DateTime.now`.
+  final DateTime Function()? clock;
+  final ValueChanged<int>? onOpenTab;
+  final VoidCallback? onOpenLive;
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  Timer? _liveClock;
+  late Future<NextRaceData> _next;
+  late Future<JolpicaData<DriverResult>> _results;
+  late Future<JolpicaData<DriverStanding>> _drivers;
+  late Future<JolpicaData<TeamStanding>> _teams;
+  late Future<NewsFeedResult> _news;
+
+  DateTime _now() => (widget.clock ?? DateTime.now)();
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    _liveClock = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _liveClock?.cancel();
+    super.dispose();
+  }
+
+  void _load() {
+    final repo = widget.repository;
+    _next = repo.nextRace(now: _now());
+    _results = repo.latestResults();
+    _drivers = repo.driverStandings();
+    _teams = repo.teamStandings();
+    _news = widget.newsRepository.fetchAll();
+  }
+
+  Future<void> _refresh() async {
+    setState(_load);
+    // Hatalar ilgili bölümde gösterilir; yenileme göstergesi yine de kapanmalı.
+    await Future.wait<Object?>(
+      [_next, _results, _drivers, _teams, _news].map((f) => f.then<Object?>((_) => null, onError: (_) => null)),
+    );
+  }
+
+  void _open(int tab) => widget.onOpenTab?.call(tab);
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          children: [
+            FutureBuilder<NextRaceData>(
+              future: _next,
+              builder: (context, snapshot) {
+                final activeSession = snapshot.data?.race?.activeBroadcastSession(_now());
+                if (activeSession == null) return const SizedBox.shrink();
+                return Align(
+                  alignment: Alignment.centerRight,
+                  child: _LiveShortcut(onTap: widget.onOpenLive),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+            _section<NextRaceData>(
+              future: _next,
+              errorTitle: 'Sıradaki yarış yüklenemedi',
+              builder: (data) => _NextRaceCard(data: data, clock: _now),
+            ),
+            const SizedBox(height: 24),
+            SectionTitle('Son yarış', action: 'Sonuçlar', onAction: () => _open(_resultsTab)),
+            const SizedBox(height: 12),
+            _section<JolpicaData<DriverResult>>(
+              future: _results,
+              errorTitle: 'Son yarış sonucu yüklenemedi',
+              builder: (data) => _LatestRaceCard(data: data),
+            ),
+            const SizedBox(height: 22),
+            SectionTitle('Şampiyona', action: 'Tümü', onAction: () => _open(_resultsTab)),
+            const SizedBox(height: 12),
+            _section<JolpicaData<DriverStanding>>(
+              future: _drivers,
+              errorTitle: 'Pilotlar puan durumu yüklenemedi',
+              builder: (data) => _StandingsPanel(
+                title: 'PİLOTLAR',
+                emptyMessage: 'Bu sezon için puan durumu henüz oluşmadı.',
+                rows: [for (final r in data.items.take(3)) _StandingLine(r.position, r.name, r.team, r.points)],
+              ),
+            ),
+            const SizedBox(height: 12),
+            _section<JolpicaData<TeamStanding>>(
+              future: _teams,
+              errorTitle: 'Takımlar puan durumu yüklenemedi',
+              builder: (data) => _StandingsPanel(
+                title: 'TAKIMLAR',
+                emptyMessage: 'Bu sezon için takım puan durumu henüz oluşmadı.',
+                rows: [for (final r in data.items.take(3)) _StandingLine(r.position, r.name, '', r.points)],
+              ),
+            ),
+            const SizedBox(height: 22),
+            SectionTitle('Son haberler', action: 'Tüm haberler', onAction: () => _open(_newsTab)),
+            const SizedBox(height: 12),
+            _section<NewsFeedResult>(
+              future: _news,
+              errorTitle: 'Haberler yüklenemedi',
+              builder: (data) => _NewsPreview(data: data, onTap: () => _open(_newsTab)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _section<T>({
+    required Future<T> future,
+    required String errorTitle,
+    required Widget Function(T data) builder,
+  }) =>
+      FutureBuilder<T>(
+        future: future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) return const _LoadingTile();
+          if (snapshot.hasError) {
+            return _InfoTile(icon: Icons.cloud_off_outlined, title: errorTitle, subtitle: '${snapshot.error}');
+          }
+          return builder(snapshot.data as T);
+        },
+      );
+}
+
+class _LiveShortcut extends StatelessWidget {
+  const _LiveShortcut({required this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: 'Canlı zamanlamayı aç',
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.red.withValues(alpha: .6)),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Container(
+                width: 9,
+                height: 9,
+                decoration: const BoxDecoration(color: Color(0xFFE10600), shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 7),
+              const Text('LIVE', style: TextStyle(color: Color(0xFFE10600), fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 1)),
+            ]),
+          ),
+        ),
+      );
+}
+
+// ---------------------------------------------------------------------------
+// Sıradaki yarış
+// ---------------------------------------------------------------------------
+
+class _NextRaceCard extends StatelessWidget {
+  const _NextRaceCard({required this.data, required this.clock});
+  final NextRaceData data;
+  final DateTime Function() clock;
+
+  @override
+  Widget build(BuildContext context) {
+    final race = data.race;
+    final start = race?.raceStart;
+    final nextSession = race?.nextSession(clock());
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+              colors: AppColors.themeId == 'light'
+                  ? [const Color(0xFFFFFFFF), const Color(0xFFF5F6F9), const Color(0xFFFFF0EE)]
+                  : [const Color(0xFF292D36), const Color(0xFF15181F), const Color(0xFF351412)],
+            ),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: race == null || start == null
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('SIRADAKİ YARIŞ', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w900, letterSpacing: 2)),
+                    const SizedBox(height: 10),
+                    const Text('Sezon tamamlandı', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 4),
+                    Text('Yeni sezon takvimi yayımlandığında burada görünecek.', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('SIRADAKİ YARIŞ', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w900, letterSpacing: 2)),
+                    const SizedBox(height: 10),
+                    Text(race.name, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${[
+                        if (race.location.isNotEmpty) race.location,
+                        if (race.country.isNotEmpty) race.country,
+                      ].join(', ')} • Tur ${race.round} • ${race.dateLabel}',
+                      style: TextStyle(color: AppColors.muted, fontSize: 12),
+                    ),
+                    const SizedBox(height: 24),
+                    _Countdown(target: start, clock: clock),
+                    const SizedBox(height: 18),
+                    Divider(color: AppColors.border),
+                    Row(children: [
+                      Icon(Icons.schedule, color: AppColors.red, size: 17),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          nextSession == null || nextSession.startUtc == null
+                              ? 'Tüm seanslar başladı'
+                              : 'Sıradaki seans: ${nextSession.name} • ${MaterialLocalizationsDate.dayTime(nextSession.startUtc!.toLocal())}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ]),
+                  ],
+                ),
+        ),
+        const SizedBox(height: 8),
+        _SourceLine(cached: data.isCached, updatedAt: data.updatedAt),
+      ],
+    );
   }
 }
 
-Future<void> pumpHome(WidgetTester tester, FakeJolpica api, {ValueChanged<int>? onOpenTab, FakeFeeds? feeds}) async {
-  tester.view.physicalSize = const Size(800, 3200);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
+class _Countdown extends StatefulWidget {
+  const _Countdown({required this.target, required this.clock});
+  final DateTime target;
+  final DateTime Function() clock;
 
-  await tester.pumpWidget(MaterialApp(
-    theme: AppTheme.dark,
-    home: Scaffold(
-      body: HomeScreen(
-        repository: api.repository(),
-        newsRepository: (feeds ?? FakeFeeds()).repository(),
-        clock: () => testNow,
-        onOpenTab: onOpenTab,
-      ),
-    ),
-  ));
-  await settle(tester);
+  @override
+  State<_Countdown> createState() => _CountdownState();
 }
 
-void main() {
-  testWidgets('sıradaki yarışı, geri sayımı ve sıradaki seansı gösterir', (tester) async {
-    await pumpHome(tester, FakeJolpica());
+class _CountdownState extends State<_Countdown> {
+  Timer? _timer;
 
-    expect(find.text('SIRADAKİ YARIŞ'), findsOneWidget);
-    expect(find.text('Test Grand Prix'), findsOneWidget);
-    expect(find.textContaining('Testville, Testland • Tur 22'), findsOneWidget);
-    // 5 Kas 12:00Z → 8 Kas 14:00Z = 3 gün 2 saat
-    expect(find.text('03'), findsOneWidget);
-    expect(find.text('02'), findsOneWidget);
-    expect(find.textContaining('Sıradaki seans: Antrenman 1'), findsOneWidget);
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
 
-    await tester.pumpWidget(const SizedBox());
-  });
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
-  testWidgets('son yarış podyumunu ve şampiyona liderlerini gösterir', (tester) async {
-    await pumpHome(tester, FakeJolpica());
+  @override
+  Widget build(BuildContext context) {
+    final remaining = widget.target.difference(widget.clock().toUtc());
+    final left = remaining.isNegative ? Duration.zero : remaining;
+    String two(int v) => v.toString().padLeft(2, '0');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _CountdownUnit(value: two(left.inDays), label: 'GÜN'),
+            _CountdownUnit(value: two(left.inHours % 24), label: 'SAAT'),
+            _CountdownUnit(value: two(left.inMinutes % 60), label: 'DK'),
+            _CountdownUnit(value: two(left.inSeconds % 60), label: 'SN'),
+          ],
+        ),
+        if (remaining.isNegative)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Text('Yarış başladı', style: TextStyle(color: AppColors.amber, fontSize: 12, fontWeight: FontWeight.w700)),
+          ),
+      ],
+    );
+  }
+}
 
-    expect(find.text('Past Grand Prix'), findsOneWidget);
-    expect(find.text('AAA'), findsOneWidget);
-    expect(find.text('Alex Tester'), findsOneWidget);
-    expect(find.text('301'), findsOneWidget);
-    expect(find.text('577'), findsOneWidget);
+class _CountdownUnit extends StatelessWidget {
+  const _CountdownUnit({required this.value, required this.label});
+  final String value;
+  final String label;
+  @override
+  Widget build(BuildContext context) => Column(children: [
+    Text(value, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
+    Text(label, style: TextStyle(fontSize: 9, color: AppColors.muted, letterSpacing: 1.2)),
+  ]);
+}
 
-    await tester.pumpWidget(const SizedBox());
-  });
+class _SourceLine extends StatelessWidget {
+  const _SourceLine({required this.cached, required this.updatedAt});
+  final bool cached;
+  final DateTime updatedAt;
+  @override
+  Widget build(BuildContext context) => Row(children: [
+    Icon(cached ? Icons.offline_pin_outlined : Icons.cloud_done_outlined, size: 14, color: cached ? AppColors.amber : AppColors.green),
+    const SizedBox(width: 6),
+    Text(
+      cached
+          ? 'Jolpica önbelleği • ${MaterialLocalizationsDate.dayTime(updatedAt.toLocal())}'
+          : 'Jolpica • ${MaterialLocalizationsDate.dayTime(updatedAt.toLocal())}',
+      style: TextStyle(color: AppColors.muted, fontSize: 11),
+    ),
+  ]);
+}
 
-  testWidgets('en yeni 3 haberi kaynak adıyla gösterir; tarihli olanlar önce gelir', (tester) async {
-    await pumpHome(tester, FakeJolpica());
+// ---------------------------------------------------------------------------
+// Son yarış
+// ---------------------------------------------------------------------------
 
-    expect(find.text('Motorsport Türkiye headline'), findsOneWidget);
-    expect(find.text('TRF1 headline one'), findsOneWidget);
-    expect(find.text('TRF1 headline two'), findsOneWidget); // Ana sayfada ilk üç haber
+class _LatestRaceCard extends StatelessWidget {
+  const _LatestRaceCard({required this.data});
+  final JolpicaData<DriverResult> data;
 
-    await tester.pumpWidget(const SizedBox());
-  });
+  @override
+  Widget build(BuildContext context) {
+    final podium = data.items.where((r) => r.position > 0).take(3).toList();
+    if (podium.isEmpty) {
+      return const _InfoTile(
+        icon: Icons.timer_outlined,
+        title: 'Henüz yayımlanmış sonuç yok',
+        subtitle: 'Jolpica yarış sonucunu yayımladığında burada görünecek.',
+      );
+    }
+    return _Panel(
+      title: data.label ?? 'Son yarış',
+      footer: data.isCached ? 'Önbellekten gösteriliyor' : null,
+      children: [
+        for (final r in podium)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(children: [
+              SizedBox(width: 30, child: Text('P${r.position}', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w900))),
+              Container(width: 3, height: 18, color: Color(r.color)),
+              const SizedBox(width: 8),
+              SizedBox(width: 44, child: Text(r.code, style: const TextStyle(fontWeight: FontWeight.w800))),
+              Expanded(child: Text(r.team, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.muted, fontSize: 11))),
+              Text(r.time, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+            ]),
+          ),
+      ],
+    );
+  }
+}
 
-  testWidgets('haber kaynakları çökerse yalnızca haber bölümü hata gösterir', (tester) async {
-    final feeds = FakeFeeds()..offline = true;
-    await pumpHome(tester, FakeJolpica(), feeds: feeds);
+// ---------------------------------------------------------------------------
+// Şampiyona
+// ---------------------------------------------------------------------------
 
-    expect(find.text('Haber bulunamadı'), findsOneWidget);
-    expect(find.text('Test Grand Prix'), findsOneWidget); // yarış kartı etkilenmedi
+class _StandingLine {
+  const _StandingLine(this.position, this.name, this.team, this.points);
+  final int position;
+  final String name;
+  final String team;
+  final String points;
+}
 
-    await tester.pumpWidget(const SizedBox());
-  });
+class _StandingsPanel extends StatelessWidget {
+  const _StandingsPanel({required this.title, required this.rows, required this.emptyMessage});
+  final String title;
+  final List<_StandingLine> rows;
+  final String emptyMessage;
 
-  testWidgets('sezon bittiyse ve yeni takvim yoksa "Sezon tamamlandı" gösterir', (tester) async {
-    await pumpHome(tester, FakeJolpica(calendars: {2026: allPast2026}));
+  @override
+  Widget build(BuildContext context) {
+    if (rows.isEmpty) {
+      return _InfoTile(icon: Icons.emoji_events_outlined, title: title, subtitle: emptyMessage);
+    }
+    return _Panel(
+      title: title,
+      children: [
+        for (final r in rows)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(children: [
+              SizedBox(width: 26, child: Text('${r.position}', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w900))),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(r.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  if (r.team.isNotEmpty) Text(r.team, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.muted, fontSize: 11)),
+                ]),
+              ),
+              Text(r.points, style: const TextStyle(fontWeight: FontWeight.w900)),
+              const SizedBox(width: 4),
+              Text('puan', style: TextStyle(color: AppColors.muted, fontSize: 10)),
+            ]),
+          ),
+      ],
+    );
+  }
+}
 
-    expect(find.text('Sezon tamamlandı'), findsOneWidget);
+// ---------------------------------------------------------------------------
+// Son haberler
+// ---------------------------------------------------------------------------
 
-    await tester.pumpWidget(const SizedBox());
-  });
+class _NewsPreview extends StatelessWidget {
+  const _NewsPreview({required this.data, required this.onTap});
+  final NewsFeedResult data;
+  final VoidCallback onTap;
 
-  testWidgets('API hatasında bölümler hata mesajı gösterir, çökmez', (tester) async {
-    await pumpHome(tester, FakeJolpica()..status = 500);
+  @override
+  Widget build(BuildContext context) {
+    final items = data.items.take(3).toList();
+    if (items.isEmpty) {
+      return _InfoTile(
+        icon: Icons.newspaper,
+        title: 'Haber bulunamadı',
+        subtitle: data.errors.isEmpty ? 'Kaynaklar şu an haber döndürmedi.' : data.errors.values.first,
+      );
+    }
+    return _Panel(
+      title: 'EN YENİ HABERLER',
+      children: [
+        for (final item in items)
+          InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 9),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 3),
+                Text(
+                  item.publishedAt == null
+                      ? item.sourceName
+                      : '${item.sourceName} • ${MaterialLocalizationsDate.dayTime(item.publishedAt!.toLocal())}',
+                  style: TextStyle(color: AppColors.muted, fontSize: 10.5),
+                ),
+              ]),
+            ),
+          ),
+      ],
+    );
+  }
+}
 
-    expect(find.text('Sıradaki yarış yüklenemedi'), findsOneWidget);
-    expect(find.text('Son yarış sonucu yüklenemedi'), findsOneWidget);
-    expect(find.textContaining('HTTP 500'), findsWidgets);
+// ---------------------------------------------------------------------------
+// Ortak parçalar
+// ---------------------------------------------------------------------------
 
-    await tester.pumpWidget(const SizedBox());
-  });
+class _Panel extends StatelessWidget {
+  const _Panel({required this.title, required this.children, this.footer});
+  final String title;
+  final List<Widget> children;
+  final String? footer;
 
-  testWidgets('"Sonuçlar" ve "Tüm haberler" kısayolları sekme isteği gönderir', (tester) async {
-    final opened = <int>[];
-    await pumpHome(tester, FakeJolpica(), onOpenTab: opened.add);
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(title, style: TextStyle(color: AppColors.muted, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+      const SizedBox(height: 4),
+      ...children,
+      if (footer != null)
+        Padding(padding: const EdgeInsets.only(top: 2, bottom: 6), child: Text(footer!, style: TextStyle(color: AppColors.amber, fontSize: 10))),
+    ]),
+  );
+}
 
-    await tester.tap(find.text('Sonuçlar'));
-    await tester.tap(find.text('Tüm haberler'));
+class _LoadingTile extends StatelessWidget {
+  const _LoadingTile();
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 90,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
+    child: const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5)),
+  );
+}
 
-    expect(opened, [3, 2]); // Results=3 and News=2 after Live moved out of the bottom navigation.
-
-    await tester.pumpWidget(const SizedBox());
-  });
+class _InfoTile extends StatelessWidget {
+  const _InfoTile({required this.icon, required this.title, required this.subtitle});
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(15),
+    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
+    child: Row(children: [
+      Container(width: 40, height: 40, decoration: BoxDecoration(color: AppColors.surface2, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: AppColors.red)),
+      const SizedBox(width: 12),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 4),
+        Text(subtitle, style: TextStyle(color: AppColors.muted, fontSize: 11)),
+      ])),
+    ]),
+  );
 }
