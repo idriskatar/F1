@@ -174,8 +174,8 @@ class _NextRaceCard extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft, end: Alignment.bottomRight,
               colors: AppColors.themeId == 'light'
-                  ? [Color(0xFFFFFFFF), Color(0xFFF5F6F9), Color(0xFFFFF0EE)]
-                  : [Color(0xFF292D36), Color(0xFF15181F), Color(0xFF351412)],
+                  ? [const Color(0xFFFFFFFF), const Color(0xFFF5F6F9), const Color(0xFFFFF0EE)]
+                  : [const Color(0xFF292D36), const Color(0xFF15181F), const Color(0xFF351412)],
             ),
             border: Border.all(color: AppColors.border),
           ),
@@ -184,9 +184,9 @@ class _NextRaceCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('SIRADAKİ YARIŞ', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w900, letterSpacing: 2)),
-                    SizedBox(height: 10),
-                    Text('Sezon tamamlandı', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 10),
+                    const Text('Sezon tamamlandı', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 4),
                     Text('Yeni sezon takvimi yayımlandığında burada görünecek.', style: TextStyle(color: AppColors.muted, fontSize: 12)),
                   ],
                 )
@@ -275,7 +275,7 @@ class _CountdownState extends State<_Countdown> {
         ),
         if (remaining.isNegative)
           Padding(
-            padding: EdgeInsets.only(top: 10),
+            padding: const EdgeInsets.only(top: 10),
             child: Text('Yarış başladı', style: TextStyle(color: AppColors.amber, fontSize: 12, fontWeight: FontWeight.w700)),
           ),
       ],

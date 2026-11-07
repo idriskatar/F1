@@ -160,7 +160,7 @@ class _TableHeader extends StatelessWidget {
   const _TableHeader();
 
   @override
-  Widget build(BuildContext context) => const Row(children: [
+  Widget build(BuildContext context) => Row(children: [
         SizedBox(width: 28, child: Text('P', style: _headerStyle)),
         Expanded(child: Text('PİLOT', style: _headerStyle)),
         SizedBox(width: 104, child: Text('DERECE / FARK', textAlign: TextAlign.right, style: _headerStyle)),

@@ -14,7 +14,18 @@ class _LiveScreenState extends State<LiveScreen>{
   final _store=RapidApiKeyStore(); final _api=F1LivePulseClient();
   Timer? _timer; String? _key,_error; List<LiveTimingDriver> _drivers=[]; DateTime? _updatedAt; bool _loading=false;
   @override void initState(){super.initState();if(widget.isActive)unawaited(_activate());}
-  @override void didUpdateWidget(covariant LiveScreen oldWidget){super.didUpdateWidget(oldWidget);if(oldWidget.isActive!=widget.isActive){if(widget.isActive)unawaited(_activate());else{_timer?.cancel();_timer=null;}}}
+  @override
+  void didUpdateWidget(covariant LiveScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive != widget.isActive) {
+      if (widget.isActive) {
+        unawaited(_activate());
+      } else {
+        _timer?.cancel();
+        _timer = null;
+      }
+    }
+  }
   Future<void> _activate() async {try{_key=(await _store.read())?.trim();if(!mounted)return;if(_key==null||_key!.isEmpty){setState(()=>_error='Anahtarını Ayarlar sekmesinden ekleyebilirsin.');return;}await _refresh();_timer?.cancel();_timer=Timer.periodic(const Duration(seconds:30),(_)=>unawaited(_refresh()));}catch(_){if(mounted)setState(()=>_error='API anahtarı güvenli depodan okunamadı.');}}
   Future<void> _refresh() async {final key=_key;if(key==null||key.isEmpty||_loading)return;setState(()=>_loading=true);try{final data=await _api.fetch(key);if(!mounted)return;setState((){_drivers=data;_error=null;_updatedAt=DateTime.now();});}catch(e){if(mounted)setState(()=>_error='$e');}finally{if(mounted)setState(()=>_loading=false);}}
   @override void dispose(){_timer?.cancel();_api.close();super.dispose();}
