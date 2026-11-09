@@ -64,13 +64,19 @@ class OpenF1Repository {
     for (var year = now.year; year >= 2023; year--) {
       final List<Map<String, dynamic>> sessions;
       try {
-        sessions = await _getList('/sessions', {'year': '$year'});
+        // Keep active/recent sessions out of the request itself. OpenF1 treats
+        // data from 30 minutes before a session until 30 minutes after it ends
+        // as live and requires authentication during that window.
+        sessions = await _getList('/sessions', {
+          'year': '$year',
+          'date_end<=': cutoff.toIso8601String(),
+        });
       } on OpenF1Exception catch (error) {
-        // A denial for the newest season should not prevent loading public
-        // historical sessions from an earlier year.
+        // Avoid presenting an older season as if it were the latest result;
+        // the cached most-recent session is safer when OpenF1 denies access.
         if (error.statusCode == 401 || error.statusCode == 403) {
           authorizationError = error;
-          continue;
+          break;
         }
         rethrow;
       }
@@ -103,11 +109,12 @@ class OpenF1Repository {
         ]);
         return _combine(session, results, details[0], details[1].isEmpty ? null : details[1].first);
       }
+      if (authorizationError != null) break;
       if (completed.isNotEmpty) continue;
     }
     if (authorizationError != null) {
       throw const OpenF1Exception(
-        'OpenF1 tarihsel seans isteğini reddetti (401/403). Canlı RapidAPI anahtarı OpenF1 anahtarı değildir; daha sonra yeniden deneyin.',
+        'OpenF1 tarihsel seans isteğini reddetti (401/403). RapidAPI anahtarı OpenF1 için geçerli değildir; seans bitiminden en az 30 dakika sonra yeniden deneyin.',
       );
     }
     return null;

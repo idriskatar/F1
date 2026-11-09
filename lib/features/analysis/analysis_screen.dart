@@ -57,7 +57,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           children: [
             Text('Analiz', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
             const SizedBox(height: 6),
-            Text('Tur temposu, lastik ve strateji', style: TextStyle(color: AppColors.muted)),
+            Text('OpenF1 tarihsel verisi • canlı seans bitiminden en az 30 dakika sonra', style: TextStyle(color: AppColors.muted)),
             const SizedBox(height: 16),
             if (_session == null)
               const _Notice(text: 'Son seans verileri yüklenmek üzere hazır.')
