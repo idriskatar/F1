@@ -12,7 +12,7 @@ const _newsTab = 2;
 const _resultsTab = 3;
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.repository, required this.newsRepository, this.clock, this.onOpenTab, this.onOpenLive});
+  const HomeScreen({super.key, required this.repository, required this.newsRepository, this.clock, this.onOpenTab});
 
   final JolpicaRepository repository;
   final NewsRepository newsRepository;
@@ -20,14 +20,12 @@ class HomeScreen extends StatefulWidget {
   /// Testlerde sabit saat vermek için; boşsa `DateTime.now`.
   final DateTime Function()? clock;
   final ValueChanged<int>? onOpenTab;
-  final VoidCallback? onOpenLive;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  Timer? _liveClock;
   late Future<NextRaceData> _next;
   late Future<JolpicaData<DriverResult>> _results;
   late Future<JolpicaData<DriverStanding>> _drivers;
@@ -40,14 +38,10 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _load();
-    _liveClock = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (mounted) setState(() {});
-    });
   }
 
   @override
   void dispose() {
-    _liveClock?.cancel();
     super.dispose();
   }
 
@@ -79,18 +73,6 @@ class _HomeScreenState extends State<HomeScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
           children: [
-            FutureBuilder<NextRaceData>(
-              future: _next,
-              builder: (context, snapshot) {
-                final activeSession = snapshot.data?.race?.activeBroadcastSession(_now());
-                if (activeSession == null) return const SizedBox.shrink();
-                return Align(
-                  alignment: Alignment.centerRight,
-                  child: _LiveShortcut(onTap: widget.onOpenLive),
-                );
-              },
-            ),
-            const SizedBox(height: 8),
             _section<NextRaceData>(
               future: _next,
               errorTitle: 'Sıradaki yarış yüklenemedi',
@@ -154,39 +136,6 @@ class _HomeScreenState extends State<HomeScreen> {
           }
           return builder(snapshot.data as T);
         },
-      );
-}
-
-class _LiveShortcut extends StatelessWidget {
-  const _LiveShortcut({required this.onTap});
-
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-        button: true,
-        label: 'Canlı zamanlamayı aç',
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppColors.red.withValues(alpha: .6)),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Container(
-                width: 9,
-                height: 9,
-                decoration: const BoxDecoration(color: Color(0xFFE10600), shape: BoxShape.circle),
-              ),
-              const SizedBox(width: 7),
-              const Text('LIVE', style: TextStyle(color: Color(0xFFE10600), fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 1)),
-            ]),
-          ),
-        ),
       );
 }
 

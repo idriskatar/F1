@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../data/remote/jolpica_repository.dart';
 import '../../data/remote/news_repository.dart';
 import '../../data/remote/openf1_repository.dart';
-import '../live/live_screen.dart';
 import '../more/more_screen.dart';
 import '../home/home_screen.dart';
 import '../calendar/calendar_screen.dart';
@@ -50,22 +49,12 @@ class _AppShellState extends State<AppShell> {
         newsRepository: _news,
         clock: widget.clock,
         onOpenTab: (value) => setState(() => _index = value),
-        onOpenLive: _openLive,
       ),
       CalendarScreen(repository: _repository, clock: widget.clock),
       NewsScreen(repository: _news),
       ResultsScreen(repository: _repository),
       AnalysisScreen(repository: _sessionRepository, active: _index == 4),
     ];
-
-  void _openLive() {
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => Scaffold(
-        appBar: AppBar(title: const Text('Canlı')),
-        body: const LiveScreen(isActive: true),
-      ),
-    ));
-  }
 
   void _openMore() {
     Navigator.of(context).push(MaterialPageRoute<void>(

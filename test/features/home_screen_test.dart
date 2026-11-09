@@ -103,7 +103,7 @@ void main() {
     await tester.tap(find.text('Sonuçlar'));
     await tester.tap(find.text('Tüm haberler'));
 
-    expect(opened, [3, 2]); // Results=3 and News=2 after Live moved out of the bottom navigation.
+    expect(opened, [3, 2]); // Results=3 and News=2.
 
     await tester.pumpWidget(const SizedBox());
   });

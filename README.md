@@ -5,23 +5,23 @@ Kişisel kullanım için hazırlanmış, premium koyu temalı Android/iOS Formul
 ## Bu pakette
 
 - Jolpica ile sezon takvimi, son yarış sınıflandırması ve pilot/takım puan durumu.
-- Ana sayfada sıradaki yarış, canlı geri sayım, sıradaki seans, son yarış podyumu ve şampiyona ilk 3 özeti (gerçek Jolpica verisi).
+- Ana sayfada sıradaki yarış, geri sayım, sıradaki seans, son yarış podyumu ve şampiyona ilk 3 özeti (gerçek Jolpica verisi).
 - Takvimdeki bir yarışa dokununca açılan detay ekranı: yarış sınıflandırması (grid, tur, en hızlı tur, puan), sıralama turları (Q1/Q2/Q3), sprint hafta sonlarında sprint sonuçları ve o yarıştan sonraki pilot/takım puan durumu. Yarış henüz yapılmadıysa hafta sonu programı gösterilir.
 - Haberler sekmesi ve ana sayfada en yeni 3 haber: TRF1.net ve Motorsport.com Türkiye RSS akışları. Yalnızca başlık, kısa özet, kaynak adı ve tarih gösterilir; haber tarayıcıda kaynağında açılır. Kaynak filtresi, kaynak başına hata bildirimi ve çevrimdışı önbellek vardır.
-- Analiz sekmesinde OpenF1 üzerinden son tamamlanmış seansın sıralaması gösterilir. Bu hafta sonunda tamamlanmış seans yoksa önceki Grand Prix’nin son seansına geçer; ağ yoksa son başarılı sonuç önbellekten yüklenir.
+- Baştan yenilenen Analiz sekmesinde son tamamlanmış yarışın sonuç özeti, tur temposu ve sektörleri, ilk üç pilotun araç telemetrisi/GPS izi, lider aralıkları, pit kayıtları, lastik stintleri ve hava durumu gösterilir. Interlagos haritası Formula1.com görselinden; diğer pistler OpenF1 GPS izinden çizilir.
 - API tarih ve saatlerinin cihazın yerel saat diliminde gösterilmesi.
 - Son başarılı API yanıtlarının SQLite üzerinde çevrimdışı önbelleği.
 - Yükleniyor, hata/yeniden dene, önbellek ve henüz sonuç yok durumları.
 - Koyu, açık ve Pitwall temaları; tercih cihazda saklanır.
-- Sol üstteki hamburger menüsünden açılan Ayarlar ekranında değiştirilebilir RapidAPI anahtarı (Android Keystore/iOS Keychain güvenli depolaması); koyu, açık ve Pitwall temaları.
+- Sol üstteki hamburger menüsünden açılan Ayarlar ekranında koyu, açık ve Pitwall temaları.
 - Hakkında (geliştirici: İdris KATAR), Gizlilik politikası ve Flutter'ın açık kaynak lisans ekranı.
 - Android sistem geri tuşu; açık yarış detayını kapatır, ana sekmeye döner ve Ana sayfadayken uygulamadan çıkar.
-- Beş sekmeli alt gezinme: Ana sayfa, Takvim, Haberler, Sonuçlar ve Analiz. Simge adları alt çubukta gösterilir. Canlı zamanlamaya, takvimdeki sıralama turları/sprint/yarış seansı sürerken ana sayfanın sağ üstünde beliren kırmızı LIVE düğmesinden ulaşılır; antrenman seanslarında gösterilmez. Ayarlar, Hakkında, Gizlilik ve lisanslar sol üstteki üç çizgili menüden açılır.
+- Beş sekmeli alt gezinme: Ana sayfa, Takvim, Haberler, Sonuçlar ve Analiz. Simge adları alt çubukta gösterilir. Ayarlar, Hakkında, Gizlilik ve lisanslar sol üstteki üç çizgili menüden açılır.
 - Ücretsiz GitHub Actions Android APK ve imzasız iOS simülatör derlemesi.
 
 ## Gerçek veri ve örnek alanlar
 
-Takvim ile Sonuçlar sekmeleri `https://api.jolpi.ca/ergast/f1/` üzerinden gerçek API verisi yükler. Ekranlar canlı API yanıtını veya çevrimdışı SQLite kopyasını kaynağıyla etiketler. Jolpica bir yarış sonucu henüz yayımlamadıysa sonuç tablosu yerine “henüz yayımlanmış sonuç yok” gösterilir. Analiz sekmesi OpenF1’den tarihsel seans sıralaması getirir; tur temposu, lastik, sektör ve pit-stop grafikleri daha sonra aynı seans verisine bağlanacaktır.
+Takvim ile Sonuçlar sekmeleri `https://api.jolpi.ca/ergast/f1/` üzerinden gerçek API verisi yükler. Ekranlar API yanıtını veya çevrimdışı SQLite kopyasını kaynağıyla etiketler. Jolpica bir yarış sonucu henüz yayımlamadıysa sonuç tablosu yerine “henüz yayımlanmış sonuç yok” gösterilir. Analiz sekmesi OpenF1 tarihsel yarış verilerini getirir; telemetri ve konum istekleri yalnızca ilk üç sınıflandırılmış pilot için yapılır. Büyük araç veri kümeleri, indirme miktarını sınırlamak ve OpenF1 istek sınırlarına uymak için pilot numarası ve tur zamanı ile filtrelenir.
 
 Haberler şu herkese açık Türkçe RSS akışlarından gelir:
 
@@ -36,13 +36,11 @@ Jolpica ücretsiz ve açık kaynaklıdır; bağımsız gönüllülerce işletili
 
 OpenF1, 2023 sezonundan itibaren tarihsel seans verisini kimlik doğrulama olmadan sunar. Analiz sekmesi yalnızca bitişi en az 30 dakika geçmiş seansları sorgulayarak tarihsel uçları kullanır; canlı veri aboneliği gerektirmez. Seans sonuçları OpenF1 tarafından resmi sonuç yayımlandıktan birkaç dakika sonra eklenir. Kaynak/API koşulları değişebilir.
 
-Canlı sayfası F1 Live Pulse RapidAPI uç noktasını çağırır. Seans dışındayken erişim düğmesi gizlidir. Jolpica yalnızca başlangıç saatlerini verdiği için LIVE göstergesinin bitiş penceresi sıralama/sprint seansları için 90 dakika, yarış için 3 saat olarak tahmin edilir; antrenman seansları kapsam dışıdır. Anahtarı **sol üst menü → Ayarlar → Canlı veri API anahtarı** bölümünden ekleyebilir, istediğiniz zaman yenisiyle değiştirebilir veya silebilirsiniz. Anahtar uygulamanın koduna ya da GitHub deposuna yazılmaz; cihazın güvenli depolamasında tutulur. Live Pulse verisi için RapidAPI tarafında ücretsiz plan etkin olmalıdır; ücretsiz kota sağlayıcı limitlerine bağlıdır. Takvim, Jolpica sonuçları ve OpenF1 analizleri anahtar istemez. Live Pulse yanıt şeması sağlayıcı tarafından değiştirilebilir; uygulama desteklenen yaygın liste/sözlük biçimlerini ayrıştırır ve tanınmayan yanıtın üst seviye alan adlarını hata mesajında gösterir.
-
-**Analiz 401 uyarısı:** Analiz OpenF1 kullanır ve RapidAPI anahtarı OpenF1 kimlik doğrulaması yerine geçmez. OpenF1 dokümanına göre 2023 ve sonrası tarihsel veriler ücretsiz/anahtarsız erişilebilir; servis 401/403 döndürürse uygulama daha eski sezonları da dener ve erişim hâlâ reddedilirse bunu ayrı bir hata olarak bildirir. [OpenF1 dokümanı](https://openf1.org/docs/) ve [kimlik doğrulama rehberi](https://openf1.org/auth.html).
+Analiz yalnızca geçmiş yarış verilerini sorgular; canlı veri aboneliği veya API anahtarı kullanmaz. OpenF1 telemetri ve GPS konum örnekleri yaklaşık 3,7 Hz hızda sağlar. Uygulama tam araç kayıtlarını ekranda saklamaz; ilk üç pilotun telemetrisinden özet değerleri ve grafik örneklerini üretir, pist geometrisi için de her birinin ilk turundaki GPS izini kullanır. Tur, aralık, pit, lastik ve hava verileri bölümler hâlinde yüklenir; eksik API bölümleri boş/eksik olarak belirtilir, örnek veriyle tamamlanmaz. [OpenF1 dokümanı](https://openf1.org/docs/).
 
 ## Bilgisayarda çalıştırma
 
-Gereksinimler: Flutter stable (Dart 3.4+), Android/iOS platform araçları. Güvenli RapidAPI anahtarı deposu Android 6.0 / API 23 veya üzerini gerektirir. Android ve iOS runner klasörleri başlangıç ZIP’inde bulunmayabilir. Klasörler yoksa proje kökünde bir kez üretin:
+Gereksinimler: Flutter stable (Dart 3.4+), Android/iOS platform araçları. Android ve iOS runner klasörleri başlangıç ZIP’inde bulunmayabilir. Klasörler yoksa proje kökünde bir kez üretin:
 
 ```bash
 flutter create --platforms=android,ios .
@@ -88,9 +86,8 @@ Actions adımları Android’de `flutter analyze` ve `flutter test` çalıştır
 
 - `lib/core/models`: Jolpica ve OpenF1 JSON modelleri ve formatlama.
 - `lib/data/remote/jolpica_repository.dart`: HTTP, toleranslı yanıt ayrıştırma, hata yönetimi ve SQLite önbellek fallback’i; tur bazlı sonuç/sıralama/sprint/puan durumu sorguları.
-- `lib/data/remote/openf1_repository.dart`: Son tarihsel seansı, sonuçlarını ve pilot bilgilerini yükler; SQLite çevrimdışı fallback’i sağlar.
-- `lib/data/remote/f1_live_pulse_client.dart` ve `lib/data/local/rapid_api_key_store.dart`: RapidAPI canlı zamanlama istemcisi ve cihaz güvenliğinde API anahtarı saklama.
-- `lib/features/settings/settings_screen.dart`, `lib/features/more/more_screen.dart` ve `lib/core/theme/app_theme.dart`: güvenli API anahtarı/tema tercihleri, hakkında/gizlilik/lisans sayfaları, sistem fontu ve renk paletleri.
+- `lib/data/remote/openf1_repository.dart`: Son tarihsel yarışı ve analiz bölümlerini yükler; yüksek hacimli araç verisini sadece podyum pilotları için alır, pist için GPS izini işler ve SQLite çevrimdışı fallback’i sağlar.
+- `lib/features/settings/settings_screen.dart`, `lib/features/more/more_screen.dart` ve `lib/core/theme/app_theme.dart`: tema tercihleri, hakkında/gizlilik/lisans sayfaları, sistem fontu ve renk paletleri.
 - `lib/features/shell/app_shell.dart`: sekme gezinmesi ve Android sistem geri tuşunun sekme/detay davranışı.
 - `lib/core/models/news_models.dart` ve `lib/data/remote/news_repository.dart`: RSS/Atom ayrıştırma, kaynakları birleştirme/sıralama, kaynak bazlı hata ve önbellek.
 - `lib/features/calendar/race_detail_screen.dart`: yarış detay ekranı.
@@ -101,7 +98,6 @@ Actions adımları Android’de `flutter analyze` ve `flutter test` çalıştır
 
 ## Sonraki işler
 
-- FastF1 ile yarış sonrası tur/sektör/lastik analizini içe aktarmak.
-- Platform cihaz derlemelerini ve entegrasyon testlerini genişletmek (widget/model testleri büyük ölçüde eklendi).
+- Platform cihaz derlemelerini ve analiz ekranı widget testlerini genişletmek.
 
 F1, Formula 1 ve takım/pilot adları ilgili sahiplerinin markalarıdır. Bu bağımsız kişisel proje Formula 1, FIA veya herhangi bir takımla bağlantılı değildir.

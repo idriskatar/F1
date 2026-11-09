@@ -25,7 +25,7 @@ class MoreScreen extends StatelessWidget {
               _MoreTile(
                 icon: Icons.settings_outlined,
                 title: 'Ayarlar',
-                subtitle: 'Tema ve canlı veri API anahtarı',
+                subtitle: 'Tema ve görünüm',
                 onTap: () => _open(context, SettingsScreen(themeId: themeId, onThemeChanged: onThemeChanged)),
               ),
               _MoreTile(
@@ -101,7 +101,7 @@ class _AboutPage extends StatelessWidget {
             ),
             const _InfoSection(
               title: 'Veri kaynakları',
-              body: 'Takvim ve sonuçlar Jolpica, seans analizi OpenF1, canlı zamanlama ise F1 Live Pulse (RapidAPI) üzerinden alınır. Haberler ilgili RSS yayıncılarından yüklenir.',
+              body: 'Takvim ve sonuçlar Jolpica, tarihsel yarış analizi OpenF1 üzerinden alınır. Haberler ilgili RSS yayıncılarından yüklenir.',
             ),
           ]),
         ),
@@ -121,16 +121,12 @@ class _PrivacyPage extends StatelessWidget {
               body: 'Uygulama hesabı oluşturmaz ve uygulama tarafından analiz/izleme amacıyla kişisel bilgi toplanmaz. Tema tercihi ve son başarılı API yanıtları cihazda saklanır.',
             ),
             _InfoSection(
-              title: 'API anahtarı',
-              body: 'F1 Live Pulse için girdiğin RapidAPI anahtarı cihazın güvenli depolamasında tutulur ve yalnızca RapidAPI isteğinde kimlik doğrulama başlığı olarak gönderilir. Anahtarı Ayarlar bölümünden silebilirsin.',
-            ),
-            _InfoSection(
               title: 'Üçüncü taraf hizmetleri',
-              body: 'Takvim/sonuç, seans analizi, canlı zamanlama ve haber istekleri sırasıyla Jolpica, OpenF1, RapidAPI/F1 Live Pulse ve RSS yayıncılarına gider. Bu hizmetler bağlantı bilgilerini kendi politikalarına göre işleyebilir.',
+              body: 'Takvim ve sonuç istekleri Jolpica, yarış analizi istekleri OpenF1, haber istekleri RSS yayıncılarına gider. Bu hizmetler bağlantı bilgilerini kendi politikalarına göre işleyebilir.',
             ),
             _InfoSection(
               title: 'Yerel veriler ve iletişim',
-              body: 'RapidAPI anahtarını Ayarlar ekranından silebilirsin. Tema tercihi ve çevrimdışı önbellek cihazda tutulur; uygulama verileri işletim sisteminin uygulama depolama ayarlarından temizlenebilir. Gizlilik soruları için geliştirici: İdris KATAR.',
+              body: 'Tema tercihi ve çevrimdışı önbellek cihazda tutulur; uygulama verileri işletim sisteminin uygulama depolama ayarlarından temizlenebilir. Gizlilik soruları için geliştirici: İdris KATAR.',
             ),
           ]),
         ),

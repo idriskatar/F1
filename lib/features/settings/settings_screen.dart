@@ -1,92 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
-import '../../data/local/rapid_api_key_store.dart';
 
-class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key, required this.themeId, required this.onThemeChanged, this.keyStore});
+class SettingsScreen extends StatelessWidget {
+  const SettingsScreen({super.key, required this.themeId, required this.onThemeChanged});
 
   final String themeId;
   final ValueChanged<String> onThemeChanged;
-  final RapidApiKeyStore? keyStore;
-
-  @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends State<SettingsScreen> {
-  late final RapidApiKeyStore _store = widget.keyStore ?? RapidApiKeyStore();
-  final _controller = TextEditingController();
-  bool _hasKey = false;
-  bool _busy = true;
-  bool _obscure = true;
-  String? _message;
-
-  @override
-  void initState() {
-    super.initState();
-    _readKey();
-  }
-
-  Future<void> _readKey() async {
-    try {
-      final value = await _store.read();
-      if (!mounted) return;
-      setState(() => _hasKey = value?.trim().isNotEmpty == true);
-    } catch (_) {
-      if (mounted) setState(() => _message = 'Kayıtlı anahtar güvenli depodan okunamadı.');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _saveKey() async {
-    final value = _controller.text.trim();
-    if (value.isEmpty) {
-      setState(() => _message = 'Yeni RapidAPI anahtarını gir.');
-      return;
-    }
-    setState(() {
-      _busy = true;
-      _message = null;
-    });
-    try {
-      await _store.save(value);
-      if (!mounted) return;
-      _controller.clear();
-      setState(() {
-        _hasKey = true;
-        _message = 'API anahtarı güvenli biçimde güncellendi.';
-      });
-    } catch (_) {
-      if (mounted) setState(() => _message = 'API anahtarı kaydedilemedi.');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _deleteKey() async {
-    setState(() => _busy = true);
-    try {
-      await _store.delete();
-      if (!mounted) return;
-      _controller.clear();
-      setState(() {
-        _hasKey = false;
-        _message = 'Kayıtlı API anahtarı silindi.';
-      });
-    } catch (_) {
-      if (mounted) setState(() => _message = 'Kayıtlı anahtar silinemedi.');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -100,104 +20,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
               children: [
-                Text(
-                  'Görünümü ve canlı veri bağlantısını yönet.',
-                  style: textTheme.bodyLarge?.copyWith(color: AppColors.muted),
-                ),
+                Text('Uygulamanın görünümünü seç.', style: textTheme.bodyLarge?.copyWith(color: AppColors.muted)),
                 const SizedBox(height: 22),
-                _sectionTitle('TEMA'),
-                _panel(
-                  Column(
-                    children: [
-                      _themeOption('dark', 'Koyu', 'F1 gece modu', Icons.dark_mode_rounded),
-                      const Divider(height: 1),
-                      _themeOption('light', 'Açık', 'Gündüz görünümü', Icons.light_mode_rounded),
-                      const Divider(height: 1),
-                      _themeOption('pitwall', 'Pitwall', 'Koyu mavi yarış teması', Icons.flag_rounded),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                _sectionTitle('CANLI VERİ API ANAHTARI'),
-                _panel(
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            _hasKey ? Icons.verified_user_outlined : Icons.key_outlined,
-                            color: _hasKey ? AppColors.green : AppColors.amber,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              _hasKey ? 'RapidAPI anahtarı bu cihazda kayıtlı' : 'RapidAPI anahtarı henüz kaydedilmedi',
-                              style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'F1 Live Pulse için RapidAPI Free anahtarını gir. Anahtar güvenli cihaz deposunda tutulur; uygulama koduna eklenmez.',
-                        style: textTheme.bodySmall?.copyWith(color: AppColors.muted, height: 1.45),
-                      ),
-                      const SizedBox(height: 14),
-                      TextField(
-                        controller: _controller,
-                        obscureText: _obscure,
-                        autocorrect: false,
-                        enableSuggestions: false,
-                        style: textTheme.bodyLarge,
-                        decoration: InputDecoration(
-                          labelText: _hasKey ? 'Yeni API anahtarı' : 'X-RapidAPI-Key',
-                          prefixIcon: const Icon(Icons.key_rounded),
-                          suffixIcon: IconButton(
-                            tooltip: _obscure ? 'Anahtarı göster' : 'Anahtarı gizle',
-                            onPressed: () => setState(() => _obscure = !_obscure),
-                            icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
-                          ),
-                          border: const OutlineInputBorder(),
-                        ),
-                      ),
-                      if (_message != null) ...[
-                        const SizedBox(height: 10),
-                        Text(
-                          _message!,
-                          style: textTheme.bodySmall?.copyWith(
-                            color: _message!.contains('güncellendi') || _message!.contains('silindi') ? AppColors.green : AppColors.amber,
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 14),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          FilledButton.icon(
-                            onPressed: _busy ? null : _saveKey,
-                            icon: _busy
-                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                                : const Icon(Icons.save_rounded),
-                            label: Text(_hasKey ? 'Anahtarı güncelle' : 'Anahtarı kaydet'),
-                          ),
-                          if (_hasKey)
-                            TextButton.icon(
-                              onPressed: _busy ? null : _deleteKey,
-                              icon: const Icon(Icons.delete_outline),
-                              label: const Text('Sil'),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
+                Text('TEMA', style: textTheme.labelLarge?.copyWith(color: AppColors.muted, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.border)),
+                  child: Column(children: [
+                    _ThemeOption(id: 'dark', selected: themeId == 'dark', title: 'Koyu', subtitle: 'F1 gece modu', icon: Icons.dark_mode_rounded, onTap: onThemeChanged),
+                    const Divider(height: 1),
+                    _ThemeOption(id: 'light', selected: themeId == 'light', title: 'Açık', subtitle: 'Gündüz görünümü', icon: Icons.light_mode_rounded, onTap: onThemeChanged),
+                    const Divider(height: 1),
+                    _ThemeOption(id: 'pitwall', selected: themeId == 'pitwall', title: 'Pitwall', subtitle: 'Koyu mavi yarış teması', icon: Icons.flag_rounded, onTap: onThemeChanged),
+                  ]),
                 ),
                 const SizedBox(height: 14),
-                Text(
-                  'Takvim ve tarihsel sonuç kaynakları Jolpica/OpenF1 ile çalışır ve API anahtarı gerektirmez.',
-                  style: textTheme.bodySmall?.copyWith(color: AppColors.muted, height: 1.45),
-                ),
+                Text('Yarış analizleri OpenF1’ın geçmiş verilerinden yüklenir. API anahtarı gerekmez.', style: textTheme.bodySmall?.copyWith(color: AppColors.muted, height: 1.5)),
               ],
             ),
           ),
@@ -205,42 +44,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+}
 
-  Widget _sectionTitle(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Text(
-          text,
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: AppColors.muted,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.2,
-              ),
-        ),
-      );
+class _ThemeOption extends StatelessWidget {
+  const _ThemeOption({required this.id, required this.selected, required this.title, required this.subtitle, required this.icon, required this.onTap});
 
-  Widget _panel(Widget child) => Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: child,
-      );
+  final String id;
+  final bool selected;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final ValueChanged<String> onTap;
 
-  Widget _themeOption(String id, String title, String subtitle, IconData icon) => Material(
-        color: Colors.transparent,
-        child: ListTile(
-          contentPadding: EdgeInsets.zero,
-          selected: widget.themeId == id,
-          onTap: () => widget.onThemeChanged(id),
-          leading: Icon(icon, color: AppColors.red),
-          title: Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-          subtitle: Text(subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.muted)),
-          trailing: Icon(
-            widget.themeId == id ? Icons.radio_button_checked : Icons.radio_button_off,
-            color: widget.themeId == id ? AppColors.red : AppColors.muted,
-          ),
-        ),
+  @override
+  Widget build(BuildContext context) => ListTile(
+        contentPadding: EdgeInsets.zero,
+        selected: selected,
+        onTap: () => onTap(id),
+        leading: Icon(icon, color: AppColors.red),
+        title: Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+        subtitle: Text(subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.muted)),
+        trailing: Icon(selected ? Icons.radio_button_checked : Icons.radio_button_off, color: selected ? AppColors.red : AppColors.muted),
       );
 }
