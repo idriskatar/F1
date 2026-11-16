@@ -1,4 +1,31 @@
 {
   "version": 1,
-  "sessions": []
+  "sessions": [
+    {
+      "year": 2026,
+      "round": 22,
+      "session": "R",
+      "name": "Brazil",
+      "country": "Brazil",
+      "circuit": "Interlagos",
+      "file": "2026/r22-R.json.gz",
+      "bytes": 1514615,
+      "duration": 5810.6,
+      "hz": 2,
+      "generatedAt": "2026-11-16T10:58:21Z"
+    },
+    {
+      "year": 2026,
+      "round": 21,
+      "session": "R",
+      "name": "Mexico",
+      "country": "Mexico",
+      "circuit": "Mexico City",
+      "file": "2026/r21-R.json.gz",
+      "bytes": 1595566,
+      "duration": 8459.9,
+      "hz": 2,
+      "generatedAt": "2026-11-16T11:00:45Z"
+    }
+  ]
 }
