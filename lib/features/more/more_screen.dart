@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../data/remote/replay_repository.dart';
+import '../replay/replay_screen.dart';
 import '../settings/settings_screen.dart';
 
 class MoreScreen extends StatelessWidget {
-  const MoreScreen({super.key, required this.themeId, required this.onThemeChanged});
+  const MoreScreen({super.key, required this.themeId, required this.onThemeChanged, this.replayRepository});
 
   final String themeId;
   final ValueChanged<String> onThemeChanged;
+
+  /// Testlerde sahte depo vermek için; boşsa ekran kendi deposunu oluşturur.
+  final ReplayRepository? replayRepository;
 
   void _open(BuildContext context, Widget page) {
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
@@ -22,6 +27,12 @@ class MoreScreen extends StatelessWidget {
             children: [
               Text('Uygulama tercihleri ve bilgiler', style: TextStyle(color: AppColors.muted)),
               const SizedBox(height: 20),
+              _MoreTile(
+                icon: Icons.play_circle_outline_rounded,
+                title: 'Yarış replay',
+                subtitle: 'Konum ve telemetriyle yarışı yeniden izle',
+                onTap: () => _open(context, ReplayScreen(repository: replayRepository)),
+              ),
               _MoreTile(
                 icon: Icons.settings_outlined,
                 title: 'Ayarlar',
@@ -101,7 +112,7 @@ class _AboutPage extends StatelessWidget {
             ),
             const _InfoSection(
               title: 'Veri kaynakları',
-              body: 'Takvim ve sonuçlar Jolpica, tarihsel yarış analizi OpenF1 üzerinden alınır. Haberler ilgili RSS yayıncılarından yüklenir.',
+              body: 'Takvim ve sonuçlar Jolpica, tarihsel yarış analizi OpenF1 üzerinden alınır. Yarış replay verisi FastF1 ile üretilip bu projenin GitHub deposundan indirilir. Haberler ilgili RSS yayıncılarından yüklenir.',
             ),
           ]),
         ),
@@ -122,7 +133,7 @@ class _PrivacyPage extends StatelessWidget {
             ),
             _InfoSection(
               title: 'Üçüncü taraf hizmetleri',
-              body: 'Takvim ve sonuç istekleri Jolpica, yarış analizi istekleri OpenF1, haber istekleri RSS yayıncılarına gider. Bu hizmetler bağlantı bilgilerini kendi politikalarına göre işleyebilir.',
+              body: 'Takvim ve sonuç istekleri Jolpica, yarış analizi istekleri OpenF1, replay istekleri GitHub (raw.githubusercontent.com), haber istekleri RSS yayıncılarına gider. Bu hizmetler bağlantı bilgilerini kendi politikalarına göre işleyebilir.',
             ),
             _InfoSection(
               title: 'Yerel veriler ve iletişim',

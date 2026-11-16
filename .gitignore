@@ -12,3 +12,6 @@ __pycache__/
 .venv/
 .env
 *.db
+
+# FastF1 önbelleği (replay hattı)
+.fastf1-cache/

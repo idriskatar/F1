@@ -1,0 +1,3 @@
+# FastF1 numpy ve pandas'ı kendisi getirir. Sürümü sabitlemek yerine 3.x aralığını izliyoruz;
+# bir kırılma olursa üst sınırı daraltın.
+fastf1>=3.5.3,<4
