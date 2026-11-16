@@ -73,12 +73,11 @@ def make_fake_openf1(past_race_end):
         if endpoint == "laps":
             rows = []
             for _, row in raw.laps.iterrows():
-                # Konum verisinin kapsadığı zaman aralığıyla tam uyumlu lap_duration veriyoruz
                 rows.append({
                     "driver_number": int(row["DriverNumber"]),
                     "lap_number": int(row["LapNumber"]),
                     "date_start": iso(row["LapStartTime"]),
-                    "lap_duration": 20.0,
+                    "lap_duration": pd.to_timedelta(row["LapTime"]).total_seconds(),
                     "is_pit_out_lap": False,
                 })
             return rows
@@ -96,26 +95,29 @@ def make_fake_openf1(past_race_end):
             df = raw.pos.get(num)
             if df is None:
                 return []
-            return [
-                {"date": iso(r["SessionTime"]), "x": float(r["X"]), "y": float(r["Y"])}
-                for _, r in df.iterrows()
-            ]
+            # Konum verisinin SessionTime değerlerini 0.0 saniyeden başlatıp lapa uyumlu hale getiriyoruz
+            loc_rows = []
+            for _, r in df.iterrows():
+                sec = pd.to_timedelta(r["SessionTime"]).total_seconds()
+                loc_rows.append({"date": iso(sec), "x": float(r["X"]), "y": float(r["Y"])})
+            return loc_rows
         if endpoint == "car_data":
             num = str(params.get("driver_number"))
             df = raw.car.get(num)
             if df is None:
                 return []
-            return [
-                {
-                    "date": iso(r["SessionTime"]),
+            car_rows = []
+            for _, r in df.iterrows():
+                sec = pd.to_timedelta(r["SessionTime"]).total_seconds()
+                car_rows.append({
+                    "date": iso(sec),
                     "speed": float(r["Speed"]),
                     "n_gear": int(r["nGear"]),
                     "throttle": float(r["Throttle"]),
                     "brake": 100 if r["Brake"] else 0,
                     "drs": int(r["DRS"]),
-                }
-                for _, r in df.iterrows()
-            ]
+                })
+            return car_rows
         return []
 
     return fake_get
@@ -153,7 +155,6 @@ class AdapterTest(unittest.TestCase):
     def test_explicit_mode_fails_loudly_on_incomplete_data(self):
         buf = StringIO()
         with redirect_stdout(buf):
-            # 4 pilotlu sentetik seans minimum 10 pilot gereksinimini geçemez
             code = br.main(["--year", "2099", "--round", "1", "--out", self.out, "--cache", self.out + "/c"])
         self.assertEqual(code, 1)
         self.assertIn("::error::", buf.getvalue())
