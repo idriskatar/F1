@@ -415,7 +415,7 @@ def _openf1_get(endpoint: str, params: dict[str, Any], retries: int = 4) -> list
 def _parse_iso(ts: Any) -> Optional[datetime]:
     if not ts:
         return None
-    dt = pd.to_datetime(ts, utc=True, errors="coerce")
+    dt = pd.to_datetime(ts, utc=True, errors="coerce", format="ISO8601")
     if pd.isna(dt):
         return None
     return dt.to_pydatetime()
@@ -461,7 +461,9 @@ def load_raw(year: int, rnd: int, code: str = "R", cache_dir: str = ".fastf1-cac
         raise IncompleteData("Seans baslangic zamani eksik.")
 
     def to_rel_td(iso_series: pd.Series) -> pd.Series:
-        dt = pd.to_datetime(iso_series, utc=True, errors="coerce")
+        # format="ISO8601": kesirli saniyesi olan/olmayan damgalar aynı sütunda karışık olabilir;
+        # biçim ilk satırdan çıkarılırsa uymayanlar sessizce NaT olur.
+        dt = pd.to_datetime(iso_series, utc=True, errors="coerce", format="ISO8601")
         return dt - pd.Timestamp(session_start)
 
     drivers_raw = _openf1_get("drivers", {"session_key": session_key})
