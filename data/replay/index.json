@@ -39,6 +39,32 @@
       "duration": 5812.0,
       "hz": 2,
       "generatedAt": "2026-11-16T12:34:45Z"
+    },
+    {
+      "year": 2026,
+      "round": 19,
+      "session": "R",
+      "name": "Singapore",
+      "country": "Singapore",
+      "circuit": "Singapore",
+      "file": "2026/r19-R.json.gz",
+      "bytes": 1625272,
+      "duration": 6212.1,
+      "hz": 2,
+      "generatedAt": "2026-11-16T22:13:18Z"
+    },
+    {
+      "year": 2026,
+      "round": 18,
+      "session": "R",
+      "name": "Bahrain",
+      "country": "Bahrain",
+      "circuit": "Kuala Lumpur",
+      "file": "2026/r18-R.json.gz",
+      "bytes": 1730949,
+      "duration": 6464.6,
+      "hz": 2,
+      "generatedAt": "2026-11-16T22:16:08Z"
     }
   ]
 }
