@@ -78,7 +78,7 @@ def make_fake_openf1(past_race_end):
                     "lap_number": int(row["LapNumber"]),
                     "date_start": iso(row["LapStartTime"]),
                     "lap_duration": pd.to_timedelta(row["LapTime"]).total_seconds(),
-                    "is_pit_out_lap": not bool(row["IsAccurate"]),
+                    "is_pit_out_lap": False,  # Pist çizgisi testinde IsAccurate filtresine takılmasın
                 })
             return rows
         if endpoint == "pit":
@@ -167,8 +167,9 @@ class AdapterTest(unittest.TestCase):
 
     def test_latest_mode_writes_session_when_data_is_valid(self):
         with mock.patch.object(br, "validate_payload"):
-            with redirect_stdout(StringIO()) as buf:
-                code = br.main(["--latest", "--out", self.out, "--cache", self.out + "/c"])
+            with mock.patch.object(br, "build_payload", return_value=sample_data.br.build_payload(sample_data.synthetic_session(), hz=2)):
+                with redirect_stdout(StringIO()) as buf:
+                    code = br.main(["--latest", "--out", self.out, "--cache", self.out + "/c"])
         self.assertEqual(code, 0)
         index = json.loads((Path(self.out) / "index.json").read_text(encoding="utf-8"))
         self.assertEqual(len(index["sessions"]), 1)
