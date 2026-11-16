@@ -73,12 +73,13 @@ def make_fake_openf1(past_race_end):
         if endpoint == "laps":
             rows = []
             for _, row in raw.laps.iterrows():
+                # Konum verisinin kapsadığı zaman aralığıyla tam uyumlu lap_duration veriyoruz
                 rows.append({
                     "driver_number": int(row["DriverNumber"]),
                     "lap_number": int(row["LapNumber"]),
                     "date_start": iso(row["LapStartTime"]),
-                    "lap_duration": pd.to_timedelta(row["LapTime"]).total_seconds(),
-                    "is_pit_out_lap": False,  # Pist çizgisi testinde IsAccurate filtresine takılmasın
+                    "lap_duration": 20.0,
+                    "is_pit_out_lap": False,
                 })
             return rows
         if endpoint == "pit":
@@ -152,6 +153,7 @@ class AdapterTest(unittest.TestCase):
     def test_explicit_mode_fails_loudly_on_incomplete_data(self):
         buf = StringIO()
         with redirect_stdout(buf):
+            # 4 pilotlu sentetik seans minimum 10 pilot gereksinimini geçemez
             code = br.main(["--year", "2099", "--round", "1", "--out", self.out, "--cache", self.out + "/c"])
         self.assertEqual(code, 1)
         self.assertIn("::error::", buf.getvalue())
@@ -167,9 +169,8 @@ class AdapterTest(unittest.TestCase):
 
     def test_latest_mode_writes_session_when_data_is_valid(self):
         with mock.patch.object(br, "validate_payload"):
-            with mock.patch.object(br, "build_payload", return_value=sample_data.br.build_payload(sample_data.synthetic_session(), hz=2)):
-                with redirect_stdout(StringIO()) as buf:
-                    code = br.main(["--latest", "--out", self.out, "--cache", self.out + "/c"])
+            with redirect_stdout(StringIO()) as buf:
+                code = br.main(["--latest", "--out", self.out, "--cache", self.out + "/c"])
         self.assertEqual(code, 0)
         index = json.loads((Path(self.out) / "index.json").read_text(encoding="utf-8"))
         self.assertEqual(len(index["sessions"]), 1)
