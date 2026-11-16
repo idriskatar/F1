@@ -8,22 +8,7 @@ import 'package:f1_tracker/features/replay/replay_screen.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-class FakeReplayRepository extends ReplayRepository {
-  FakeReplayRepository({this.index, this.data, this.indexError}) : super(useIsolate: false);
-
-  final ReplayIndex? index;
-  final ReplayData? data;
-  final Object? indexError;
-
-  @override
-  Future<ReplayIndex> fetchIndex() async {
-    if (indexError != null) throw indexError!;
-    return index!;
-  }
-
-  @override
-  Future<ReplayData> fetchSession(ReplayIndexEntry entry) async => data!;
-}
+import '../support/fakes.dart';
 
 ReplayData loadData() => ReplayData.fromJson(
       jsonDecode(File('test/fixtures/replay_sample.json').readAsStringSync()) as Map<String, dynamic>,
@@ -98,5 +83,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Bağlantı yok'), findsOneWidget);
     expect(find.text('Tekrar dene'), findsOneWidget);
+  });
+
+  testWidgets('gömülü (sekme) modda kendi AppBar\'ını çizmez', (tester) async {
+    final repo = FakeReplayRepository(index: const ReplayIndex([entry]));
+    await tester.pumpWidget(MaterialApp(
+      theme: AppTheme.dark,
+      home: Scaffold(body: ReplayScreen(repository: repo, embedded: true)),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AppBar), findsNothing);
+    expect(find.text('Test Grand Prix'), findsOneWidget);
+    expect(find.textContaining('Yarış 1'), findsOneWidget); // satır altı: "Yarış · 2099 · Yarış 1 · ..."
+  });
+
+  testWidgets('sekme açılana kadar (active: false) veri istenmez, açılınca yüklenir', (tester) async {
+    final repo = FakeReplayRepository(index: const ReplayIndex([entry]));
+    Widget app({required bool active}) => MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(body: ReplayScreen(repository: repo, embedded: true, active: active)),
+        );
+
+    await tester.pumpWidget(app(active: false));
+    await tester.pump();
+    expect(repo.indexCalls, 0);
+
+    await tester.pumpWidget(app(active: true));
+    await tester.pumpAndSettle();
+    expect(repo.indexCalls, 1);
+    expect(find.text('Test Grand Prix'), findsOneWidget);
+  });
+
+  testWidgets('boş listede "Yenile" listeyi yeniden ister', (tester) async {
+    final repo = FakeReplayRepository(index: const ReplayIndex([]));
+    await tester.pumpWidget(host(repo));
+    await tester.pumpAndSettle();
+    expect(repo.indexCalls, 1);
+
+    await tester.tap(find.text('Yenile'));
+    await tester.pumpAndSettle();
+    expect(repo.indexCalls, 2);
   });
 }

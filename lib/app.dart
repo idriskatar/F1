@@ -3,15 +3,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/theme/app_theme.dart';
 import 'data/remote/jolpica_repository.dart';
 import 'data/remote/news_repository.dart';
+import 'data/remote/replay_repository.dart';
 import 'features/shell/app_shell.dart';
 
 class F1TrackerApp extends StatefulWidget {
-  const F1TrackerApp({super.key, this.repository, this.newsRepository, this.clock});
+  const F1TrackerApp({super.key, this.repository, this.newsRepository, this.replayRepository, this.clock});
 
   /// Testlerde sahte veri kaynağı vermek için; boşsa uygulama kendi
   /// [JolpicaRepository] örneğini oluşturur ve kapatır.
   final JolpicaRepository? repository;
   final NewsRepository? newsRepository;
+  final ReplayRepository? replayRepository;
 
   /// Testlerde sabit saat vermek için; boşsa `DateTime.now` kullanılır.
   final DateTime Function()? clock;
@@ -57,7 +59,7 @@ class _F1TrackerAppState extends State<F1TrackerApp> {
       title: 'F1 Tracker',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.forId(_themeId),
-      home: AppShell(repository: widget.repository, newsRepository: widget.newsRepository, clock: widget.clock, themeId: _themeId, onThemeChanged: _setTheme),
+      home: AppShell(repository: widget.repository, newsRepository: widget.newsRepository, replayRepository: widget.replayRepository, clock: widget.clock, themeId: _themeId, onThemeChanged: _setTheme),
     );
   }
 }

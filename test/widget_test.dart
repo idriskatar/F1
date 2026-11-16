@@ -1,4 +1,5 @@
 import 'package:f1_tracker/app.dart';
+import 'package:f1_tracker/core/models/replay_models.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -34,6 +35,34 @@ void main() {
     await tester.tap(find.descendant(of: nav, matching: find.byIcon(Icons.newspaper_outlined)));
     await settle(tester);
     expect(find.widgetWithText(ChoiceChip, 'TRF1.net'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('Analiz sekmesi yok; Replay sekmesi açılınca liste durumunu gösterir', (tester) async {
+    tester.view.physicalSize = const Size(800, 3200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final replay = FakeReplayRepository(index: const ReplayIndex([]));
+    await tester.pumpWidget(F1TrackerApp(
+      repository: FakeJolpica().repository(),
+      newsRepository: FakeFeeds().repository(),
+      replayRepository: replay,
+      clock: () => testNow,
+    ));
+    await settle(tester);
+
+    expect(find.text('Analiz'), findsNothing);
+    expect(find.text('Replay'), findsOneWidget);
+    expect(replay.indexCalls, 0); // sekme açılmadan veri istenmez
+
+    final nav = find.byType(NavigationBar);
+    await tester.tap(find.descendant(of: nav, matching: find.byIcon(Icons.play_circle_outline_rounded)));
+    await settle(tester);
+
+    expect(replay.indexCalls, 1);
+    expect(find.textContaining('Henüz hazır replay yok'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
   });

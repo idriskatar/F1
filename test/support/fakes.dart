@@ -1,8 +1,10 @@
 import 'dart:convert';
 
+import 'package:f1_tracker/core/models/replay_models.dart';
 import 'package:f1_tracker/data/local/local_store.dart';
 import 'package:f1_tracker/data/remote/jolpica_repository.dart';
 import 'package:f1_tracker/data/remote/news_repository.dart';
+import 'package:f1_tracker/data/remote/replay_repository.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
@@ -312,4 +314,24 @@ class FakeFeeds {
         store: store ?? MemoryStore(),
         freshFor: freshFor ?? const Duration(minutes: 2),
       );
+}
+
+/// Ağ kullanmayan sahte replay deposu; liste kaç kez istendiğini sayar.
+class FakeReplayRepository extends ReplayRepository {
+  FakeReplayRepository({this.index, this.data, this.indexError}) : super(useIsolate: false);
+
+  final ReplayIndex? index;
+  final ReplayData? data;
+  final Object? indexError;
+  int indexCalls = 0;
+
+  @override
+  Future<ReplayIndex> fetchIndex() async {
+    indexCalls++;
+    if (indexError != null) throw indexError!;
+    return index ?? const ReplayIndex([]);
+  }
+
+  @override
+  Future<ReplayData> fetchSession(ReplayIndexEntry entry) async => data!;
 }

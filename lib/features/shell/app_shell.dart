@@ -1,20 +1,20 @@
 import 'package:material_ui/material_ui.dart';
 import '../../data/remote/jolpica_repository.dart';
 import '../../data/remote/news_repository.dart';
-import '../../data/remote/openf1_repository.dart';
+import '../../data/remote/replay_repository.dart';
 import '../more/more_screen.dart';
 import '../home/home_screen.dart';
 import '../calendar/calendar_screen.dart';
 import '../news/news_screen.dart';
 import '../results/results_screen.dart';
-import '../analysis/analysis_screen.dart';
+import '../replay/replay_screen.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, this.repository, this.newsRepository, this.sessionRepository, this.clock, this.themeId = 'dark', this.onThemeChanged});
+  const AppShell({super.key, this.repository, this.newsRepository, this.replayRepository, this.clock, this.themeId = 'dark', this.onThemeChanged});
 
   final JolpicaRepository? repository;
   final NewsRepository? newsRepository;
-  final OpenF1Repository? sessionRepository;
+  final ReplayRepository? replayRepository;
   final DateTime Function()? clock;
   final String themeId;
   final ValueChanged<String>? onThemeChanged;
@@ -29,8 +29,8 @@ class _AppShellState extends State<AppShell> {
   late final bool _ownsRepository;
   late final NewsRepository _news;
   late final bool _ownsNews;
-  late final OpenF1Repository _sessionRepository;
-  late final bool _ownsSessionRepository;
+  late final ReplayRepository _replayRepository;
+  late final bool _ownsReplayRepository;
 
   @override
   void initState() {
@@ -39,8 +39,8 @@ class _AppShellState extends State<AppShell> {
     _repository = widget.repository ?? JolpicaRepository();
     _ownsNews = widget.newsRepository == null;
     _news = widget.newsRepository ?? NewsRepository();
-    _ownsSessionRepository = widget.sessionRepository == null;
-    _sessionRepository = widget.sessionRepository ?? OpenF1Repository();
+    _ownsReplayRepository = widget.replayRepository == null;
+    _replayRepository = widget.replayRepository ?? ReplayRepository();
   }
 
   List<Widget> _screens() => [
@@ -53,7 +53,7 @@ class _AppShellState extends State<AppShell> {
       CalendarScreen(repository: _repository, clock: widget.clock),
       NewsScreen(repository: _news),
       ResultsScreen(repository: _repository),
-      AnalysisScreen(repository: _sessionRepository, active: _index == 4),
+      ReplayScreen(repository: _replayRepository, embedded: true, active: _index == 4),
     ];
 
   void _openMore() {
@@ -66,7 +66,7 @@ class _AppShellState extends State<AppShell> {
   void dispose() {
     if (_ownsRepository) _repository.close();
     if (_ownsNews) _news.close();
-    if (_ownsSessionRepository) _sessionRepository.close();
+    if (_ownsReplayRepository) _replayRepository.close();
     super.dispose();
   }
 
@@ -105,7 +105,7 @@ class _AppShellState extends State<AppShell> {
           NavigationDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month), label: 'Takvim'),
           NavigationDestination(icon: Icon(Icons.newspaper_outlined), selectedIcon: Icon(Icons.newspaper), label: 'Haberler'),
           NavigationDestination(icon: Icon(Icons.emoji_events_outlined), selectedIcon: Icon(Icons.emoji_events), label: 'Sonuçlar'),
-          NavigationDestination(icon: Icon(Icons.query_stats_outlined), selectedIcon: Icon(Icons.query_stats), label: 'Analiz'),
+          NavigationDestination(icon: Icon(Icons.play_circle_outline_rounded), selectedIcon: Icon(Icons.play_circle_rounded), label: 'Replay'),
         ],
       ),
       ),

@@ -36,7 +36,7 @@ class SettingsScreen extends StatelessWidget {
                   ]),
                 ),
                 const SizedBox(height: 14),
-                Text('Yarış analizleri OpenF1’ın geçmiş verilerinden yüklenir. API anahtarı gerekmez.', style: textTheme.bodySmall?.copyWith(color: AppColors.muted, height: 1.5)),
+                Text('Yarış replay verisi OpenF1 kaynaklıdır ve GitHub üzerinden indirilir. API anahtarı gerekmez.', style: textTheme.bodySmall?.copyWith(color: AppColors.muted, height: 1.5)),
               ],
             ),
           ),

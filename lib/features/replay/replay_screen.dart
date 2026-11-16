@@ -7,6 +7,7 @@ import 'package:flutter/scheduler.dart' show Ticker;
 import '../../core/models/replay_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/remote/replay_repository.dart';
+import '../../shared/widgets/section_title.dart';
 
 String _clock(double seconds) {
   final total = seconds.isNaN || seconds < 0 ? 0 : seconds.floor();
@@ -19,9 +20,15 @@ String _clock(double seconds) {
 
 /// Hazır replay'lerin listesi. [repository] verilmezse kendi deposunu oluşturur ve kapatır.
 class ReplayScreen extends StatefulWidget {
-  const ReplayScreen({super.key, this.repository});
+  const ReplayScreen({super.key, this.repository, this.embedded = false, this.active = true});
 
   final ReplayRepository? repository;
+
+  /// true: ana iskeletin alt gezinme sekmesi olarak (kendi Scaffold/AppBar'ı olmadan) çizilir.
+  final bool embedded;
+
+  /// false iken veri istenmez; sekme ilk kez açılınca liste yüklenir.
+  final bool active;
 
   @override
   State<ReplayScreen> createState() => _ReplayScreenState();
@@ -30,14 +37,20 @@ class ReplayScreen extends StatefulWidget {
 class _ReplayScreenState extends State<ReplayScreen> {
   late final ReplayRepository _repository;
   late final bool _ownsRepository;
-  late Future<ReplayIndex> _index;
+  Future<ReplayIndex>? _index;
 
   @override
   void initState() {
     super.initState();
     _ownsRepository = widget.repository == null;
     _repository = widget.repository ?? ReplayRepository();
-    _index = _repository.fetchIndex();
+    if (widget.active) _index = _repository.fetchIndex();
+  }
+
+  @override
+  void didUpdateWidget(covariant ReplayScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && _index == null) _index = _repository.fetchIndex();
   }
 
   @override
@@ -53,71 +66,84 @@ class _ReplayScreenState extends State<ReplayScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Yarış replay')),
-        body: SafeArea(
-          child: FutureBuilder<ReplayIndex>(
-            future: _index,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return _Message(
-                  icon: Icons.cloud_off_rounded,
-                  text: '${snapshot.error}',
-                  action: FilledButton(onPressed: _reload, child: const Text('Tekrar dene')),
-                );
-              }
-              final index = snapshot.data!;
-              if (index.sessions.isEmpty) {
-                return const _Message(
-                  icon: Icons.hourglass_empty_rounded,
-                  text: 'Henüz hazır replay yok. Yarış verisi yayınlandıktan sonra otomatik eklenir.',
-                );
-              }
-              return RefreshIndicator(
-                onRefresh: () async {
-                  _reload();
-                  try {
-                    await _index;
-                  } catch (_) {
-                    // Hata FutureBuilder tarafından gösterilir.
-                  }
-                },
-                child: ListView(
-                  padding: const EdgeInsets.all(20),
-                  children: [
-                    Text('Konum ve telemetriyle yarışı yeniden izle', style: TextStyle(color: AppColors.muted)),
-                    if (index.isCached)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text('Çevrimdışı kopya gösteriliyor', style: TextStyle(color: AppColors.amber, fontSize: 12)),
-                      ),
-                    const SizedBox(height: 16),
-                    for (final entry in index.sessions)
-                      Card(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        child: ListTile(
-                          leading: Icon(Icons.play_circle_outline_rounded, color: AppColors.red),
-                          title: Text(entry.name, style: const TextStyle(fontWeight: FontWeight.w800)),
-                          subtitle: Text(
-                            '${entry.sessionLabel} · ${entry.year} · Tur ${entry.round} · ${_clock(entry.duration)}',
-                            style: TextStyle(color: AppColors.muted, fontSize: 12),
-                          ),
-                          trailing: const Icon(Icons.chevron_right_rounded),
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(builder: (_) => ReplayPlayerScreen(repository: _repository, entry: entry)),
-                          ),
-                        ),
-                      ),
-                  ],
+  Widget build(BuildContext context) {
+    final body = _buildBody();
+    if (widget.embedded) return body;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Yarış replay')),
+      body: SafeArea(child: body),
+    );
+  }
+
+  Widget _buildBody() {
+    final future = _index;
+    if (future == null) return const SizedBox.shrink();
+    return FutureBuilder<ReplayIndex>(
+      future: future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return _Message(
+            icon: Icons.cloud_off_rounded,
+            text: '${snapshot.error}',
+            action: FilledButton(onPressed: _reload, child: const Text('Tekrar dene')),
+          );
+        }
+        final index = snapshot.data!;
+        if (index.sessions.isEmpty) {
+          return _Message(
+            icon: Icons.hourglass_empty_rounded,
+            text: 'Henüz hazır replay yok. Yarış verisi yayınlandıktan sonra otomatik eklenir.',
+            action: FilledButton.tonal(onPressed: _reload, child: const Text('Yenile')),
+          );
+        }
+        return RefreshIndicator(
+          onRefresh: () async {
+            _reload();
+            try {
+              await _index;
+            } catch (_) {
+              // Hata FutureBuilder tarafından gösterilir.
+            }
+          },
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              if (widget.embedded) ...[
+                const SectionTitle('Yarış replay'),
+                const SizedBox(height: 4),
+              ],
+              Text('Konum ve telemetriyle yarışı yeniden izle', style: TextStyle(color: AppColors.muted)),
+              if (index.isCached)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text('Çevrimdışı kopya gösteriliyor', style: TextStyle(color: AppColors.amber, fontSize: 12)),
                 ),
-              );
-            },
+              const SizedBox(height: 16),
+              for (final entry in index.sessions)
+                Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: ListTile(
+                    leading: Icon(Icons.play_circle_outline_rounded, color: AppColors.red),
+                    title: Text(entry.name, style: const TextStyle(fontWeight: FontWeight.w800)),
+                    subtitle: Text(
+                      '${entry.sessionLabel} · ${entry.year} · Yarış ${entry.round} · ${_clock(entry.duration)}',
+                      style: TextStyle(color: AppColors.muted, fontSize: 12),
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(builder: (_) => ReplayPlayerScreen(repository: _repository, entry: entry)),
+                    ),
+                  ),
+                ),
+            ],
           ),
-        ),
-      );
+        );
+      },
+    );
+  }
 }
 
 class _Message extends StatelessWidget {
