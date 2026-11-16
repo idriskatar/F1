@@ -1,33 +1,9 @@
 #!/usr/bin/env python3
-"""FastF1 verisinden F1 Tracker için küçük, sıkıştırılmış "replay" dosyaları üretir.
+# OpenF1 API verisinden F1 Tracker için küçük, sıkıştırılmış replay dosyaları üretir.
+# Çıktı (varsayılan: data/replay/):
+#   index.json -> hazır seansların listesi
+#   <yıl>/r<tur>-<seans>.json.gz -> tek bir seansın replay verisi (şema v1)
 
-Çıktı (varsayılan: data/replay/):
-    index.json                    -> hazır seansların listesi (uygulama önce bunu okur)
-    <yıl>/r<tur>-<seans>.json.gz  -> tek bir seansın replay verisi (şema aşağıda)
-
-Şema (version 1) — Flutter tarafı (lib/core/models/replay_models.dart) ile birebir aynıdır:
-    {
-      "version": 1,
-      "event": {"year", "round", "session", "name", "country", "circuit"},
-      "hz": 2,                       # örnekleme sıklığı; i. örnek = i / hz saniye
-      "duration": 5400.0,            # replay süresi (sn); t=0 yarış başlangıcı
-      "totalLaps": 57,
-      "lapStarts": [0.0, 95.2, ...], # kazananın tur başlangıçları (sn) -> tur sayacı
-      "track": {"x": [...], "y": [...]},       # pist çizgisi (FastF1 konum birimi, 1/10 m)
-      "drivers": [{
-          "number", "code", "name", "team", "color", "position",
-          "x": [...], "y": [...],                # veri yoksa null
-          "speed", "gear", "throttle", "brake", "drs"   # isteğe bağlı kanallar
-      }],
-      "pits": [{"driver": "VER", "lap": 12, "in": 1234.5, "out": 1257.0, "pitLane": 22.5}]
-    }
-
-Notlar:
-  * "pitLane" pit şeridinde geçen süredir (giriş -> çıkış), lastik değişim anındaki
-    duruş süresi DEĞİLDİR; FastF1 duruş süresini vermez.
-  * Veri seanstan ~30-120 dk sonra yayınlanır. Eksik/yarım veri "tamamlandı" sayılmaz
-    (validate_payload); betik bir sonraki çalışmada yeniden dener.
-"""
 from __future__ import annotations
 
 import argparse
@@ -37,6 +13,7 @@ import math
 import os
 import sys
 import tempfile
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -48,9 +25,10 @@ import pandas as pd
 SCHEMA_VERSION = 1
 DEFAULT_HZ = 2
 MAX_GAP_SECONDS = 3.0      # kaynak örnekler arasında bundan büyük boşluk -> veri yok (null)
-DRS_OPEN_MIN = 10          # FastF1 DRS kodu: 10/12/14 = açık, 8 = açılabilir, 0/1 = kapalı
+DRS_OPEN_MIN = 10          # F1 DRS kodu: 10/12/14 = açık, 8 = açılabilir, 0/1 = kapalı
 TRACK_MAX_POINTS = 400
 FALLBACK_COLOR = "#9AA0A6"
+OPENF1_BASE_URL = "https://api.openf1.org/v1"
 
 
 class IncompleteData(RuntimeError):
@@ -59,8 +37,6 @@ class IncompleteData(RuntimeError):
 
 @dataclass
 class RawSession:
-    """FastF1'den bağımsız, test edilebilir ara temsil."""
-
     year: int
     round: int
     code: str
@@ -71,15 +47,13 @@ class RawSession:
     laps: pd.DataFrame
     car: dict[str, pd.DataFrame] = field(default_factory=dict)
     pos: dict[str, pd.DataFrame] = field(default_factory=dict)
+    pits_override: Optional[list[dict[str, Any]]] = None
 
 
 # --------------------------------------------------------------------------- yardımcılar
 
 def _seconds(series: pd.Series) -> np.ndarray:
-    """Timedelta serisini saniyeye çevirir; NaT -> NaN."""
     if pd.api.types.is_datetime64_any_dtype(series):
-        # Tamamen NaT olan kolonlar (ör. hiç pit yok) bazen datetime türünde gelir; oturum
-        # zamanı olarak yorumlanamaz, hepsi "yok" sayılır.
         return np.full(len(series), np.nan)
     td = pd.to_timedelta(series, errors="coerce")
     return td.dt.total_seconds().to_numpy(dtype=float, na_value=np.nan)
@@ -102,21 +76,21 @@ def _color(value: Any) -> str:
 
 
 def _prepare(df: pd.DataFrame, columns: list[str]) -> tuple[np.ndarray, dict[str, np.ndarray]]:
-    """Zamana göre sıralı, tekrarsız (t, {kolon: değerler}) döndürür."""
     t = _seconds(df["SessionTime"])
     keep = ~np.isnan(t)
     t = t[keep]
+    order = np.argsort(t)
+    t = t[order]
     uniq, first = np.unique(t, return_index=True)
     values = {}
     for col in columns:
         if col in df.columns:
             raw = pd.to_numeric(df[col], errors="coerce")
-            values[col] = raw.to_numpy(dtype=float, na_value=np.nan)[keep][first]
+            values[col] = raw.to_numpy(dtype=float, na_value=np.nan)[keep][order][first]
     return uniq, values
 
 
 def _coverage(t_src: np.ndarray, grid: np.ndarray, max_gap: float) -> tuple[np.ndarray, np.ndarray]:
-    """grid noktalarında kaynak verinin güvenilir olduğu yerleri ve 'önceki örnek' indeksini verir."""
     if len(t_src) == 0:
         return np.zeros(grid.shape, dtype=bool), np.zeros(grid.shape, dtype=int)
     right = np.searchsorted(t_src, grid, side="right")
@@ -150,7 +124,6 @@ def _to_list(arr: np.ndarray) -> list[Optional[int]]:
 # --------------------------------------------------------------------------- hesaplama
 
 def race_window(laps: pd.DataFrame) -> tuple[float, float]:
-    """Replay'in başlangıç (t0) ve bitiş (t1) oturum zamanı."""
     starts = _seconds(laps["LapStartTime"])
     lap_no = pd.to_numeric(laps["LapNumber"], errors="coerce").to_numpy(dtype=float, na_value=np.nan)
     first = starts[(lap_no == 1) & ~np.isnan(starts)]
@@ -159,19 +132,20 @@ def race_window(laps: pd.DataFrame) -> tuple[float, float]:
     elif np.any(~np.isnan(starts)):
         t0 = float(np.nanmin(starts))
     else:
-        raise IncompleteData("Tur başlangıç zamanları yok.")
+        raise IncompleteData("Tur baslangic zamanlari yok.")
     ends = _seconds(laps["Time"])
     if not np.any(~np.isnan(ends)):
-        raise IncompleteData("Tur bitiş zamanları yok.")
+        raise IncompleteData("Tur bitis zamanlari yok.")
     t1 = float(np.nanmax(ends))
     if t1 <= t0:
-        raise IncompleteData("Yarış penceresi geçersiz.")
+        raise IncompleteData("Yaris penceresi gecersiz.")
     return t0, t1
 
 
 def extract_pits(laps: pd.DataFrame, codes: dict[str, str], t0: float) -> list[dict[str, Any]]:
-    """Pit giriş/çıkışlarını (replay saniyesi) çıkarır."""
     pits: list[dict[str, Any]] = []
+    if "PitInTime" not in laps.columns or "PitOutTime" not in laps.columns:
+        return pits
     for number, group in laps.groupby("DriverNumber"):
         number = str(number)
         if number not in codes:
@@ -185,7 +159,6 @@ def extract_pits(laps: pd.DataFrame, codes: dict[str, str], t0: float) -> list[d
                 continue
             t_in = pit_in[i] - t0
             t_out = None
-            # Çıkış, sonraki turun PitOutTime alanındadır.
             nxt = np.where(lap_no == lap_no[i] + 1)[0]
             if len(nxt) and not np.isnan(pit_out[nxt[0]]):
                 t_out = pit_out[nxt[0]] - t0
@@ -203,16 +176,14 @@ def extract_pits(laps: pd.DataFrame, codes: dict[str, str], t0: float) -> list[d
 
 
 def track_outline(raw: RawSession, max_points: int = TRACK_MAX_POINTS) -> dict[str, list[int]]:
-    """En hızlı 'doğru' turun konum izinden pist çizgisini çıkarır."""
     laps = raw.laps.copy()
     laps["_lt"] = _seconds(laps["LapTime"])
-    candidates = laps[laps["_lt"].notna()]
+    candidates = laps[laps["_lt"].notna() & (laps["_lt"] > 0)]
     if "IsAccurate" in candidates.columns:
         accurate = candidates[candidates["IsAccurate"].fillna(False).astype(bool)]
         if len(accurate):
             candidates = accurate
-    # Hızlıdan yavaşa dene; konum verisi olan ilk turu kullan.
-    for _, lap in candidates.sort_values("_lt").head(10).iterrows():
+    for _, lap in candidates.sort_values("_lt").head(15).iterrows():
         pos = raw.pos.get(str(lap["DriverNumber"]))
         if pos is None or "X" not in pos.columns:
             continue
@@ -230,14 +201,13 @@ def track_outline(raw: RawSession, max_points: int = TRACK_MAX_POINTS) -> dict[s
             continue
         step = max(1, len(xs) // max_points)
         xs, ys = xs[::step], ys[::step]
-        xs = np.append(xs, xs[0])   # çizgiyi kapat
+        xs = np.append(xs, xs[0])
         ys = np.append(ys, ys[0])
         return {"x": [int(v) for v in np.rint(xs)], "y": [int(v) for v in np.rint(ys)]}
-    raise IncompleteData("Pist çizgisi için konum verisi bulunamadı.")
+    raise IncompleteData("Pist cizgisi icin konum verisi bulunamadi.")
 
 
 def lap_starts(raw: RawSession, t0: float) -> tuple[list[float], int]:
-    """Lider (kazanan) tur başlangıçları ve toplam tur sayısı."""
     laps = raw.laps
     total = int(pd.to_numeric(laps["LapNumber"], errors="coerce").max())
     winner = next((r["number"] for r in raw.results if r.get("position") == 1), None)
@@ -300,6 +270,23 @@ def build_payload(raw: RawSession, hz: int = DEFAULT_HZ) -> dict[str, Any]:
 
     drivers.sort(key=lambda d: (d["position"] is None, d["position"] or 0, d["code"]))
     starts, total = lap_starts(raw, t0)
+
+    if raw.pits_override is not None:
+        pits = [
+            {
+                "driver": p["driver"],
+                "lap": p["lap"],
+                "in": round(p["abs_in"] - t0, 1),
+                "out": None if p["abs_out"] is None else round(p["abs_out"] - t0, 1),
+                "pitLane": p["pit_lane"],
+            }
+            for p in raw.pits_override
+            if p["abs_in"] >= t0
+        ]
+        pits.sort(key=lambda p: (p["in"], p["driver"]))
+    else:
+        pits = extract_pits(raw.laps, codes, t0)
+
     return {
         "version": SCHEMA_VERSION,
         "event": {
@@ -316,22 +303,21 @@ def build_payload(raw: RawSession, hz: int = DEFAULT_HZ) -> dict[str, Any]:
         "lapStarts": starts,
         "track": track_outline(raw),
         "drivers": drivers,
-        "pits": extract_pits(raw.laps, codes, t0),
+        "pits": pits,
     }
 
 
 def validate_payload(payload: dict[str, Any], min_drivers: int = 10,
                      min_coverage: float = 0.5, min_duration: float = 600.0) -> None:
-    """Tamamlanmamış seansı 'hazır' saymamak için basit bütünlük kontrolü."""
     if payload["duration"] < min_duration:
-        raise IncompleteData(f"Seans çok kısa ({payload['duration']} sn).")
+        raise IncompleteData(f"Seans cok kisa ({payload['duration']} sn).")
     good = 0
     for d in payload["drivers"]:
         xs = d["x"]
         if xs and sum(v is not None for v in xs) / len(xs) >= min_coverage:
             good += 1
     if good < min_drivers:
-        raise IncompleteData(f"Yeterli konum verisi olan pilot sayısı {good} (en az {min_drivers}).")
+        raise IncompleteData(f"Yeterli konum verisi olan pilot sayisi {good} (en az {min_drivers}).")
 
 
 # --------------------------------------------------------------------------- dosya işleri
@@ -394,7 +380,6 @@ def write_session(out_dir: Path, payload: dict[str, Any], now: Optional[datetime
 
 def pending_races(schedule: list[dict[str, Any]], index: dict[str, Any], now: datetime,
                   settle: timedelta = timedelta(hours=3)) -> list[dict[str, Any]]:
-    """Bitmiş (ve veri yayınlanması için beklenmiş) ama henüz işlenmemiş yarışlar, yeniden eskiye."""
     due = []
     for ev in schedule:
         end = ev.get("race_end_utc")
@@ -407,58 +392,200 @@ def pending_races(schedule: list[dict[str, Any]], index: dict[str, Any], now: da
     return due
 
 
-# --------------------------------------------------------------------------- FastF1 katmanı
+# --------------------------------------------------------------------------- OpenF1 API katmanı
+
+def _openf1_get(endpoint: str, params: dict[str, Any], retries: int = 4) -> list[dict[str, Any]]:
+    import requests
+
+    url = f"{OPENF1_BASE_URL}/{endpoint}"
+    for attempt in range(retries):
+        resp = requests.get(url, params=params, timeout=60)
+        if resp.status_code == 200:
+            data = resp.json()
+            return data if isinstance(data, list) else []
+        if resp.status_code in (429, 500, 502, 503, 504):
+            time.sleep(2.0 * (attempt + 1))
+            continue
+        if resp.status_code == 404:
+            return []
+        resp.raise_for_status()
+    raise IncompleteData(f"OpenF1 '{endpoint}' istegi zaman asimina ugradi.")
+
+
+def _parse_iso(ts: Any) -> Optional[datetime]:
+    if not ts:
+        return None
+    dt = pd.to_datetime(ts, utc=True, errors="coerce")
+    if pd.isna(dt):
+        return None
+    return dt.to_pydatetime()
+
+
+def _resolve_session(year: int, rnd: int, code: str) -> dict[str, Any]:
+    sessions = _openf1_get("sessions", {"year": year})
+    if not sessions:
+        raise IncompleteData(f"{year} sezonu icin OpenF1 seans listesi bulunamadi.")
+
+    race_meetings: dict[int, datetime] = {}
+    for s in sessions:
+        sname = _clean(s.get("session_name")).lower()
+        stype = _clean(s.get("session_type")).lower()
+        if "testing" in sname or ("practice" in sname and "testing" in _clean(s.get("meeting_name")).lower()):
+            continue
+        if stype == "race":
+            mk = s.get("meeting_key")
+            dt = _parse_iso(s.get("date_start"))
+            if mk is not None and dt is not None:
+                if mk not in race_meetings or dt < race_meetings[mk]:
+                    race_meetings[mk] = dt
+
+    ordered_meetings = [mk for mk, _ in sorted(race_meetings.items(), key=lambda x: x[1])]
+    if rnd < 1 or rnd > len(ordered_meetings):
+        raise IncompleteData(f"{year} sezonunda {rnd}. tur bulunamadi (toplam {len(ordered_meetings)} tur).")
+
+    target_mk = ordered_meetings[rnd - 1]
+    target_name = "Sprint" if code.upper() == "S" else "Race"
+
+    for s in sessions:
+        if s.get("meeting_key") == target_mk and _clean(s.get("session_name")).lower() == target_name.lower():
+            return s
+
+    raise IncompleteData(f"{year} r{rnd} icin '{target_name}' seansi bulunamadi.")
+
 
 def load_raw(year: int, rnd: int, code: str = "R", cache_dir: str = ".fastf1-cache") -> RawSession:
-    import fastf1  # tembel içe aktarma: saf fonksiyonlar FastF1 olmadan test edilebilsin
+    session_info = _resolve_session(year, rnd, code)
+    session_key = session_info["session_key"]
+    session_start = _parse_iso(session_info.get("date_start"))
+    if session_start is None:
+        raise IncompleteData("Seans baslangic zamani eksik.")
 
-    Path(cache_dir).mkdir(parents=True, exist_ok=True)
-    fastf1.Cache.enable_cache(cache_dir)
-    session = fastf1.get_session(year, rnd, code)
-    session.load(laps=True, telemetry=True, weather=False, messages=False)
+    def to_rel_td(iso_series: pd.Series) -> pd.Series:
+        dt = pd.to_datetime(iso_series, utc=True, errors="coerce")
+        return dt - pd.Timestamp(session_start)
 
-    results = []
-    for _, row in session.results.iterrows():
-        position = row.get("Position")
+    drivers_raw = _openf1_get("drivers", {"session_key": session_key})
+    if not drivers_raw:
+        raise IncompleteData("Pilot listesi henüz yayinlanmadi.")
+
+    results_raw = _openf1_get("session_result", {"session_key": session_key})
+    pos_map = {str(r["driver_number"]): r.get("position") for r in results_raw if r.get("driver_number") is not None}
+
+    results: list[dict[str, Any]] = []
+    seen_nums: set[str] = set()
+    for d in drivers_raw:
+        num = _clean(d.get("driver_number"))
+        if not num or num in seen_nums:
+            continue
+        seen_nums.add(num)
+        pos_val = pos_map.get(num)
         results.append({
-            "number": _clean(row.get("DriverNumber")),
-            "code": _clean(row.get("Abbreviation"), _clean(row.get("DriverNumber"))),
-            "name": _clean(row.get("FullName")),
-            "team": _clean(row.get("TeamName")),
-            "color": _clean(row.get("TeamColor")),
-            "position": None if position is None or pd.isna(position) else int(position),
+            "number": num,
+            "code": _clean(d.get("name_acronym"), num),
+            "name": _clean(d.get("full_name") or d.get("broadcast_name"), num),
+            "team": _clean(d.get("team_name")),
+            "color": _clean(d.get("team_colour")),
+            "position": None if pos_val is None or pd.isna(pos_val) else int(pos_val),
         })
 
-    lap_cols = ["DriverNumber", "LapNumber", "LapStartTime", "Time", "LapTime", "PitInTime", "PitOutTime", "IsAccurate"]
-    laps = pd.DataFrame(session.laps)
-    laps = laps[[c for c in lap_cols if c in laps.columns]].copy()
-    laps["DriverNumber"] = laps["DriverNumber"].astype(str)
+    codes = {r["number"]: r["code"] for r in results}
 
-    car = {str(k): pd.DataFrame(v) for k, v in session.car_data.items()}
-    pos = {str(k): pd.DataFrame(v) for k, v in session.pos_data.items()}
-    event = session.event
+    laps_raw = _openf1_get("laps", {"session_key": session_key})
+    if not laps_raw:
+        raise IncompleteData("Tur verileri henüz yayinlanmadi.")
+
+    laps_df = pd.DataFrame(laps_raw)
+    laps_df["DriverNumber"] = laps_df["driver_number"].astype(str)
+    laps_df["LapNumber"] = pd.to_numeric(laps_df["lap_number"], errors="coerce")
+    laps_df["LapStartTime"] = to_rel_td(laps_df["date_start"])
+    laps_df["LapTime"] = pd.to_timedelta(pd.to_numeric(laps_df["lap_duration"], errors="coerce"), unit="s")
+    laps_df["Time"] = laps_df["LapStartTime"] + laps_df["LapTime"]
+    if "is_pit_out_lap" in laps_df.columns:
+        laps_df["IsAccurate"] = ~laps_df["is_pit_out_lap"].fillna(False).astype(bool)
+    else:
+        laps_df["IsAccurate"] = True
+
+    laps_df = laps_df.sort_values(["DriverNumber", "LapNumber"]).reset_index(drop=True)
+    next_start = laps_df.groupby("DriverNumber")["LapStartTime"].shift(-1)
+    laps_df["Time"] = laps_df["Time"].fillna(next_start)
+
+    pits_raw = _openf1_get("pit", {"session_key": session_key})
+    pits_override: list[dict[str, Any]] = []
+    for p in pits_raw:
+        num = _clean(p.get("driver_number"))
+        if num not in codes:
+            continue
+        dt_pit = _parse_iso(p.get("date"))
+        if dt_pit is None:
+            continue
+        abs_in = (dt_pit - session_start).total_seconds()
+        dur = p.get("pit_duration")
+        pit_lane = round(float(dur), 1) if dur is not None and not pd.isna(dur) else None
+        abs_out = (abs_in + pit_lane) if pit_lane is not None else None
+        pits_override.append({
+            "driver": codes[num],
+            "lap": int(p.get("lap_number") or 0),
+            "abs_in": abs_in,
+            "abs_out": abs_out,
+            "pit_lane": pit_lane,
+        })
+
+    car: dict[str, pd.DataFrame] = {}
+    pos: dict[str, pd.DataFrame] = {}
+
+    for r in results:
+        num = r["number"]
+        loc_rows = _openf1_get("location", {"session_key": session_key, "driver_number": int(num)})
+        if loc_rows:
+            df_loc = pd.DataFrame(loc_rows)
+            df_loc["SessionTime"] = to_rel_td(df_loc["date"])
+            df_loc["X"] = pd.to_numeric(df_loc["x"], errors="coerce")
+            df_loc["Y"] = pd.to_numeric(df_loc["y"], errors="coerce")
+            pos[num] = df_loc[["SessionTime", "X", "Y"]]
+
+        car_rows = _openf1_get("car_data", {"session_key": session_key, "driver_number": int(num)})
+        if car_rows:
+            df_car = pd.DataFrame(car_rows)
+            df_car["SessionTime"] = to_rel_td(df_car["date"])
+            df_car["Speed"] = pd.to_numeric(df_car.get("speed"), errors="coerce")
+            df_car["nGear"] = pd.to_numeric(df_car.get("n_gear"), errors="coerce")
+            df_car["Throttle"] = pd.to_numeric(df_car.get("throttle"), errors="coerce")
+            df_car["Brake"] = pd.to_numeric(df_car.get("brake"), errors="coerce")
+            df_car["DRS"] = pd.to_numeric(df_car.get("drs"), errors="coerce")
+            car[num] = df_car[["SessionTime", "Speed", "nGear", "Throttle", "Brake", "DRS"]]
+
+        time.sleep(0.1)
+
+    event_name = _clean(session_info.get("meeting_name") or session_info.get("country_name"), f"Round {rnd}")
     return RawSession(
-        year=year, round=rnd, code=code,
-        event_name=_clean(event.get("EventName"), f"Round {rnd}"),
-        country=_clean(event.get("Country")),
-        circuit=_clean(event.get("Location")),
-        results=results, laps=laps, car=car, pos=pos,
+        year=year,
+        round=rnd,
+        code=code.upper(),
+        event_name=event_name,
+        country=_clean(session_info.get("country_name")),
+        circuit=_clean(session_info.get("circuit_short_name") or session_info.get("location")),
+        results=results,
+        laps=laps_df,
+        car=car,
+        pos=pos,
+        pits_override=pits_override,
     )
 
 
 def fetch_schedule(year: int) -> list[dict[str, Any]]:
-    import fastf1
+    sessions = _openf1_get("sessions", {"year": year})
+    races = []
+    for s in sessions:
+        if _clean(s.get("session_name")).lower() == "race":
+            dt_start = _parse_iso(s.get("date_start"))
+            dt_end = _parse_iso(s.get("date_end"))
+            if dt_start is not None:
+                races.append((dt_start, dt_end))
 
-    schedule = fastf1.get_event_schedule(year, include_testing=False)
+    races.sort(key=lambda x: x[0])
     events = []
-    for _, row in schedule.iterrows():
-        end = row.get("Session5DateUtc")
-        if end is None or pd.isna(end):
-            end = None
-        else:
-            end = pd.Timestamp(end)
-            end = (end.tz_localize("UTC") if end.tzinfo is None else end.tz_convert("UTC")).to_pydatetime()
-        events.append({"year": year, "round": int(row["RoundNumber"]), "race_end_utc": end})
+    for idx, (dt_start, dt_end) in enumerate(races, start=1):
+        events.append({"year": year, "round": idx, "race_end_utc": dt_end})
     return events
 
 
@@ -470,12 +597,12 @@ def process(year: int, rnd: int, code: str, out_dir: Path, hz: int, cache_dir: s
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser = argparse.ArgumentParser(description="OpenF1 Replay Builder")
     parser.add_argument("--year", type=int)
     parser.add_argument("--round", type=int)
     parser.add_argument("--session", default="R", choices=["R", "S"])
-    parser.add_argument("--latest", action="store_true", help="Bitmiş ama işlenmemiş yarışları işle")
-    parser.add_argument("--limit", type=int, default=2, help="--latest ile bir seferde en fazla kaç yarış")
+    parser.add_argument("--latest", action="store_true")
+    parser.add_argument("--limit", type=int, default=2)
     parser.add_argument("--hz", type=int, default=DEFAULT_HZ)
     parser.add_argument("--out", default="data/replay")
     parser.add_argument("--cache", default=".fastf1-cache")
@@ -487,14 +614,14 @@ def main(argv: Optional[list[str]] = None) -> int:
         index = load_index(out_dir)
         todo = pending_races(fetch_schedule(now.year), index, now)[: args.limit]
         if not todo:
-            print("İşlenecek yeni yarış yok.")
+            print("Islenecek yeni yaris yok.")
             return 0
         for ev in todo:
             try:
                 entry = process(ev["year"], ev["round"], "R", out_dir, args.hz, args.cache)
                 print(f"OK  {entry['name']} ({entry['bytes'] / 1024:.0f} KB)")
-            except Exception as error:  # zamanlanmış çalışma sonraki turda yeniden dener
-                print(f"::warning::{ev['year']} r{ev['round']} işlenemedi: {error}")
+            except Exception as error:
+                print(f"::warning::{ev['year']} r{ev['round']} islenemedi: {error}")
         return 0
 
     if args.year is None or args.round is None:
