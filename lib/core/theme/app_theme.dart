@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Palette shared by the premium F1 screens. Selected theme is persisted by F1TrackerApp.
 class AppColors {

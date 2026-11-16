@@ -1,6 +1,6 @@
 import 'package:f1_tracker/core/theme/app_theme.dart';
 import 'package:f1_tracker/features/home/home_screen.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/fakes.dart';

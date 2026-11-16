@@ -5,7 +5,7 @@ import 'package:f1_tracker/core/models/replay_models.dart';
 import 'package:f1_tracker/core/theme/app_theme.dart';
 import 'package:f1_tracker/data/remote/replay_repository.dart';
 import 'package:f1_tracker/features/replay/replay_screen.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class FakeReplayRepository extends ReplayRepository {
