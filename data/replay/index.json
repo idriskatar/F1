@@ -65,6 +65,19 @@
       "duration": 6464.6,
       "hz": 2,
       "generatedAt": "2026-11-16T22:16:08Z"
+    },
+    {
+      "year": 2026,
+      "round": 17,
+      "session": "R",
+      "name": "Azerbaijan",
+      "country": "Azerbaijan",
+      "circuit": "Baku",
+      "file": "2026/r17-R.json.gz",
+      "bytes": 1539077,
+      "duration": 5923.9,
+      "hz": 2,
+      "generatedAt": "2026-11-17T00:52:31Z"
     }
   ]
 }
