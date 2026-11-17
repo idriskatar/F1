@@ -102,4 +102,88 @@ void main() {
     expect(entry.cacheName, '2099-r1-R-20261115120000');
     expect(index.isCached, isFalse);
   });
+
+  test('yeni alanlar: soyad, rpm, sıra geçmişi, turlar ve stintler okunur', () {
+    final a = data.drivers.first;
+    expect(a.surname, 'Alpha');
+    expect(a.rpmAt(5, data.hz), inInclusiveRange(6000, 12000));
+    expect(a.positionLog.length, 1);
+    expect(a.laps.length, 3);
+    expect(a.laps[0].s1, isNull); // 1. turun 1. sektörü boş
+    expect(a.laps[1].s1, 5.5);
+    expect(data.hasLivePositions, isTrue);
+    expect(data.drivers[1].stints.map((s) => s.letter), ['M', 'H']);
+  });
+
+  test('sıralama zamana göre değişir', () {
+    List<String> codes(double t) => data.orderAt(t).map((d) => d.code).toList();
+    expect(codes(10), ['AAA', 'BBB', 'CCC', 'DDD']);
+    expect(codes(29.9), ['AAA', 'BBB', 'CCC', 'DDD']);
+    expect(codes(30), ['AAA', 'CCC', 'BBB', 'DDD']);
+    final bravo = data.drivers[1];
+    expect(bravo.rankAt(10), 2);
+    expect(bravo.rankAt(45), 3);
+    expect(bravo.rankAt(-1), isNull);
+  });
+
+  test('eski biçimli dosya (yeni alanlar yok) açılır ve bitiş sırasını gösterir', () {
+    final json = loadFixture();
+    for (final driver in json['drivers'] as List) {
+      (driver as Map<String, dynamic>)
+        ..remove('positionLog')
+        ..remove('laps')
+        ..remove('stints')
+        ..remove('rpm')
+        ..remove('lastName');
+    }
+    final old = ReplayData.fromJson(json);
+    expect(old.hasLivePositions, isFalse);
+    expect(old.orderAt(40).map((d) => d.code).toList(), ['AAA', 'BBB', 'CCC', 'DDD']);
+    expect(old.drivers.first.surname, 'A'); // adın son sözcüğü
+    expect(old.drivers.first.currentLapAt(10), isNull);
+    expect(old.sectorStatesAt(old.drivers.first, 10), everyElement(SectorStatus.unknown));
+  });
+
+  test('süren ve tamamlanan tur', () {
+    final a = data.drivers.first;
+    expect(a.currentLapAt(25)!.number, 2);
+    expect(a.lastCompletedLapAt(25)!.number, 1);
+    expect(a.lastCompletedLapAt(10), isNull);
+    expect(a.currentLapAt(-1), isNull);
+  });
+
+  test('sektör en iyileri yalnızca o ana kadar tamamlananlardan hesaplanır', () {
+    final a = data.drivers.first;
+    expect(data.bestsAt(25, a).sectors[0], isNull); // AAA S1 25.5'te biter, 1. turda S1 boş
+    final at26 = data.bestsAt(26, a);
+    expect(at26.sectors[0], 5.5);
+    expect(at26.personalSectors[0], 5.5);
+    expect(at26.lap, 20.0);
+    expect(at26.classifyLap(20.0), SectorStatus.overallBest);
+    expect(at26.classifyLap(21.0), SectorStatus.slower);
+  });
+
+  test('sektör durumları tur ilerledikçe renklenir', () {
+    final a = data.drivers.first;
+    expect(data.sectorStatesAt(a, 5), [SectorStatus.unknown, SectorStatus.unknown, SectorStatus.unknown]);
+    expect(data.sectorStatesAt(a, 25), [SectorStatus.active, SectorStatus.upcoming, SectorStatus.upcoming]);
+    expect(data.sectorStatesAt(a, 26), [SectorStatus.overallBest, SectorStatus.active, SectorStatus.upcoming]);
+    expect(data.sectorStatesAt(a, 34), [SectorStatus.overallBest, SectorStatus.overallBest, SectorStatus.active]);
+  });
+
+  test('lastik: tur numarasına göre bileşen ve yaş', () {
+    final bravo = data.drivers[1];
+    expect(bravo.stintAtLap(2)!.compound, 'MEDIUM');
+    expect(bravo.stintAtLap(2)!.ageAt(2), 1);
+    expect(bravo.stintAtLap(3)!.letter, 'H');
+    expect(bravo.stintAtLap(3)!.ageAt(3), 0);
+    expect(bravo.stintAtLap(0), isNull);
+    expect(data.drivers[2].stintAtLap(3)!.ageAt(3), 4); // başlangıç yaşı 2 + 2 tur
+  });
+
+  test('tur süresi biçimlenir', () {
+    expect(formatLapTime(104.84), '1:44.840');
+    expect(formatLapTime(59.5), '0:59.500');
+    expect(formatLapTime(5), '0:05.000');
+  });
 }

@@ -48,6 +48,10 @@ class RawSession:
     car: dict[str, pd.DataFrame] = field(default_factory=dict)
     pos: dict[str, pd.DataFrame] = field(default_factory=dict)
     pits_override: Optional[list[dict[str, Any]]] = None
+    # pilot no -> [(oturum saniyesi, sıra), ...]  (OpenF1 'position' ucu)
+    position_log: Optional[dict[str, list[tuple[float, int]]]] = None
+    # pilot no -> [{'compound', 'lap_start', 'lap_end', 'age'}, ...]  (OpenF1 'stints' ucu)
+    stints: Optional[dict[str, list[dict[str, Any]]]] = None
 
 
 # --------------------------------------------------------------------------- yardımcılar
@@ -223,6 +227,66 @@ def lap_starts(raw: RawSession, t0: float) -> tuple[list[float], int]:
     return [round(float(s), 1) for s in starts], total
 
 
+def position_log_for(raw: RawSession, number: str, t0: float) -> list[list[Any]]:
+    """Sıra değişimleri: [[replay_sn, sıra], ...]. t0 anındaki sıra 0. saniyeye taşınır."""
+    events = sorted((raw.position_log or {}).get(number) or [], key=lambda e: e[0])
+    initial = None
+    rest: list[tuple[float, int]] = []
+    for ts, pos in events:
+        if ts <= t0:
+            initial = int(pos)
+        else:
+            rest.append((ts - t0, int(pos)))
+    out: list[list[Any]] = []
+    if initial is not None:
+        out.append([0.0, initial])
+    for rel, pos in rest:
+        if out and out[-1][1] == pos:
+            continue                      # arka arkaya aynı sıra: gereksiz
+        out.append([round(rel, 1), pos])
+    return out
+
+
+def laps_table(laps: pd.DataFrame, number: str, t0: float) -> list[list[Any]]:
+    """[[tur, başlangıç_sn, süre, s1, s2, s3], ...]; bilinmeyenler null. Süreler saniye."""
+    g = laps[laps["DriverNumber"].astype(str) == number].sort_values("LapNumber")
+    if g.empty:
+        return []
+    nums = pd.to_numeric(g["LapNumber"], errors="coerce").to_numpy(dtype=float, na_value=np.nan)
+    starts = _seconds(g["LapStartTime"]) - t0
+    durations = _seconds(g["LapTime"])
+    sectors = [
+        pd.to_numeric(g[c], errors="coerce").to_numpy(dtype=float, na_value=np.nan)
+        if c in g.columns else np.full(len(g), np.nan)
+        for c in ("S1", "S2", "S3")
+    ]
+    # OpenF1'de 1. turun date_start değeri sık sık boştur. t0 zaten 1. tur başlangıcından
+    # hesaplandıysa, eksik 1. tur başlangıcı yarış başlangıcıdır (0. saniye).
+    all_nums = pd.to_numeric(laps["LapNumber"], errors="coerce").to_numpy(dtype=float, na_value=np.nan)
+    all_starts = _seconds(laps["LapStartTime"])
+    lap1_known = bool(np.any((all_nums == 1) & ~np.isnan(all_starts)))
+
+    def rnd(value: float, digits: int) -> Optional[float]:
+        return None if math.isnan(value) else round(float(value), digits)
+
+    rows: list[list[Any]] = []
+    for i in range(len(g)):
+        if math.isnan(nums[i]):
+            continue
+        start = starts[i]
+        if math.isnan(start) and nums[i] == 1 and lap1_known:
+            start = 0.0
+        rows.append([int(nums[i]), rnd(start, 2), rnd(durations[i], 3),
+                     rnd(sectors[0][i], 3), rnd(sectors[1][i], 3), rnd(sectors[2][i], 3)])
+    return rows
+
+
+def stints_for(raw: RawSession, number: str) -> list[list[Any]]:
+    """[[bileşen, ilk_tur, son_tur|null, başlangıç_yaşı], ...]"""
+    items = sorted((raw.stints or {}).get(number) or [], key=lambda s: s["lap_start"])
+    return [[s["compound"], s["lap_start"], s["lap_end"], s["age"]] for s in items]
+
+
 def build_payload(raw: RawSession, hz: int = DEFAULT_HZ) -> dict[str, Any]:
     t0, t1 = race_window(raw.laps)
     n = int(math.floor((t1 - t0) * hz)) + 1
@@ -251,11 +315,15 @@ def build_payload(raw: RawSession, hz: int = DEFAULT_HZ) -> dict[str, Any]:
             "x": _to_list(x),
             "y": _to_list(y),
         }
+        if r.get("last_name"):
+            item["lastName"] = r["last_name"]
         car = raw.car.get(r["number"])
         if car is not None and len(car) >= 2:
-            t_car, c = _prepare(car, ["Speed", "nGear", "Throttle", "Brake", "DRS"])
+            t_car, c = _prepare(car, ["Speed", "nGear", "Throttle", "Brake", "DRS", "RPM"])
             if "Speed" in c:
                 item["speed"] = _to_list(_linear(t_car, c["Speed"], grid))
+            if "RPM" in c:
+                item["rpm"] = _to_list(_linear(t_car, c["RPM"], grid))
             if "nGear" in c:
                 item["gear"] = _to_list(_step(t_car, c["nGear"], grid))
             if "Throttle" in c:
@@ -266,6 +334,15 @@ def build_payload(raw: RawSession, hz: int = DEFAULT_HZ) -> dict[str, Any]:
             if "DRS" in c:
                 d = _step(t_car, c["DRS"], grid)
                 item["drs"] = _to_list(np.where(np.isnan(d), np.nan, (d >= DRS_OPEN_MIN).astype(float)))
+        log = position_log_for(raw, r["number"], t0)
+        if log:
+            item["positionLog"] = log
+        table = laps_table(raw.laps, r["number"], t0)
+        if table:
+            item["laps"] = table
+        stint_rows = stints_for(raw, r["number"])
+        if stint_rows:
+            item["stints"] = stint_rows
         drivers.append(item)
 
     drivers.sort(key=lambda d: (d["position"] is None, d["position"] or 0, d["code"]))
@@ -412,6 +489,15 @@ def _openf1_get(endpoint: str, params: dict[str, Any], retries: int = 4) -> list
     raise IncompleteData(f"OpenF1 '{endpoint}' istegi zaman asimina ugradi.")
 
 
+def _optional_get(endpoint: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+    """Replay için zorunlu olmayan uçlar: hata tüm seansı düşürmesin, uyarı verip boş dönsün."""
+    try:
+        return _openf1_get(endpoint, params)
+    except Exception as error:
+        print(f"::warning::OpenF1 '{endpoint}' alinamadi, atlaniyor: {error}")
+        return []
+
+
 def _parse_iso(ts: Any) -> Optional[datetime]:
     if not ts:
         return None
@@ -485,6 +571,7 @@ def load_raw(year: int, rnd: int, code: str = "R", cache_dir: str = ".fastf1-cac
             "number": num,
             "code": _clean(d.get("name_acronym"), num),
             "name": _clean(d.get("full_name") or d.get("broadcast_name"), num),
+            "last_name": _clean(d.get("last_name")),
             "team": _clean(d.get("team_name")),
             "color": _clean(d.get("team_colour")),
             "position": None if pos_val is None or pd.isna(pos_val) else int(pos_val),
@@ -501,6 +588,8 @@ def load_raw(year: int, rnd: int, code: str = "R", cache_dir: str = ".fastf1-cac
     laps_df["LapNumber"] = pd.to_numeric(laps_df["lap_number"], errors="coerce")
     laps_df["LapStartTime"] = to_rel_td(laps_df["date_start"])
     laps_df["LapTime"] = pd.to_timedelta(pd.to_numeric(laps_df["lap_duration"], errors="coerce"), unit="s")
+    for src, dst in (("duration_sector_1", "S1"), ("duration_sector_2", "S2"), ("duration_sector_3", "S3")):
+        laps_df[dst] = pd.to_numeric(laps_df[src], errors="coerce") if src in laps_df.columns else np.nan
     laps_df["Time"] = laps_df["LapStartTime"] + laps_df["LapTime"]
     if "is_pit_out_lap" in laps_df.columns:
         laps_df["IsAccurate"] = ~laps_df["is_pit_out_lap"].fillna(False).astype(bool)
@@ -532,6 +621,30 @@ def load_raw(year: int, rnd: int, code: str = "R", cache_dir: str = ".fastf1-cac
             "pit_lane": pit_lane,
         })
 
+    position_log: dict[str, list[tuple[float, int]]] = {}
+    for row in _optional_get("position", {"session_key": session_key}):
+        num = _clean(row.get("driver_number"))
+        when = _parse_iso(row.get("date"))
+        place = row.get("position")
+        if num not in codes or when is None or place is None or pd.isna(place):
+            continue
+        position_log.setdefault(num, []).append(((when - session_start).total_seconds(), int(place)))
+
+    stints: dict[str, list[dict[str, Any]]] = {}
+    for row in _optional_get("stints", {"session_key": session_key}):
+        num = _clean(row.get("driver_number"))
+        first = row.get("lap_start")
+        if num not in codes or first is None or pd.isna(first):
+            continue
+        last = row.get("lap_end")
+        age = row.get("tyre_age_at_start")
+        stints.setdefault(num, []).append({
+            "compound": _clean(row.get("compound"), "UNKNOWN").upper(),
+            "lap_start": int(first),
+            "lap_end": None if last is None or pd.isna(last) else int(last),
+            "age": 0 if age is None or pd.isna(age) else int(age),
+        })
+
     car: dict[str, pd.DataFrame] = {}
     pos: dict[str, pd.DataFrame] = {}
 
@@ -554,7 +667,8 @@ def load_raw(year: int, rnd: int, code: str = "R", cache_dir: str = ".fastf1-cac
             df_car["Throttle"] = pd.to_numeric(df_car.get("throttle"), errors="coerce")
             df_car["Brake"] = pd.to_numeric(df_car.get("brake"), errors="coerce")
             df_car["DRS"] = pd.to_numeric(df_car.get("drs"), errors="coerce")
-            car[num] = df_car[["SessionTime", "Speed", "nGear", "Throttle", "Brake", "DRS"]]
+            df_car["RPM"] = pd.to_numeric(df_car.get("rpm"), errors="coerce")
+            car[num] = df_car[["SessionTime", "Speed", "nGear", "Throttle", "Brake", "DRS", "RPM"]]
 
         time.sleep(0.1)
 
@@ -571,6 +685,8 @@ def load_raw(year: int, rnd: int, code: str = "R", cache_dir: str = ".fastf1-cac
         car=car,
         pos=pos,
         pits_override=pits_override,
+        position_log=position_log,
+        stints=stints,
     )
 
 
@@ -591,9 +707,13 @@ def fetch_schedule(year: int) -> list[dict[str, Any]]:
     return events
 
 
-def process(year: int, rnd: int, code: str, out_dir: Path, hz: int, cache_dir: str) -> dict[str, Any]:
+def process(year: int, rnd: int, code: str, out_dir: Path, hz: int, cache_dir: str,
+            expect_name: Optional[str] = None) -> dict[str, Any]:
     raw = load_raw(year, rnd, code, cache_dir)
     payload = build_payload(raw, hz)
+    if expect_name and payload["event"]["name"] != expect_name:
+        # Yenilemede OpenF1 sıralaması kaymışsa yanlış yarışın üzerine yazmayalım.
+        raise IncompleteData(f"yaris adi uyusmuyor ('{expect_name}' beklenirken '{payload['event']['name']}' geldi)")
     validate_payload(payload, min_duration=600.0 if code == "R" else 300.0)
     return write_session(out_dir, payload)
 
@@ -604,17 +724,35 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--round", type=int)
     parser.add_argument("--session", default="R", choices=["R", "S"])
     parser.add_argument("--latest", action="store_true")
-    parser.add_argument("--limit", type=int, default=2)
+    parser.add_argument("--limit", type=int, default=None, help="--latest: en fazla kaç yarış (varsayılan 2); --refresh: en fazla kaç dosya (varsayılan hepsi)")
+    parser.add_argument("--refresh", action="store_true", help="index.json'daki tüm seansları yeniden üret (yeni alanlar için)")
     parser.add_argument("--hz", type=int, default=DEFAULT_HZ)
     parser.add_argument("--out", default="data/replay")
     parser.add_argument("--cache", default=".fastf1-cache")
     args = parser.parse_args(argv)
     out_dir = Path(args.out)
 
+    if args.refresh:
+        entries = list(load_index(out_dir)["sessions"])
+        if args.limit:
+            entries = entries[: args.limit]
+        ok = failed = 0
+        for e in entries:
+            try:
+                entry = process(e["year"], e["round"], e.get("session", "R"), out_dir, args.hz, args.cache,
+                                expect_name=e.get("name"))
+                print(f"OK  {entry['name']} yenilendi ({entry['bytes'] / 1024:.0f} KB)")
+                ok += 1
+            except Exception as error:
+                print(f"::warning::{e['year']} r{e['round']} yenilenemedi (eski dosya korunuyor): {error}")
+                failed += 1
+        print(f"Yenileme tamam: {ok} basarili, {failed} basarisiz.")
+        return 1 if entries and ok == 0 else 0
+
     if args.latest:
         now = datetime.now(timezone.utc)
         index = load_index(out_dir)
-        todo = pending_races(fetch_schedule(now.year), index, now)[: args.limit]
+        todo = pending_races(fetch_schedule(now.year), index, now)[: (args.limit or 2)]
         if not todo:
             print("Islenecek yeni yaris yok.")
             return 0
@@ -627,7 +765,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 0
 
     if args.year is None or args.round is None:
-        parser.error("--latest ya da --year ve --round gerekli")
+        parser.error("--latest, --refresh ya da --year ve --round gerekli")
     try:
         entry = process(args.year, args.round, args.session, out_dir, args.hz, args.cache)
     except Exception as error:

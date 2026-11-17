@@ -21,11 +21,22 @@ LAP_SECONDS = 20.0
 LAPS = 3
 
 DRIVERS = [
-    ("1", "AAA", "Test Driver A", "Alpha Team", "3671C6", 1),
-    ("2", "BBB", "Test Driver B", "Alpha Team", "3671C6", 2),
-    ("3", "CCC", "Test Driver C", "Beta Team", "E80020", 3),
-    ("4", "DDD", "Test Driver D", "Beta Team", "E80020", None),  # 2. turda yarıştan çekilir
+    ("1", "AAA", "Test Driver A", "Alpha", "Alpha Team", "3671C6", 1),
+    ("2", "BBB", "Test Driver B", "Bravo", "Alpha Team", "3671C6", 2),
+    ("3", "CCC", "Test Driver C", "Charlie", "Beta Team", "E80020", 3),
+    ("4", "DDD", "Test Driver D", "Delta", "Beta Team", "E80020", None),  # 2. turda yarıştan çekilir
 ]
+
+
+def _sectors(number: str, lap: int):
+    """Sentetik sektör süreleri (sn). Toplamları tur süresine eşittir."""
+    if lap == 1:
+        return (float("nan"), 8.0, 6.0)        # OpenF1'de 1. turun 1. sektörü sık boş gelir
+    if number == "1" and lap == 2:
+        return (5.5, 8.0, 6.5)                 # AAA: 2. turda en iyi S1
+    if number == "3":
+        return (6.0, 8.0, 6.3)                 # CCC: tur süresi 20.3
+    return (6.0, 8.0, 6.0)
 
 
 def _td(seconds):
@@ -34,8 +45,8 @@ def _td(seconds):
 
 def synthetic_session(hz_source: float = 4.0) -> br.RawSession:
     results = [
-        {"number": n, "code": c, "name": nm, "team": tm, "color": col, "position": pos}
-        for n, c, nm, tm, col, pos in DRIVERS
+        {"number": n, "code": c, "name": nm, "last_name": ln, "team": tm, "color": col, "position": pos}
+        for n, c, nm, ln, tm, col, pos in DRIVERS
     ]
     rows = []
     for number, *_ in DRIVERS:
@@ -48,6 +59,7 @@ def synthetic_session(hz_source: float = 4.0) -> br.RawSession:
                 pit_out = _td(start + 3.0)                  # 3. turda çıkar
             if number == "4" and lap == 3:
                 continue                                    # çekilen pilotun 3. turu yok
+            s1, s2, s3 = _sectors(number, lap)
             rows.append({
                 "DriverNumber": number,
                 "LapNumber": float(lap),
@@ -57,6 +69,9 @@ def synthetic_session(hz_source: float = 4.0) -> br.RawSession:
                 "PitInTime": pit_in,
                 "PitOutTime": pit_out,
                 "IsAccurate": lap != 1,
+                "S1": s1,
+                "S2": s2,
+                "S3": s3,
             })
     laps = pd.DataFrame(rows)
 
@@ -78,15 +93,31 @@ def synthetic_session(hz_source: float = 4.0) -> br.RawSession:
         car[number] = pd.DataFrame({
             "SessionTime": _td(ts),
             "Speed": speed,
+            "RPM": 9000 + 3000 * np.sin(theta[keep] * 2),
             "nGear": np.clip((speed // 50).astype(int), 1, 8),
             "Throttle": np.where(cycle < 25, 100.0, 15.0),
             "Brake": cycle >= 35,
             "DRS": np.where((cycle >= 10) & (cycle < 20), 12, 0),
         })
+    before = RACE_START - 5.0                # yarıştan önceki sıra (grid)
+    position_log = {
+        "1": [(before, 1)],
+        "2": [(before, 2), (RACE_START + 30.0, 3)],     # BBB 30. sn'de 3. sıraya düşer
+        "3": [(before, 3), (RACE_START + 30.0, 2)],     # CCC 2. sıraya çıkar
+        "4": [(before, 4)],
+    }
+    stints = {
+        "1": [{"compound": "SOFT", "lap_start": 1, "lap_end": 3, "age": 0}],
+        "2": [{"compound": "MEDIUM", "lap_start": 1, "lap_end": 2, "age": 0},
+              {"compound": "HARD", "lap_start": 3, "lap_end": None, "age": 0}],
+        "3": [{"compound": "HARD", "lap_start": 1, "lap_end": None, "age": 2}],
+        "4": [{"compound": "SOFT", "lap_start": 1, "lap_end": 2, "age": 1}],
+    }
     return br.RawSession(
         year=2099, round=1, code="R",
         event_name="Test Grand Prix", country="Testland", circuit="Ovalville",
         results=results, laps=laps, car=car, pos=pos,
+        position_log=position_log, stints=stints,
     )
 
 

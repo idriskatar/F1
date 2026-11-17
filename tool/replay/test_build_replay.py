@@ -100,6 +100,65 @@ class BuildPayloadTest(unittest.TestCase):
         self.assertEqual(json.loads(text)["version"], br.SCHEMA_VERSION)
 
 
+class NewFieldsTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.raw = sample_data.synthetic_session()
+        cls.payload = br.build_payload(cls.raw, hz=2)
+        cls.by_code = {d["code"]: d for d in cls.payload["drivers"]}
+
+    def test_rpm_channel(self):
+        a = self.by_code["AAA"]
+        self.assertEqual(len(a["rpm"]), 121)
+        self.assertTrue(all(6000 <= v <= 12000 for v in a["rpm"] if v is not None))
+
+    def test_last_name(self):
+        self.assertEqual(self.by_code["AAA"]["lastName"], "Alpha")
+
+    def test_position_log_is_relative_and_compact(self):
+        self.assertEqual(self.by_code["AAA"]["positionLog"], [[0.0, 1]])
+        self.assertEqual(self.by_code["BBB"]["positionLog"], [[0.0, 2], [30.0, 3]])
+        self.assertEqual(self.by_code["CCC"]["positionLog"], [[0.0, 3], [30.0, 2]])
+
+    def test_position_log_drops_repeats_and_keeps_state_at_start(self):
+        raw = sample_data.synthetic_session()
+        raw.position_log = {"1": [(90.0, 5), (95.0, 4), (100.0, 4), (110.0, 4), (120.0, 3), (121.0, 3)]}
+        # t0 = 100: 100'deki sıra (4) başlangıç durumu olur, tekrarlar atılır.
+        self.assertEqual(br.position_log_for(raw, "1", 100.0), [[0.0, 4], [20.0, 3]])
+        self.assertEqual(br.position_log_for(raw, "9", 100.0), [])
+
+    def test_laps_table(self):
+        a = self.by_code["AAA"]["laps"]
+        self.assertEqual(a[0], [1, 0.0, 20.0, None, 8.0, 6.0])      # 1. tur: S1 boş
+        self.assertEqual(a[1], [2, 20.0, 20.0, 5.5, 8.0, 6.5])
+        self.assertEqual(len(a), 3)
+        self.assertEqual(len(self.by_code["DDD"]["laps"]), 2)        # çekilen pilotun 3. turu yok
+        self.assertEqual(self.by_code["CCC"]["laps"][2][2], 20.3)
+
+    def test_lap_one_start_defaults_to_race_start_when_missing(self):
+        raw = sample_data.synthetic_session()
+        raw.laps.loc[(raw.laps["DriverNumber"] == "1") & (raw.laps["LapNumber"] == 1), "LapStartTime"] = pd.NaT
+        table = br.laps_table(raw.laps, "1", 100.0)
+        self.assertEqual(table[0][1], 0.0)            # başkalarının 1. tur başlangıcı biliniyor
+        raw.laps["LapStartTime"] = raw.laps["LapStartTime"].where(raw.laps["LapNumber"] != 1, pd.NaT)
+        self.assertIsNone(br.laps_table(raw.laps, "1", 100.0)[0][1])   # kimse bilmiyorsa null
+
+    def test_stints(self):
+        self.assertEqual(self.by_code["BBB"]["stints"], [["MEDIUM", 1, 2, 0], ["HARD", 3, None, 0]])
+        self.assertEqual(self.by_code["CCC"]["stints"], [["HARD", 1, None, 2]])
+
+    def test_old_style_input_has_no_new_keys(self):
+        raw = sample_data.synthetic_session()
+        raw.position_log = None
+        raw.stints = None
+        raw.laps = raw.laps.drop(columns=["S1", "S2", "S3"])
+        raw.car = {k: v.drop(columns=["RPM"]) for k, v in raw.car.items()}
+        d = br.build_payload(raw, hz=2)["drivers"][0]
+        for key in ("positionLog", "stints", "rpm"):
+            self.assertNotIn(key, d)
+        self.assertEqual(d["laps"][1][3:], [None, None, None])       # sektör bilgisi yok -> null
+
+
 class FilesTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

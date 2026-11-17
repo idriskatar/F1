@@ -23,6 +23,11 @@ on:
         required: false
         default: "R"
         type: string
+      refresh:
+        description: "Mevcut TÜM replay dosyalarını yeniden üret (veri biçimine yeni alan eklendiğinde işaretle)"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -55,8 +60,11 @@ jobs:
           IN_YEAR: ${{ github.event.inputs.year }}
           IN_ROUND: ${{ github.event.inputs.round }}
           IN_SESSION: ${{ github.event.inputs.session }}
+          IN_REFRESH: ${{ github.event.inputs.refresh }}
         run: |
-          if [ -n "$IN_YEAR" ] && [ -n "$IN_ROUND" ]; then
+          if [ "$IN_REFRESH" = "true" ]; then
+            python tool/replay/build_replay.py --refresh
+          elif [ -n "$IN_YEAR" ] && [ -n "$IN_ROUND" ]; then
             python tool/replay/build_replay.py --year "$IN_YEAR" --round "$IN_ROUND" --session "${IN_SESSION:-R}"
           else
             python tool/replay/build_replay.py --latest

@@ -7,16 +7,10 @@ import 'package:flutter/scheduler.dart' show Ticker;
 import '../../core/models/replay_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/remote/replay_repository.dart';
+import 'replay_panel.dart';
 import '../../shared/widgets/section_title.dart';
 
-String _clock(double seconds) {
-  final total = seconds.isNaN || seconds < 0 ? 0 : seconds.floor();
-  final h = total ~/ 3600;
-  final m = (total % 3600) ~/ 60;
-  final s = total % 60;
-  final ss = s.toString().padLeft(2, '0');
-  return h > 0 ? '$h:${m.toString().padLeft(2, '0')}:$ss' : '$m:$ss';
-}
+String _clock(double seconds) => formatReplayClock(seconds);
 
 /// Hazır replay'lerin listesi. [repository] verilmezse kendi deposunu oluşturur ve kapatır.
 class ReplayScreen extends StatefulWidget {
@@ -231,6 +225,8 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
 
   late final Ticker _ticker;
   final ValueNotifier<double> _time = ValueNotifier<double>(0);
+  // Sıralama, tur, sektör ve pit vurgusu için ~0,5 sn'de bir güncellenen zaman (her karede yeniden çizmemek için).
+  final ValueNotifier<double> _slowTime = ValueNotifier<double>(0);
   final Map<String, TextPainter> _labels = {};
   Duration _lastElapsed = Duration.zero;
   bool _playing = false;
@@ -242,14 +238,21 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
   void initState() {
     super.initState();
     _ticker = createTicker(_onTick);
+    _time.addListener(_syncSlowTime);
     if (widget.data.drivers.isNotEmpty) _selected = widget.data.drivers.first.code;
   }
 
   @override
   void dispose() {
     _ticker.dispose();
+    _time.removeListener(_syncSlowTime);
+    _slowTime.dispose();
     _time.dispose();
     super.dispose();
+  }
+
+  void _syncSlowTime() {
+    if ((_time.value - _slowTime.value).abs() >= 0.5) _slowTime.value = _time.value;
   }
 
   void _onTick(Duration elapsed) {
@@ -279,6 +282,8 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
   void _seek(double seconds) => _time.value = seconds.clamp(0.0, widget.data.duration).toDouble();
 
   void _select(String code) => setState(() => _selected = code);
+
+  void _clearSelection() => setState(() => _selected = null);
 
   void _onTapTrack(Offset local, Size size) {
     final fit = _Fit.of(size, widget.data);
@@ -403,24 +408,17 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
       ),
       Expanded(
         flex: 4,
-        child: DefaultTabController(
-          length: 2,
-          child: Column(children: [
-            const TabBar(tabs: [Tab(text: 'Telemetri'), Tab(text: 'Pit stoplar')]),
-            Expanded(
-              child: TabBarView(children: [
-                _TelemetryTab(data: data, time: _time, selected: _selected, onSelect: _select),
-                _PitTab(
-                  data: data,
-                  time: _time,
-                  onOpen: (pit) {
-                    _select(pit.driver);
-                    _seek(pit.inTime - 5);
-                  },
-                ),
-              ]),
-            ),
-          ]),
+        child: ReplayLowerPanel(
+          data: data,
+          time: _time,
+          slowTime: _slowTime,
+          selected: _selected,
+          onSelect: _select,
+          onClose: _clearSelection,
+          onOpenPit: (pit) {
+            _select(pit.driver);
+            _seek(pit.inTime - 5);
+          },
         ),
       ),
     ]);
@@ -529,217 +527,4 @@ class _TrackPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _TrackPainter old) =>
       old.data != data || old.selected != selected || old.showNames != showNames || old.trackColor != trackColor;
-}
-
-class _TelemetryTab extends StatelessWidget {
-  const _TelemetryTab({required this.data, required this.time, required this.selected, required this.onSelect});
-
-  final ReplayData data;
-  final ValueListenable<double> time;
-  final String? selected;
-  final ValueChanged<String> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final driver = data.driverByCode(selected);
-    return ListView(padding: const EdgeInsets.fromLTRB(16, 10, 16, 20), children: [
-      SizedBox(
-        height: 40,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: data.drivers.length,
-          separatorBuilder: (context, index) => const SizedBox(width: 6),
-          itemBuilder: (context, i) {
-            final d = data.drivers[i];
-            return ChoiceChip(
-              label: Text(d.code, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
-              avatar: CircleAvatar(radius: 5, backgroundColor: Color(d.colorValue)),
-              selected: d.code == selected,
-              onSelected: (_) => onSelect(d.code),
-            );
-          },
-        ),
-      ),
-      const SizedBox(height: 12),
-      if (driver == null)
-        Text('Pistte bir araca dokun ya da yukarıdan pilot seç.', style: TextStyle(color: AppColors.muted))
-      else
-        _DriverPanel(data: data, driver: driver, time: time),
-    ]);
-  }
-}
-
-class _DriverPanel extends StatelessWidget {
-  const _DriverPanel({required this.data, required this.driver, required this.time});
-
-  final ReplayData data;
-  final ReplayDriver driver;
-  final ValueListenable<double> time;
-
-  @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(
-          '${driver.position != null ? 'P${driver.position} · ' : ''}${driver.name.isEmpty ? driver.code : driver.name}',
-          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
-        ),
-        if (driver.team.isNotEmpty) Text(driver.team, style: TextStyle(color: AppColors.muted, fontSize: 12)),
-        const SizedBox(height: 10),
-        if (!driver.hasTelemetry)
-          Text('Bu pilot için telemetri verisi yok.', style: TextStyle(color: AppColors.muted))
-        else
-          ValueListenableBuilder<double>(
-            valueListenable: time,
-            builder: (context, t, _) {
-              final speed = driver.speedAt(t, data.hz);
-              final gear = driver.gearAt(t, data.hz);
-              final throttle = driver.throttleAt(t, data.hz);
-              final brake = driver.brakeAt(t, data.hz) ?? false;
-              final drs = driver.drsAt(t, data.hz) ?? false;
-              return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  Text(speed == null ? '—' : '${speed.round()}', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900)),
-                  const SizedBox(width: 4),
-                  Padding(padding: const EdgeInsets.only(bottom: 6), child: Text('km/sa', style: TextStyle(color: AppColors.muted, fontSize: 12))),
-                  const SizedBox(width: 18),
-                  Text(gear == null ? '—' : 'V$gear', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-                  const Spacer(),
-                  _Badge(label: 'FREN', active: brake, color: AppColors.red),
-                  const SizedBox(width: 6),
-                  _Badge(label: 'DRS', active: drs, color: AppColors.green),
-                ]),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(value: ((throttle ?? 0) / 100).clamp(0.0, 1.0).toDouble(), minHeight: 8),
-                ),
-                const SizedBox(height: 2),
-                Text('Gaz', style: TextStyle(color: AppColors.muted, fontSize: 11)),
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: 70,
-                  child: CustomPaint(
-                    size: Size.infinite,
-                    painter: _SpeedPainter(
-                      series: driver.speedSeries(math.max(0.0, t - 60), t, data.hz),
-                      lineColor: Color(driver.colorValue),
-                      gridColor: AppColors.border,
-                    ),
-                  ),
-                ),
-                Text('Son 60 sn hız', style: TextStyle(color: AppColors.muted, fontSize: 11)),
-              ]);
-            },
-          ),
-      ]);
-}
-
-class _Badge extends StatelessWidget {
-  const _Badge({required this.label, required this.active, required this.color});
-
-  final String label;
-  final bool active;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: active ? color : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: active ? color : AppColors.border),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: active ? Colors.white : AppColors.muted),
-        ),
-      );
-}
-
-class _SpeedPainter extends CustomPainter {
-  _SpeedPainter({required this.series, required this.lineColor, required this.gridColor});
-
-  final List<double?> series;
-  final Color lineColor;
-  final Color gridColor;
-
-  static const _maxSpeed = 360.0;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final grid = Paint()
-      ..color = gridColor
-      ..strokeWidth = 1;
-    canvas.drawLine(Offset(0, size.height), Offset(size.width, size.height), grid);
-    canvas.drawLine(Offset.zero, Offset(size.width, 0), grid);
-    if (series.length < 2) return;
-    final line = Paint()
-      ..color = lineColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..strokeJoin = StrokeJoin.round;
-    final path = Path();
-    var penDown = false;
-    for (var i = 0; i < series.length; i++) {
-      final value = series[i];
-      if (value == null) {
-        penDown = false;
-        continue;
-      }
-      final dx = size.width * i / (series.length - 1);
-      final dy = size.height * (1 - (value / _maxSpeed).clamp(0.0, 1.0));
-      if (penDown) {
-        path.lineTo(dx, dy);
-      } else {
-        path.moveTo(dx, dy);
-        penDown = true;
-      }
-    }
-    canvas.drawPath(path, line);
-  }
-
-  @override
-  bool shouldRepaint(covariant _SpeedPainter old) => true;
-}
-
-class _PitTab extends StatelessWidget {
-  const _PitTab({required this.data, required this.time, required this.onOpen});
-
-  final ReplayData data;
-  final ValueListenable<double> time;
-  final ValueChanged<ReplayPit> onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    if (data.pits.isEmpty) {
-      return Center(child: Text('Bu seansta pit stop kaydı yok.', style: TextStyle(color: AppColors.muted)));
-    }
-    return ValueListenableBuilder<double>(
-      valueListenable: time,
-      builder: (context, t, _) => ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 6, 16, 20),
-        itemCount: data.pits.length,
-        itemBuilder: (context, i) {
-          final pit = data.pits[i];
-          final driver = data.driverByCode(pit.driver);
-          final active = pit.containsTime(t);
-          final lane = pit.pitLaneSeconds;
-          return ListTile(
-            dense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-            leading: CircleAvatar(radius: 6, backgroundColor: Color(driver?.colorValue ?? 0xFF9AA0A6)),
-            title: Text(
-              '${pit.driver} · Tur ${pit.lap}',
-              style: TextStyle(fontWeight: FontWeight.w800, color: active ? AppColors.amber : null),
-            ),
-            subtitle: Text('Giriş ${_clock(pit.inTime)}', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-            trailing: Text(
-              lane == null ? '—' : 'Pit şeridi ${lane.toStringAsFixed(1).replaceAll('.', ',')} sn',
-              style: TextStyle(color: AppColors.muted, fontSize: 12),
-            ),
-            onTap: () => onOpen(pit),
-          );
-        },
-      ),
-    );
-  }
 }

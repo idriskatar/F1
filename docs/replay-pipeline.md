@@ -21,6 +21,10 @@ Flutter (alt gezinmedeki Replay sekmesi)
 
 - Alanları **boş bırakırsan** bitmiş ama işlenmemiş en yeni yarışlar işlenir (bir seferde en fazla 2).
   Önerilen yol budur.
+- **`refresh` kutusunu işaretlersen** `index.json`'daki mevcut tüm seanslar yeniden üretilir. Veri
+  biçimine yeni alan eklendiğinde (ör. sıralama, sektör süreleri) eski dosyaları güncellemek için kullan.
+  Bir yarış yenilenemezse eski dosyası korunur. OpenF1 yarış sıralaması kaymış ve yarış adı
+  uyuşmuyorsa o dosyaya da dokunulmaz.
 - Elle yarış seçmek istersen yıl ve tur gir (sprint için seansa `S`). Bu **tur numarası OpenF1'in
   kendi sıralamasıdır**: o yılın "Race" seanslarını başlangıç tarihine göre dizip n. yarışı alır.
   Uygulamanın takvimindeki (Jolpica) "Tur" numarasıyla veya resmî takvim numarasıyla uyuşmayabilir;
@@ -34,6 +38,7 @@ bir sonraki çalışmada yeniden dener.
 pip install -r tool/replay/requirements.txt          # numpy, pandas, requests
 python tool/replay/build_replay.py --latest
 python tool/replay/build_replay.py --year 2026 --round 20
+python tool/replay/build_replay.py --refresh                      # mevcut tüm dosyaları yeniden üret
 python -m unittest discover -s tool/replay -p "test_*.py" -v     # ağ gerektirmez
 ```
 
@@ -42,12 +47,17 @@ python -m unittest discover -s tool/replay -p "test_*.py" -v     # ağ gerektirm
 | Uç | Ne için |
 |---|---|
 | `sessions` | Yarış seansını bulmak, takvim ve bitiş zamanı |
-| `drivers` | Pilot kodu, adı, takımı, takım rengi |
+| `drivers` | Pilot kodu, adı, soyadı, takımı, takım rengi |
 | `session_result` | Bitiş sırası (pilot listesi sıralaması) |
-| `laps` | Tur başlangıç/bitiş zamanları, tur süresi, tur sayacı |
+| `laps` | Tur başlangıç/bitiş zamanları, tur süresi, S1/S2/S3 sektör süreleri, tur sayacı |
 | `pit` | Pit girişi ve pit şeridi süresi |
 | `location` | Her pilotun x, y konumu (pist üzerinde hareket) |
-| `car_data` | Hız, vites, gaz, fren, DRS |
+| `car_data` | Hız, devir (RPM), vites, gaz, fren, DRS |
+| `position` | Yarış boyunca sıra değişimleri (canlı sıralama listesi) |
+| `stints` | Lastik bileşeni, stint tur aralığı, stint başındaki lastik yaşı |
+
+`position` ve `stints` **isteğe bağlıdır**: bu uçlardan biri alınamazsa betik uyarı verir ve o alanlar
+olmadan devam eder (replay yine üretilir).
 
 Betik her pilot için `location` ve `car_data` uçlarını ayrı çağırır (yaklaşık 40+ istek). İstek
 hatalarında davranış: `429/500/502/503/504` için 4 deneme (artan bekleme), `404` **hata değil boş liste**
@@ -70,15 +80,21 @@ Flutter karşılığı `lib/core/models/replay_models.dart`. İkisi arasındaki 
   "track": {"x": [...], "y": [...]},          # pist çizgisi (en hızlı turdan)
   "drivers": [{
       "number", "code", "name", "team", "color", "position",
+      "lastName": "Antonelli",                # isteğe bağlı
       "x": [...], "y": [...],                 # veri yoksa null
-      "speed", "gear", "throttle", "brake", "drs"     # isteğe bağlı kanallar
+      "speed", "gear", "throttle", "brake", "drs", "rpm",   # isteğe bağlı kanallar
+      "positionLog": [[0.0, 2], [31.5, 3]],   # [replay_sn, sıra]; yalnızca değişimler
+      "laps": [[1, 0.0, 95.2, null, 31.0, 33.4], ...],   # [tur, başlangıç_sn, süre, s1, s2, s3]; bilinmeyen = null
+      "stints": [["MEDIUM", 1, 18, 0], ["HARD", 19, null, 0]]   # [bileşen, ilk_tur, son_tur|null, başlangıç_yaşı]
   }],
   "pits": [{"driver": "VER", "lap": 12, "in": 1234.5, "out": 1257.0, "pitLane": 22.5}]
 }
 ```
 
-Biçim değişirse **iki tarafta da** `version` artırılmalıdır; eski uygulama yeni dosyayı "güncelleyin"
-mesajıyla reddeder. Fixture'ı yeniden üretmek için:
+Yeni alanlar **isteğe bağlıdır**: uygulama bunlar olmadan da dosyayı açar (sıralama listesi bitiş
+sırasını gösterir, sektör çubukları gri kalır). Bu yüzden alan eklemek `version`'ı artırmayı gerektirmez;
+eski dosyaları güncellemek için `refresh` çalıştırılır. Var olan bir alanın anlamı değişirse **iki tarafta
+da** `version` artırılmalıdır; eski uygulama yeni dosyayı "güncelleyin" mesajıyla reddeder. Fixture'ı yeniden üretmek için:
 `python tool/replay/sample_data.py test/fixtures/replay_sample.json`
 
 ## Bilinen sınırlar ve ilk çalıştırmada doğrulanacaklar
@@ -92,6 +108,12 @@ edilmesi gerekir.
   siler.
 - **Yarış başlangıcı:** 1. turun `date_start` değeri boş gelirse replay 2. turun başından başlar (ilk
   tur eksik kalır). Gerçek veride kontrol edilmeli.
+- **Mini sektörler yok:** Pist üzerindeki renkli mini sektör parçaları OpenF1'in yarışlarda yayınlamadığı
+  veriye dayanır; replay'de gösterilmez. S1/S2/S3 çubukları tam sektör sürelerinden hesaplanır.
+- **Sektör renkleri:** Mor = o ana kadarki tüm pilotların en iyisi, yeşil = pilotun kendi en iyisi,
+  sarı = daha yavaş, beyaz = süren sektör, gri = henüz bitmedi ya da süre boş. 1. turun 1. sektörü sık
+  boş geldiği için ilk turda çubuklar gri kalabilir.
+- **Sıralama:** `position` ucundan gelir (konumdan türetilmez). Uç boşsa liste "BİTİŞ SIRASI" gösterir.
 - **Pit alanları:** Betik `pit` kaydındaki `date` alanını pit girişi, `pit_duration` alanını pit şeridi
   süresi kabul eder. OpenF1 alan adlarını değiştirdiyse `pitLane` boş (`null`) çıkar.
 - **Pit süresi = pit şeridi süresi.** Lastik değişimindeki duruş süresi değildir.

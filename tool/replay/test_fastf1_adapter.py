@@ -1,4 +1,5 @@
 # OpenF1 adapter testleri (load_raw, fetch_schedule, main fonksiyonlarını sınar).
+import gzip
 import json
 import sys
 import tempfile
@@ -60,6 +61,7 @@ def make_fake_openf1(past_race_end):
                     "driver_number": int(r["number"]),
                     "name_acronym": r["code"],
                     "full_name": r["name"],
+                    "last_name": r["last_name"],
                     "team_name": r["team"],
                     "team_colour": r["color"],
                 }
@@ -78,9 +80,23 @@ def make_fake_openf1(past_race_end):
                     "lap_number": int(row["LapNumber"]),
                     "date_start": iso(row["LapStartTime"]),
                     "lap_duration": pd.to_timedelta(row["LapTime"]).total_seconds(),
+                    "duration_sector_1": None if pd.isna(row["S1"]) else float(row["S1"]),
+                    "duration_sector_2": None if pd.isna(row["S2"]) else float(row["S2"]),
+                    "duration_sector_3": None if pd.isna(row["S3"]) else float(row["S3"]),
                     "is_pit_out_lap": False,
                 })
             return rows
+        if endpoint == "position":
+            return [
+                {"driver_number": int(num), "date": iso(ts), "position": pos}
+                for num, events in raw.position_log.items() for ts, pos in events
+            ]
+        if endpoint == "stints":
+            return [
+                {"driver_number": int(num), "stint_number": i + 1, "compound": s["compound"].lower(),
+                 "lap_start": s["lap_start"], "lap_end": s["lap_end"], "tyre_age_at_start": s["age"]}
+                for num, items in raw.stints.items() for i, s in enumerate(items)
+            ]
         if endpoint == "pit":
             return [
                 {
@@ -112,6 +128,7 @@ def make_fake_openf1(past_race_end):
                 car_rows.append({
                     "date": iso(sec),
                     "speed": float(r["Speed"]),
+                    "rpm": int(r["RPM"]),
                     "n_gear": int(r["nGear"]),
                     "throttle": float(r["Throttle"]),
                     "brake": 100 if r["Brake"] else 0,
@@ -145,6 +162,14 @@ class AdapterTest(unittest.TestCase):
         self.assertEqual(payload["event"]["name"], "Fake Grand Prix")
         self.assertEqual(len(payload["pits"]), 1)
         self.assertEqual(payload["pits"][0]["pitLane"], 5.0)
+        # yeni alanlar
+        self.assertEqual([e[1] for e in raw.position_log["2"]], [2, 3])
+        self.assertEqual(raw.stints["2"][0]["compound"], "MEDIUM")        # büyük harfe çevrilir
+        drv = {d["code"]: d for d in payload["drivers"]}
+        self.assertIn("rpm", drv["AAA"])
+        self.assertEqual(drv["BBB"]["positionLog"], [[0.0, 2], [30.0, 3]])
+        self.assertEqual(drv["AAA"]["laps"][1][3], 5.5)
+        self.assertEqual(drv["AAA"]["lastName"], "Alpha")
 
     def test_fetch_schedule_parses_utc_and_missing(self):
         schedule = br.fetch_schedule(2099)
@@ -180,6 +205,57 @@ class AdapterTest(unittest.TestCase):
         with redirect_stdout(StringIO()) as again:
             self.assertEqual(br.main(["--latest", "--out", self.out, "--cache", self.out + "/c"]), 0)
         self.assertIn("yeni yaris yok", again.getvalue())
+
+    def test_optional_endpoint_failure_does_not_break_load(self):
+        original = self.fake_get
+
+        def flaky(endpoint, params=None, retries=4):
+            if endpoint in ("position", "stints"):
+                raise RuntimeError("boom")
+            return original(endpoint, params, retries)
+
+        with mock.patch.object(br, "_openf1_get", side_effect=flaky):
+            with redirect_stdout(StringIO()) as buf:
+                raw = br.load_raw(2099, 1, "R")
+        self.assertEqual(raw.position_log, {})
+        self.assertEqual(raw.stints, {})
+        self.assertIn("::warning::", buf.getvalue())
+        payload = br.build_payload(raw, hz=2)
+        self.assertNotIn("positionLog", payload["drivers"][0])
+
+    def _seed_index(self):
+        with mock.patch.object(br, "validate_payload"):
+            with redirect_stdout(StringIO()):
+                br.main(["--latest", "--out", self.out, "--cache", self.out + "/c"])
+        return Path(self.out) / "index.json"
+
+    def test_refresh_regenerates_existing_files(self):
+        index_path = self._seed_index()
+        before = json.loads(index_path.read_text(encoding="utf-8"))["sessions"][0]
+        data_file = Path(self.out) / before["file"]
+        data_file.write_bytes(b"eski")                       # eski/bozuk içerik: yenileme düzeltmeli
+        with mock.patch.object(br, "validate_payload"):
+            with redirect_stdout(StringIO()) as buf:
+                code = br.main(["--refresh", "--out", self.out, "--cache", self.out + "/c"])
+        self.assertEqual(code, 0)
+        self.assertIn("1 basarili", buf.getvalue())
+        payload = json.loads(gzip.decompress(data_file.read_bytes()))
+        self.assertIn("laps", payload["drivers"][0])
+        self.assertEqual(len(json.loads(index_path.read_text(encoding="utf-8"))["sessions"]), 1)
+
+    def test_refresh_keeps_old_file_when_race_name_changed(self):
+        index_path = self._seed_index()
+        index = json.loads(index_path.read_text(encoding="utf-8"))
+        index["sessions"][0]["name"] = "Baska Yaris"          # OpenF1 sıralaması kaymış gibi
+        index_path.write_text(json.dumps(index), encoding="utf-8")
+        data_file = Path(self.out) / index["sessions"][0]["file"]
+        data_file.write_bytes(b"dokunma")
+        with mock.patch.object(br, "validate_payload"):
+            with redirect_stdout(StringIO()) as buf:
+                code = br.main(["--refresh", "--out", self.out, "--cache", self.out + "/c"])
+        self.assertEqual(code, 1)                              # hiçbiri yenilenemedi
+        self.assertIn("yenilenemedi", buf.getvalue())
+        self.assertEqual(data_file.read_bytes(), b"dokunma")
 
     def test_year_round_required_without_latest(self):
         with self.assertRaises(SystemExit):

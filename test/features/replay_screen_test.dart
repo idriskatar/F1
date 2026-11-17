@@ -5,8 +5,8 @@ import 'package:f1_tracker/core/models/replay_models.dart';
 import 'package:f1_tracker/core/theme/app_theme.dart';
 import 'package:f1_tracker/data/remote/replay_repository.dart';
 import 'package:f1_tracker/features/replay/replay_screen.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../support/fakes.dart';
 
@@ -29,25 +29,73 @@ const entry = ReplayIndexEntry(
 
 Widget host(ReplayRepository repository) => MaterialApp(theme: AppTheme.dark, home: ReplayScreen(repository: repository));
 
+/// Listeyi açar, ilk yarışa dokunup oynatıcıyı gösterir.
+Future<void> openPlayer(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(800, 1400);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(host(FakeReplayRepository(index: const ReplayIndex([entry]), data: loadData())));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Test Grand Prix'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('hazır seanslar listelenir ve oynatıcı açılır', (tester) async {
-    await tester.pumpWidget(host(FakeReplayRepository(index: const ReplayIndex([entry]), data: loadData())));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Test Grand Prix'), findsOneWidget);
-    await tester.tap(find.text('Test Grand Prix'));
-    await tester.pumpAndSettle();
+    await openPlayer(tester);
 
     expect(find.text('Tur 1/3'), findsOneWidget);
-    expect(find.text('Telemetri'), findsOneWidget);
-    expect(find.textContaining('Test Driver A'), findsOneWidget); // varsayılan seçili: lider
+    expect(find.text('SIRALAMA'), findsOneWidget);
+    expect(find.text('ALPHA'), findsOneWidget); // varsayılan seçili: lider, soyadı büyük harfle
+    expect(find.text('KM/SA'), findsOneWidget);
+    expect(find.text('RPM'), findsOneWidget);
+    for (final label in ['S1', 'S2', 'S3']) {
+      expect(find.text(label), findsOneWidget);
+    }
+    expect(find.text('S'), findsOneWidget); // lastik rozeti: SOFT
+  });
+
+  testWidgets('sıralama listesi pilotları sırayla gösterir', (tester) async {
+    await openPlayer(tester);
+
+    for (final code in ['AAA', 'BBB', 'CCC', 'DDD']) {
+      expect(find.text(code), findsOneWidget);
+    }
+  });
+
+  testWidgets('listeden pilot seçmek kartı günceller', (tester) async {
+    await openPlayer(tester);
+
+    await tester.tap(find.text('CCC'));
+    await tester.pumpAndSettle();
+    expect(find.text('CHARLIE'), findsOneWidget);
+    expect(find.text('ALPHA'), findsNothing);
+  });
+
+  testWidgets('X düğmesi kartı kapatır', (tester) async {
+    await openPlayer(tester);
+
+    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Soldan bir pilot seç'), findsOneWidget);
+    expect(find.text('ALPHA'), findsNothing);
+  });
+
+  testWidgets('sayfa noktaları hız grafiği ve pit stoplar sayfalarını açar', (tester) async {
+    await openPlayer(tester);
+
+    await tester.tap(find.byKey(const Key('replay-dot-1')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('son 60 sn hız'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('replay-dot-2')));
+    await tester.pumpAndSettle();
+    expect(find.text('BBB · Tur 2'), findsOneWidget);
+    expect(find.textContaining('Pit şeridi 5,0 sn'), findsOneWidget);
   });
 
   testWidgets('oynat düğmesi duraklat düğmesine döner ve zaman ilerler', (tester) async {
-    await tester.pumpWidget(host(FakeReplayRepository(index: const ReplayIndex([entry]), data: loadData())));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Test Grand Prix'));
-    await tester.pumpAndSettle();
+    await openPlayer(tester);
 
     await tester.tap(find.byIcon(Icons.play_arrow_rounded));
     await tester.pump();
@@ -58,18 +106,6 @@ void main() {
     await tester.tap(find.byIcon(Icons.pause_rounded));
     await tester.pump();
     expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
-  });
-
-  testWidgets('pit stoplar sekmesi listeyi gösterir', (tester) async {
-    await tester.pumpWidget(host(FakeReplayRepository(index: const ReplayIndex([entry]), data: loadData())));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Test Grand Prix'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Pit stoplar'));
-    await tester.pumpAndSettle();
-    expect(find.text('BBB · Tur 2'), findsOneWidget);
-    expect(find.textContaining('Pit şeridi 5,0 sn'), findsOneWidget);
   });
 
   testWidgets('liste boşsa açıklayıcı mesaj gösterilir', (tester) async {

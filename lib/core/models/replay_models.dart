@@ -125,6 +125,105 @@ class ReplayPit {
   }
 }
 
+/// Sıra değişimi: [time] saniyesinden itibaren [position]. sıra.
+class ReplayPositionEvent {
+  const ReplayPositionEvent(this.time, this.position);
+
+  final double time;
+  final int position;
+}
+
+/// Bir pilotun tek turu. Süreler saniye; bilinmeyenler null (ör. 1. turun 1. sektörü).
+class ReplayLap {
+  const ReplayLap({required this.number, this.start, this.duration, this.s1, this.s2, this.s3});
+
+  final int number;
+
+  /// Replay saniyesi cinsinden tur başlangıcı.
+  final double? start;
+  final double? duration;
+  final double? s1;
+  final double? s2;
+  final double? s3;
+
+  double? get end {
+    final begin = start;
+    final length = duration;
+    return begin != null && length != null ? begin + length : null;
+  }
+
+  /// [index]: 0 = S1, 1 = S2, 2 = S3.
+  double? sector(int index) => switch (index) {
+        0 => s1,
+        1 => s2,
+        _ => s3,
+      };
+}
+
+class ReplayStint {
+  const ReplayStint({required this.compound, required this.lapStart, this.lapEnd, this.ageAtStart = 0});
+
+  /// SOFT, MEDIUM, HARD, INTERMEDIATE, WET ya da UNKNOWN.
+  final String compound;
+  final int lapStart;
+
+  /// Son stint için null olabilir.
+  final int? lapEnd;
+  final int ageAtStart;
+
+  String get letter => switch (compound) {
+        'SOFT' => 'S',
+        'MEDIUM' => 'M',
+        'HARD' => 'H',
+        'INTERMEDIATE' => 'I',
+        'WET' => 'W',
+        _ => '?',
+      };
+
+  bool containsLap(int lap) {
+    final end = lapEnd;
+    return lap >= lapStart && (end == null || lap <= end);
+  }
+
+  /// [lap] turundaki lastik yaşı (tur sayısı).
+  int ageAt(int lap) => ageAtStart + (lap - lapStart);
+}
+
+enum SectorStatus { unknown, upcoming, active, overallBest, personalBest, slower }
+
+/// Belirli bir ana kadar (o an dahil) tamamlanan sektör/tur en iyileri.
+class ReplayBests {
+  const ReplayBests({required this.sectors, required this.personalSectors, this.lap, this.personalLap});
+
+  /// Tüm pilotların en iyi S1/S2/S3 süresi.
+  final List<double?> sectors;
+
+  /// Seçili pilotun en iyi S1/S2/S3 süresi.
+  final List<double?> personalSectors;
+  final double? lap;
+  final double? personalLap;
+
+  static const _epsilon = 0.0005;
+
+  SectorStatus classifySector(int index, double value) => _classify(value, sectors[index], personalSectors[index]);
+
+  SectorStatus classifyLap(double value) => _classify(value, lap, personalLap);
+
+  static SectorStatus _classify(double value, double? overall, double? personal) {
+    if (overall != null && value <= overall + _epsilon) return SectorStatus.overallBest;
+    if (personal != null && value <= personal + _epsilon) return SectorStatus.personalBest;
+    return SectorStatus.slower;
+  }
+}
+
+/// 72.5 -> "1:12.500"
+String formatLapTime(double seconds) {
+  final totalMs = (seconds * 1000).round();
+  final minutes = totalMs ~/ 60000;
+  final rest = (totalMs % 60000) / 1000;
+  return '$minutes:${rest.toStringAsFixed(3).padLeft(6, '0')}';
+}
+
 class ReplayDriver {
   const ReplayDriver({
     required this.number,
@@ -140,6 +239,11 @@ class ReplayDriver {
     this.throttle,
     this.brake,
     this.drs,
+    this.lastName = '',
+    this.rpm,
+    this.positionLog = const [],
+    this.laps = const [],
+    this.stints = const [],
   });
 
   final String number;
@@ -159,6 +263,22 @@ class ReplayDriver {
   final List<int?>? throttle;
   final List<int?>? brake;
   final List<int?>? drs;
+
+  /// Soyad (OpenF1 `last_name`); yoksa boş.
+  final String lastName;
+  final List<int?>? rpm;
+
+  /// Yarış boyunca sıra değişimleri (zamana göre artan). Eski dosyalarda boş.
+  final List<ReplayPositionEvent> positionLog;
+  final List<ReplayLap> laps;
+  final List<ReplayStint> stints;
+
+  /// Kartta büyük yazılacak ad: soyad, yoksa tam adın son sözcüğü, o da yoksa kod.
+  String get surname {
+    if (lastName.isNotEmpty) return lastName;
+    final parts = name.trim().split(RegExp(r'\s+'));
+    return parts.isEmpty || parts.last.isEmpty ? code : parts.last;
+  }
 
   /// [t] anındaki konum; iki örnek arası doğrusal ara değer. Veri yoksa null.
   ReplayPoint? positionAt(double t, double hz) {
@@ -195,6 +315,54 @@ class ReplayDriver {
 
   bool get hasTelemetry => speed != null;
 
+  double? rpmAt(double t, double hz) => _lerpAt(rpm, t, hz);
+
+  /// [t] anındaki sıra; sıra geçmişi yoksa ya da pilot henüz sıralanmadıysa null.
+  int? rankAt(double t) {
+    final log = positionLog;
+    if (log.isEmpty || t < log.first.time) return null;
+    var low = 0;
+    var high = log.length - 1;
+    while (low < high) {
+      final mid = (low + high + 1) >> 1;
+      if (log[mid].time <= t) {
+        low = mid;
+      } else {
+        high = mid - 1;
+      }
+    }
+    return log[low].position;
+  }
+
+  /// [t] anında süren tur (başlangıcı bilinen son tur).
+  ReplayLap? currentLapAt(double t) {
+    ReplayLap? current;
+    for (final lap in laps) {
+      final begin = lap.start;
+      if (begin == null) continue;
+      if (begin > t) break;
+      current = lap;
+    }
+    return current;
+  }
+
+  /// [t] anına kadar tamamlanan son tur.
+  ReplayLap? lastCompletedLapAt(double t) {
+    ReplayLap? last;
+    for (final lap in laps) {
+      final finish = lap.end;
+      if (finish != null && finish <= t && (last == null || lap.number > last.number)) last = lap;
+    }
+    return last;
+  }
+
+  ReplayStint? stintAtLap(int lap) {
+    for (final stint in stints) {
+      if (stint.containsLap(lap)) return stint;
+    }
+    return null;
+  }
+
   /// [fromT, toT] aralığındaki hız örnekleri (grafik için). Veri olmayan yerler null.
   List<double?> speedSeries(double fromT, double toT, double hz) {
     final data = speed;
@@ -217,6 +385,7 @@ class ReplayData {
     required this.drivers,
     required this.pits,
   })  : pitsByDriver = _groupPits(pits),
+        hasLivePositions = drivers.any((d) => d.positionLog.isNotEmpty),
         minX = _extent(trackX, true),
         maxX = _extent(trackX, false),
         minY = _extent(trackY, true),
@@ -238,6 +407,9 @@ class ReplayData {
   final List<ReplayDriver> drivers;
   final List<ReplayPit> pits;
   final Map<String, List<ReplayPit>> pitsByDriver;
+
+  /// Dosyada sıra geçmişi varsa true; yoksa sıralama listesi bitiş sırasını gösterir.
+  final bool hasLivePositions;
   final double minX;
   final double maxX;
   final double minY;
@@ -271,6 +443,87 @@ class ReplayData {
       if (pit.containsTime(t)) return true;
     }
     return false;
+  }
+
+
+  /// [t] anındaki sıralama. Sıra geçmişi yoksa bitiş sırası (dosyadaki pilot sırası) döner.
+  List<ReplayDriver> orderAt(double t) {
+    final list = List<ReplayDriver>.of(drivers);
+    if (!hasLivePositions) return list;
+    list.sort((a, b) {
+      final ra = a.rankAt(t);
+      final rb = b.rankAt(t);
+      if (ra != null && rb != null && ra != rb) return ra.compareTo(rb);
+      if (ra == null && rb != null) return 1;
+      if (ra != null && rb == null) return -1;
+      final byResult = (a.position ?? 999).compareTo(b.position ?? 999);
+      return byResult != 0 ? byResult : a.code.compareTo(b.code);
+    });
+    return list;
+  }
+
+  /// [t] anına (dahil) kadar tamamlanan sektör ve tur en iyileri.
+  ReplayBests bestsAt(double t, ReplayDriver driver) {
+    final overall = <double?>[null, null, null];
+    final personal = <double?>[null, null, null];
+    double? overallLap;
+    double? personalLap;
+    for (final d in drivers) {
+      final mine = d.code == driver.code;
+      for (final lap in d.laps) {
+        final begin = lap.start;
+        if (begin == null || begin > t) continue;
+        var cumulative = 0.0;
+        for (var i = 0; i < 3; i++) {
+          final value = lap.sector(i);
+          if (value == null) break; // sonraki sektörlerin bitiş anı hesaplanamaz
+          cumulative += value;
+          if (begin + cumulative > t) break;
+          overall[i] = _smaller(overall[i], value);
+          if (mine) personal[i] = _smaller(personal[i], value);
+        }
+        final finish = lap.end;
+        final length = lap.duration;
+        if (finish != null && length != null && finish <= t) {
+          overallLap = _smaller(overallLap, length);
+          if (mine) personalLap = _smaller(personalLap, length);
+        }
+      }
+    }
+    return ReplayBests(sectors: overall, personalSectors: personal, lap: overallLap, personalLap: personalLap);
+  }
+
+  /// [driver]ın süren turunda S1/S2/S3 durumları. Süre bilgisi eksik sektörler `unknown` olur.
+  List<SectorStatus> sectorStatesAt(ReplayDriver driver, double t) {
+    final lap = driver.currentLapAt(t);
+    final begin = lap?.start;
+    if (lap == null || begin == null) {
+      return const [SectorStatus.unknown, SectorStatus.unknown, SectorStatus.unknown];
+    }
+    final bests = bestsAt(t, driver);
+    final elapsed = t - begin;
+    final states = <SectorStatus>[];
+    var cumulative = 0.0;
+    var known = true;
+    var activeAssigned = false;
+    for (var i = 0; i < 3; i++) {
+      final value = lap.sector(i);
+      if (value == null || !known) {
+        known = false;
+        states.add(SectorStatus.unknown);
+        continue;
+      }
+      cumulative += value;
+      if (elapsed >= cumulative) {
+        states.add(bests.classifySector(i, value));
+      } else if (!activeAssigned) {
+        states.add(SectorStatus.active);
+        activeAssigned = true;
+      } else {
+        states.add(SectorStatus.upcoming);
+      }
+    }
+    return states;
   }
 
   factory ReplayData.fromJson(Map<String, dynamic> json) {
@@ -346,7 +599,59 @@ ReplayDriver _driverFromJson(Map<String, dynamic> json) => ReplayDriver(
       throttle: _optionalIntList(json['throttle']),
       brake: _optionalIntList(json['brake']),
       drs: _optionalIntList(json['drs']),
+      lastName: _string(json['lastName']),
+      rpm: _optionalIntList(json['rpm']),
+      positionLog: _parseRows(json['positionLog'], _eventFromJson),
+      laps: _parseRows(json['laps'], _lapFromJson),
+      stints: _parseRows(json['stints'], _stintFromJson),
     );
+
+ReplayPositionEvent? _eventFromJson(Object? row) {
+  if (row is! List || row.length < 2) return null;
+  final time = row[0];
+  final position = row[1];
+  if (time is! num || position is! num) return null;
+  return ReplayPositionEvent(time.toDouble(), position.round());
+}
+
+ReplayLap? _lapFromJson(Object? row) {
+  if (row is! List || row.length < 6) return null;
+  final number = row[0];
+  if (number is! num) return null;
+  double? at(int i) {
+    final value = row[i];
+    return value is num ? value.toDouble() : null;
+  }
+
+  return ReplayLap(number: number.round(), start: at(1), duration: at(2), s1: at(3), s2: at(4), s3: at(5));
+}
+
+ReplayStint? _stintFromJson(Object? row) {
+  if (row is! List || row.length < 3) return null;
+  final compound = row[0];
+  final first = row[1];
+  if (compound is! String || first is! num) return null;
+  final last = row[2];
+  final age = row.length > 3 ? row[3] : null;
+  return ReplayStint(
+    compound: compound.toUpperCase(),
+    lapStart: first.round(),
+    lapEnd: last is num ? last.round() : null,
+    ageAtStart: age is num ? age.round() : 0,
+  );
+}
+
+List<T> _parseRows<T>(Object? raw, T? Function(Object? row) parse) {
+  if (raw is! List) return <T>[];
+  final out = <T>[];
+  for (final row in raw) {
+    final item = parse(row);
+    if (item != null) out.add(item);
+  }
+  return out;
+}
+
+double _smaller(double? current, double candidate) => current == null || candidate < current ? candidate : current;
 
 ReplayPit _pitFromJson(Map<String, dynamic> json) => ReplayPit(
       driver: _requiredString(json['driver'], 'pit.driver'),
