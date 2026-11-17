@@ -9,10 +9,10 @@
       "country": "Brazil",
       "circuit": "Interlagos",
       "file": "2026/r22-R.json.gz",
-      "bytes": 2069136,
+      "bytes": 2070259,
       "duration": 5810.6,
       "hz": 2,
-      "generatedAt": "2026-11-17T01:42:48Z"
+      "generatedAt": "2026-11-17T11:45:16Z"
     },
     {
       "year": 2026,
@@ -22,10 +22,10 @@
       "country": "Mexico",
       "circuit": "Mexico City",
       "file": "2026/r21-R.json.gz",
-      "bytes": 2181143,
+      "bytes": 2182725,
       "duration": 8459.9,
       "hz": 2,
-      "generatedAt": "2026-11-17T01:45:53Z"
+      "generatedAt": "2026-11-17T11:47:54Z"
     },
     {
       "year": 2026,
@@ -35,10 +35,10 @@
       "country": "United States",
       "circuit": "Austin",
       "file": "2026/r20-R.json.gz",
-      "bytes": 2148680,
+      "bytes": 2149667,
       "duration": 5812.0,
       "hz": 2,
-      "generatedAt": "2026-11-17T01:48:32Z"
+      "generatedAt": "2026-11-17T11:50:16Z"
     },
     {
       "year": 2026,
@@ -48,10 +48,10 @@
       "country": "Singapore",
       "circuit": "Singapore",
       "file": "2026/r19-R.json.gz",
-      "bytes": 2203401,
+      "bytes": 2204442,
       "duration": 6212.1,
       "hz": 2,
-      "generatedAt": "2026-11-17T01:51:19Z"
+      "generatedAt": "2026-11-17T11:52:38Z"
     },
     {
       "year": 2026,
@@ -61,10 +61,10 @@
       "country": "Bahrain",
       "circuit": "Kuala Lumpur",
       "file": "2026/r18-R.json.gz",
-      "bytes": 2355392,
+      "bytes": 2356372,
       "duration": 6464.6,
       "hz": 2,
-      "generatedAt": "2026-11-17T01:54:50Z"
+      "generatedAt": "2026-11-17T11:55:49Z"
     },
     {
       "year": 2026,
@@ -74,10 +74,10 @@
       "country": "Azerbaijan",
       "circuit": "Baku",
       "file": "2026/r17-R.json.gz",
-      "bytes": 2062200,
+      "bytes": 2063339,
       "duration": 5923.9,
       "hz": 2,
-      "generatedAt": "2026-11-17T01:57:31Z"
+      "generatedAt": "2026-11-17T11:58:06Z"
     }
   ]
 }
