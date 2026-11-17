@@ -265,25 +265,29 @@ class _PositionRow extends StatelessWidget {
         onTap: onTap,
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 1),
-          padding: const EdgeInsets.symmetric(horizontal: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 5),
           decoration: BoxDecoration(
             color: selected ? AppColors.surface2 : null,
             borderRadius: BorderRadius.circular(6),
             border: selected ? Border.all(color: AppColors.red, width: 1.2) : null,
           ),
           child: Row(children: [
-            SizedBox(width: 22, child: Text(rank, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12))),
+            SizedBox(width: 16, child: Text(rank, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12))),
             Container(
               width: 3,
               height: 16,
               decoration: BoxDecoration(color: Color(driver.colorValue), borderRadius: BorderRadius.circular(2)),
             ),
-            const SizedBox(width: 8),
-            Text(
-              driver.code,
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: inPit ? AppColors.amber : null),
+            const SizedBox(width: 5),
+            // Expanded: yer daralırsa (büyük yazı boyutu vb.) kod kısalır, satır taşmaz.
+            Expanded(
+              child: Text(
+                driver.code,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: inPit ? AppColors.amber : null),
+              ),
             ),
-            const Spacer(),
             if (hasFastestLap) ...[
               const Icon(Icons.timer_outlined, size: 15, color: _purple),
               const SizedBox(width: 3),
