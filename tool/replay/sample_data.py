@@ -113,11 +113,15 @@ def synthetic_session(hz_source: float = 4.0) -> br.RawSession:
         "3": [{"compound": "HARD", "lap_start": 1, "lap_end": None, "age": 2}],
         "4": [{"compound": "SOFT", "lap_start": 1, "lap_end": 2, "age": 1}],
     }
+    weather = [
+        {"ts": before, "air": 24.0, "track": 38.0, "humidity": 52.0, "wind": 12.0, "wind_dir": 135.0, "rain": 0.0},
+        {"ts": RACE_START + 30.0, "air": 24.5, "track": 39.0, "humidity": 55.0, "wind": 14.4, "wind_dir": 140.0, "rain": 1.0},
+    ]
     return br.RawSession(
         year=2099, round=1, code="R",
         event_name="Test Grand Prix", country="Testland", circuit="Ovalville",
         results=results, laps=laps, car=car, pos=pos,
-        position_log=position_log, stints=stints,
+        position_log=position_log, stints=stints, weather=weather,
     )
 
 

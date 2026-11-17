@@ -125,6 +125,35 @@ class ReplayPit {
   }
 }
 
+/// Pist hava ölçümü: [time] saniyesinden itibaren geçerli. Bilinmeyen alanlar null.
+class ReplayWeather {
+  const ReplayWeather({
+    required this.time,
+    this.air,
+    this.track,
+    this.humidity,
+    this.wind,
+    this.windDirection,
+    this.raining,
+  });
+
+  final double time;
+
+  /// Hava ve pist sıcaklığı (°C).
+  final double? air;
+  final double? track;
+
+  /// Bağıl nem (%).
+  final int? humidity;
+
+  /// Rüzgâr hızı (km/sa) ve yönü (derece).
+  final double? wind;
+  final int? windDirection;
+
+  /// Yağış var mı? Bilinmiyorsa null.
+  final bool? raining;
+}
+
 /// Sıra değişimi: [time] saniyesinden itibaren [position]. sıra.
 class ReplayPositionEvent {
   const ReplayPositionEvent(this.time, this.position);
@@ -363,6 +392,13 @@ class ReplayDriver {
     return null;
   }
 
+  /// [t] anında takılı lastik. Tur bilgisi henüz yoksa (yarışın ilk anları) 1. tur kabul edilir.
+  ReplayStint? stintAt(double t) {
+    if (stints.isEmpty) return null;
+    final lap = currentLapAt(t)?.number ?? lastCompletedLapAt(t)?.number ?? 1;
+    return stintAtLap(lap);
+  }
+
   /// [fromT, toT] aralığındaki hız örnekleri (grafik için). Veri olmayan yerler null.
   List<double?> speedSeries(double fromT, double toT, double hz) {
     final data = speed;
@@ -384,6 +420,7 @@ class ReplayData {
     required this.trackY,
     required this.drivers,
     required this.pits,
+    this.weather = const [],
   })  : pitsByDriver = _groupPits(pits),
         hasLivePositions = drivers.any((d) => d.positionLog.isNotEmpty),
         minX = _extent(trackX, true),
@@ -406,6 +443,9 @@ class ReplayData {
   final List<double> trackY;
   final List<ReplayDriver> drivers;
   final List<ReplayPit> pits;
+
+  /// Pist hava ölçümleri (zamana göre artan). Eski dosyalarda boş.
+  final List<ReplayWeather> weather;
   final Map<String, List<ReplayPit>> pitsByDriver;
 
   /// Dosyada sıra geçmişi varsa true; yoksa sıralama listesi bitiş sırasını gösterir.
@@ -445,6 +485,44 @@ class ReplayData {
     return false;
   }
 
+
+  /// [t] anında geçerli hava ölçümü (t ilk ölçümden önceyse ilk ölçüm); ölçüm yoksa null.
+  ReplayWeather? weatherAt(double t) {
+    if (weather.isEmpty) return null;
+    var low = 0;
+    var high = weather.length - 1;
+    while (low < high) {
+      final mid = (low + high + 1) >> 1;
+      if (weather[mid].time <= t) {
+        low = mid;
+      } else {
+        high = mid - 1;
+      }
+    }
+    return weather[low];
+  }
+
+  /// [t] anına kadar tamamlanan en hızlı turun sahibi (eşitlikte turu önce bitiren); tur yoksa null.
+  String? fastestLapHolderAt(double t) {
+    String? holder;
+    var best = double.infinity;
+    var bestEnd = double.infinity;
+    for (final d in drivers) {
+      for (final lap in d.laps) {
+        final finish = lap.end;
+        final length = lap.duration;
+        if (finish == null || length == null || finish > t) continue;
+        final faster = length < best - 0.0005;
+        final tiedButEarlier = (length - best).abs() <= 0.0005 && finish < bestEnd;
+        if (faster || tiedButEarlier) {
+          best = length;
+          bestEnd = finish;
+          holder = d.code;
+        }
+      }
+    }
+    return holder;
+  }
 
   /// [t] anındaki sıralama. Sıra geçmişi yoksa bitiş sırası (dosyadaki pilot sırası) döner.
   List<ReplayDriver> orderAt(double t) {
@@ -581,6 +659,7 @@ class ReplayData {
       trackY: [for (var i = 0; i < n; i++) trackYs[i]?.toDouble() ?? 0.0],
       drivers: drivers,
       pits: pits,
+      weather: _parseRows(json['weather'], _weatherFromJson)..sort((a, b) => a.time.compareTo(b.time)),
     );
   }
 }
@@ -605,6 +684,28 @@ ReplayDriver _driverFromJson(Map<String, dynamic> json) => ReplayDriver(
       laps: _parseRows(json['laps'], _lapFromJson),
       stints: _parseRows(json['stints'], _stintFromJson),
     );
+
+ReplayWeather? _weatherFromJson(Object? row) {
+  if (row is! List || row.length < 2) return null;
+  final time = row[0];
+  if (time is! num) return null;
+  double? at(int i) {
+    if (i >= row.length) return null;
+    final value = row[i];
+    return value is num ? value.toDouble() : null;
+  }
+
+  final rain = at(6);
+  return ReplayWeather(
+    time: time.toDouble(),
+    air: at(1),
+    track: at(2),
+    humidity: at(3)?.round(),
+    wind: at(4),
+    windDirection: at(5)?.round(),
+    raining: rain == null ? null : rain > 0,
+  );
+}
 
 ReplayPositionEvent? _eventFromJson(Object? row) {
   if (row is! List || row.length < 2) return null;

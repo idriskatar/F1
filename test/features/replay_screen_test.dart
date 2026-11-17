@@ -52,7 +52,45 @@ void main() {
     for (final label in ['S1', 'S2', 'S3']) {
       expect(find.text(label), findsOneWidget);
     }
-    expect(find.text('S'), findsOneWidget); // lastik rozeti: SOFT
+    // Lastik simgeleri: AAA (kart + liste) ve DDD SOFT, BBB MEDIUM, CCC HARD
+    expect(find.text('S'), findsNWidgets(3));
+    expect(find.text('M'), findsOneWidget);
+    expect(find.text('H'), findsOneWidget);
+    expect(find.byIcon(Icons.timer_outlined), findsNothing); // henüz tur bitmedi: en hızlı tur sahibi yok
+  });
+
+  testWidgets('harita üstünde tek satırlık hava durumu şeridi görünür ve yağmur başlayınca değişir', (tester) async {
+    await openPlayer(tester);
+
+    expect(find.text('Kuru'), findsOneWidget);
+    expect(find.text('24°'), findsOneWidget);
+    expect(find.text('38°'), findsOneWidget);
+    expect(find.text('%52'), findsOneWidget);
+    expect(find.text('12 km/sa'), findsOneWidget);
+
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(find.byIcon(Icons.forward_10_rounded));
+    }
+    await tester.pumpAndSettle(); // t = 30 sn: yağmur başlar, 1. turlar bitmiş
+    expect(find.text('Yağmurlu'), findsOneWidget);
+    expect(find.text('Kuru'), findsNothing);
+    expect(find.text('39°'), findsOneWidget);
+    expect(find.byIcon(Icons.timer_outlined), findsOneWidget); // en hızlı tur sahibi simgesi
+  });
+
+  testWidgets('hava verisi olmayan dosyada şerit görünmez', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final json = (jsonDecode(File('test/fixtures/replay_sample.json').readAsStringSync()) as Map<String, dynamic>)
+      ..remove('weather');
+    await tester.pumpWidget(host(FakeReplayRepository(index: const ReplayIndex([entry]), data: ReplayData.fromJson(json))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Test Grand Prix'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Kuru'), findsNothing);
+    expect(find.textContaining('Hava'), findsNothing);
   });
 
   testWidgets('sıralama listesi pilotları sırayla gösterir', (tester) async {

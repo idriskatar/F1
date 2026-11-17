@@ -346,23 +346,29 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final size = Size(constraints.maxWidth, constraints.maxHeight);
-                return GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTapUp: (details) => _onTapTrack(details.localPosition, size),
-                  child: CustomPaint(
-                    size: size,
-                    painter: _TrackPainter(
-                      data: data,
-                      time: _time,
-                      selected: _selected,
-                      showNames: _showNames,
-                      labels: _labels,
-                      trackColor: AppColors.surface2,
-                      edgeColor: AppColors.border,
-                      labelColor: AppColors.muted,
+                return Stack(children: [
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTapUp: (details) => _onTapTrack(details.localPosition, size),
+                      child: CustomPaint(
+                        size: size,
+                        painter: _TrackPainter(
+                          data: data,
+                          time: _time,
+                          selected: _selected,
+                          showNames: _showNames,
+                          labels: _labels,
+                          trackColor: AppColors.surface2,
+                          edgeColor: AppColors.border,
+                          labelColor: AppColors.muted,
+                        ),
+                      ),
                     ),
                   ),
-                );
+                  if (data.weather.isNotEmpty)
+                    Positioned(top: 10, left: 10, right: 10, child: ReplayWeatherStrip(data: data, time: _slowTime)),
+                ]);
               },
             ),
           ),
@@ -436,12 +442,14 @@ class _Fit {
   final double maxY;
 
   factory _Fit.of(Size size, ReplayData data, {double padding = 20}) {
+    // Hava durumu şeridi varsa pist onun altından başlar (şerit pisti örtmesin).
+    final top = data.weather.isEmpty ? 0.0 : 36.0;
     final w = math.max(data.maxX - data.minX, 1.0);
     final h = math.max(data.maxY - data.minY, 1.0);
     final availableW = math.max(size.width - padding * 2, 1.0);
-    final availableH = math.max(size.height - padding * 2, 1.0);
+    final availableH = math.max(size.height - top - padding * 2, 1.0);
     final scale = math.min(availableW / w, availableH / h);
-    return _Fit(scale, (size.width - w * scale) / 2, (size.height - h * scale) / 2, data.minX, data.maxY);
+    return _Fit(scale, (size.width - w * scale) / 2, top + (size.height - top - h * scale) / 2, data.minX, data.maxY);
   }
 
   Offset map(double x, double y) => Offset(dx + (x - minX) * scale, dy + (maxY - y) * scale);

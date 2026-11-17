@@ -147,6 +147,22 @@ class NewFieldsTest(unittest.TestCase):
         self.assertEqual(self.by_code["BBB"]["stints"], [["MEDIUM", 1, 2, 0], ["HARD", 3, None, 0]])
         self.assertEqual(self.by_code["CCC"]["stints"], [["HARD", 1, None, 2]])
 
+    def test_weather_rows(self):
+        self.assertEqual(self.payload["weather"], [
+            [0.0, 24.0, 38.0, 52, 12.0, 135, 0],
+            [30.0, 24.5, 39.0, 55, 14.4, 140, 1],       # 30. sn'de yağmur başlar
+        ])
+
+    def test_weather_state_at_start_and_unknown_values(self):
+        raw = sample_data.synthetic_session()
+        raw.weather = [{"ts": 90.0, "air": 20.0}, {"ts": 95.0, "air": 21.0, "rain": None},
+                       {"ts": 130.0, "air": float("nan"), "track": 30.0, "rain": 0.0}]
+        rows = br.weather_rows(raw, 100.0)
+        self.assertEqual(rows[0], [0.0, 21.0, None, None, None, None, None])   # t0'daki durum
+        self.assertEqual(rows[1], [30.0, None, 30.0, None, None, None, 0])
+        raw.weather = None
+        self.assertEqual(br.weather_rows(raw, 100.0), [])
+
     def test_old_style_input_has_no_new_keys(self):
         raw = sample_data.synthetic_session()
         raw.position_log = None
@@ -154,6 +170,8 @@ class NewFieldsTest(unittest.TestCase):
         raw.laps = raw.laps.drop(columns=["S1", "S2", "S3"])
         raw.car = {k: v.drop(columns=["RPM"]) for k, v in raw.car.items()}
         d = br.build_payload(raw, hz=2)["drivers"][0]
+        raw.weather = None
+        self.assertNotIn("weather", br.build_payload(raw, hz=2))
         for key in ("positionLog", "stints", "rpm"):
             self.assertNotIn(key, d)
         self.assertEqual(d["laps"][1][3:], [None, None, None])       # sektör bilgisi yok -> null

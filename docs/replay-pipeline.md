@@ -55,8 +55,9 @@ python -m unittest discover -s tool/replay -p "test_*.py" -v     # ağ gerektirm
 | `car_data` | Hız, devir (RPM), vites, gaz, fren, DRS |
 | `position` | Yarış boyunca sıra değişimleri (canlı sıralama listesi) |
 | `stints` | Lastik bileşeni, stint tur aralığı, stint başındaki lastik yaşı |
+| `weather` | Hava ve pist sıcaklığı, nem, rüzgâr (hız, yön), yağış |
 
-`position` ve `stints` **isteğe bağlıdır**: bu uçlardan biri alınamazsa betik uyarı verir ve o alanlar
+`position`, `stints` ve `weather` **isteğe bağlıdır**: bu uçlardan biri alınamazsa betik uyarı verir ve o alanlar
 olmadan devam eder (replay yine üretilir).
 
 Betik her pilot için `location` ve `car_data` uçlarını ayrı çağırır (yaklaşık 40+ istek). İstek
@@ -87,7 +88,8 @@ Flutter karşılığı `lib/core/models/replay_models.dart`. İkisi arasındaki 
       "laps": [[1, 0.0, 95.2, null, 31.0, 33.4], ...],   # [tur, başlangıç_sn, süre, s1, s2, s3]; bilinmeyen = null
       "stints": [["MEDIUM", 1, 18, 0], ["HARD", 19, null, 0]]   # [bileşen, ilk_tur, son_tur|null, başlangıç_yaşı]
   }],
-  "pits": [{"driver": "VER", "lap": 12, "in": 1234.5, "out": 1257.0, "pitLane": 22.5}]
+  "pits": [{"driver": "VER", "lap": 12, "in": 1234.5, "out": 1257.0, "pitLane": 22.5}],
+  "weather": [[0.0, 24.0, 38.0, 52, 12.0, 135, 0], ...]   # isteğe bağlı: [replay_sn, hava°C, pist°C, nem%, rüzgâr km/sa, rüzgâr yönü°, yağmur 0/1]
 }
 ```
 
@@ -113,6 +115,12 @@ edilmesi gerekir.
 - **Sektör renkleri:** Mor = o ana kadarki tüm pilotların en iyisi, yeşil = pilotun kendi en iyisi,
   sarı = daha yavaş, beyaz = süren sektör, gri = henüz bitmedi ya da süre boş. 1. turun 1. sektörü sık
   boş geldiği için ilk turda çubuklar gri kalabilir.
+- **Hava durumu:** Haritanın üstündeki tek satırlık şerit `weather` kaydından beslenir. OpenF1 rüzgâr
+  hızını m/s verir, betik km/sa'ye çevirir (×3,6). Yağış, OpenF1'in `rainfall` alanındaki 0/1 değerinden
+  gelir. Rüzgâr yönü dosyada saklanır ama şu an ekranda gösterilmez. Ölçüm yoksa şerit hiç görünmez.
+- **Lastik ve en hızlı tur simgeleri:** Sıralama listesindeki lastik simgesi, pilotun o an süren turuna
+  denk gelen `stints` kaydından; kronometre, o ana kadar tamamlanan en hızlı turun sahibinden gelir.
+  Tur bilgisi henüz yokken (yarışın ilk anları) 1. tur kabul edilir.
 - **Sıralama:** `position` ucundan gelir (konumdan türetilmez). Uç boşsa liste "BİTİŞ SIRASI" gösterir.
 - **Pit alanları:** Betik `pit` kaydındaki `date` alanını pit girişi, `pit_duration` alanını pit şeridi
   süresi kabul eder. OpenF1 alan adlarını değiştirdiyse `pitLane` boş (`null`) çıkar.

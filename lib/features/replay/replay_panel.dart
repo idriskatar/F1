@@ -90,7 +90,7 @@ class _ReplayLowerPanelState extends State<ReplayLowerPanel> {
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
       child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         SizedBox(
-          width: 112,
+          width: 120,
           child: _PositionList(data: data, time: widget.slowTime, selected: widget.selected, onSelect: widget.onSelect),
         ),
         const SizedBox(width: 10),
@@ -210,6 +210,7 @@ class _PositionListState extends State<_PositionList> {
           valueListenable: widget.time,
           builder: (context, t, _) {
             final order = widget.data.orderAt(t);
+            final fastest = widget.data.fastestLapHolderAt(t);
             return ListView.builder(
               controller: _scroll,
               itemExtent: _rowHeight,
@@ -222,6 +223,8 @@ class _PositionListState extends State<_PositionList> {
                   driver: driver,
                   selected: driver.code == widget.selected,
                   inPit: widget.data.inPit(driver.code, t),
+                  tyre: driver.stintAt(t),
+                  hasFastestLap: driver.code == fastest,
                   onTap: () => widget.onSelect(driver.code),
                 );
               },
@@ -234,12 +237,26 @@ class _PositionListState extends State<_PositionList> {
 }
 
 class _PositionRow extends StatelessWidget {
-  const _PositionRow({required this.rank, required this.driver, required this.selected, required this.inPit, required this.onTap});
+  const _PositionRow({
+    required this.rank,
+    required this.driver,
+    required this.selected,
+    required this.inPit,
+    required this.tyre,
+    required this.hasFastestLap,
+    required this.onTap,
+  });
 
   final String rank;
   final ReplayDriver driver;
   final bool selected;
   final bool inPit;
+
+  /// O an takılı lastik; bilinmiyorsa null (simge gösterilmez).
+  final ReplayStint? tyre;
+
+  /// O ana kadarki en hızlı turun sahibi mi?
+  final bool hasFastestLap;
   final VoidCallback onTap;
 
   @override
@@ -266,8 +283,29 @@ class _PositionRow extends StatelessWidget {
               driver.code,
               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: inPit ? AppColors.amber : null),
             ),
+            const Spacer(),
+            if (hasFastestLap) ...[
+              const Icon(Icons.timer_outlined, size: 15, color: _purple),
+              const SizedBox(width: 3),
+            ],
+            if (tyre != null) _TyreDot(letter: tyre!.letter),
           ]),
         ),
+      );
+}
+
+class _TyreDot extends StatelessWidget {
+  const _TyreDot({required this.letter});
+
+  final String letter;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 16,
+        height: 16,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _compoundColor(letter), width: 2.5)),
+        child: Text(letter, style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.w900, height: 1)),
       );
 }
 
@@ -474,7 +512,7 @@ class _Gauge extends StatelessWidget {
       );
 }
 
-/// Dış halka: hız (0–360 km/sa). İç sol yay: gaz, iç sağ yay: fren. Alt kısımda 90° boşluk.
+/// Dış halka: hız (0–360 km/sa). İç yaylar: gaz 180° (sol alttan sağ üste), fren 90° (sağ üstten sağ alta). Alt kısımda 90° boşluk.
 class _GaugePainter extends CustomPainter {
   _GaugePainter({
     required this.speed,
@@ -496,12 +534,13 @@ class _GaugePainter extends CustomPainter {
 
   static const _start = 3 * math.pi / 4; // 135°: sol alt
   static const _sweep = 3 * math.pi / 2; // 270°
-  static const _half = 3 * math.pi / 4; // iç yayların her biri 135°
+  static const _throttleSpan = math.pi; // gaz yayı 180°
+  static const _brakeSpan = math.pi / 2; // fren yayı 90° (gaz:fren = 2:1)
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = size.center(Offset.zero);
-    final outerWidth = size.width * 0.07;
+    final outerWidth = size.width * 0.105; // hız halkası
     final innerWidth = size.width * 0.05;
     final outerRadius = size.width / 2 - outerWidth / 2;
     final innerRadius = outerRadius - outerWidth / 2 - innerWidth / 2 - size.width * 0.03;
@@ -517,12 +556,13 @@ class _GaugePainter extends CustomPainter {
     canvas.drawArc(outer, _start, _sweep, false, stroke(outerWidth, trackColor));
     if (speed > 0) canvas.drawArc(outer, _start, _sweep * speed, false, stroke(outerWidth, speedColor));
 
-    canvas.drawArc(inner, _start, _half, false, stroke(innerWidth, trackColor));
-    canvas.drawArc(inner, _start + _half, _half, false, stroke(innerWidth, trackColor));
-    if (throttle > 0) canvas.drawArc(inner, _start, _half * throttle, false, stroke(innerWidth, throttleColor));
+    canvas.drawArc(inner, _start, _throttleSpan, false, stroke(innerWidth, trackColor));
+    canvas.drawArc(inner, _start + _throttleSpan, _brakeSpan, false, stroke(innerWidth, trackColor));
+    if (throttle > 0) canvas.drawArc(inner, _start, _throttleSpan * throttle, false, stroke(innerWidth, throttleColor));
     if (brake > 0) {
-      // Fren yayı sağ alttan yukarı doğru dolar.
-      canvas.drawArc(inner, _start + 2 * _half - _half * brake, _half * brake, false, stroke(innerWidth, brakeColor));
+      // Fren yayı sağ alttan (405°) yukarı doğru dolar.
+      final fill = _brakeSpan * brake;
+      canvas.drawArc(inner, _start + _throttleSpan + _brakeSpan - fill, fill, false, stroke(innerWidth, brakeColor));
     }
   }
 
@@ -691,4 +731,73 @@ class _PitTab extends StatelessWidget {
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------------- Hava durumu şeridi
+
+/// Harita kartının üstünde duran tek satırlık pist hava durumu. Ölçüm yoksa görünmez.
+class ReplayWeatherStrip extends StatelessWidget {
+  const ReplayWeatherStrip({super.key, required this.data, required this.time});
+
+  final ReplayData data;
+  final ValueListenable<double> time;
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<double>(
+        valueListenable: time,
+        builder: (context, t, _) {
+          final weather = data.weatherAt(t);
+          if (weather == null) return const SizedBox.shrink();
+          final raining = weather.raining;
+          final air = weather.air;
+          final track = weather.track;
+          final humidity = weather.humidity;
+          final wind = weather.wind;
+          final items = <Widget>[
+            if (raining != null)
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(raining ? Icons.water_drop_outlined : Icons.wb_sunny_outlined, size: 15, color: raining ? _blue : AppColors.amber),
+                const SizedBox(width: 4),
+                Text(raining ? 'Yağmurlu' : 'Kuru', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800)),
+              ]),
+            if (air != null) _WeatherValue(label: 'Hava', value: '${air.round()}°'),
+            if (track != null) _WeatherValue(label: 'Pist', value: '${track.round()}°'),
+            if (humidity != null) _WeatherValue(label: 'Nem', value: '%$humidity'),
+            if (wind != null) _WeatherValue(label: 'Rüzgâr', value: '${wind.round()} km/sa'),
+          ];
+          if (items.isEmpty) return const SizedBox.shrink();
+          return Container(
+            height: 28,
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: AppColors.surface.withValues(alpha: 0.94),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                for (var i = 0; i < items.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 14),
+                  items[i],
+                ],
+              ]),
+            ),
+          );
+        },
+      );
+}
+
+class _WeatherValue extends StatelessWidget {
+  const _WeatherValue({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
+        Text('$label ', style: TextStyle(color: AppColors.muted, fontSize: 10.5)),
+        Text(value, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800)),
+      ]);
 }

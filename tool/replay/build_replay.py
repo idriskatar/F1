@@ -52,6 +52,8 @@ class RawSession:
     position_log: Optional[dict[str, list[tuple[float, int]]]] = None
     # pilot no -> [{'compound', 'lap_start', 'lap_end', 'age'}, ...]  (OpenF1 'stints' ucu)
     stints: Optional[dict[str, list[dict[str, Any]]]] = None
+    # [{'ts': oturum sn, 'air', 'track', 'humidity', 'wind' (km/sa), 'wind_dir', 'rain'}, ...]  (OpenF1 'weather' ucu)
+    weather: Optional[list[dict[str, Any]]] = None
 
 
 # --------------------------------------------------------------------------- yardımcılar
@@ -281,6 +283,36 @@ def laps_table(laps: pd.DataFrame, number: str, t0: float) -> list[list[Any]]:
     return rows
 
 
+def weather_rows(raw: RawSession, t0: float) -> list[list[Any]]:
+    """[[replay_sn, hava, pist, nem, rüzgâr_km/sa, rüzgâr_yönü, yağmur(0/1)], ...]
+    t0 anındaki (ya da ondan önceki son) ölçüm 0. saniyeye taşınır; bilinmeyenler null."""
+    items = sorted(raw.weather or [], key=lambda r: r["ts"])
+    initial = None
+    rest = []
+    for item in items:
+        if item["ts"] <= t0:
+            initial = item
+        else:
+            rest.append(item)
+
+    def num(value: Any, digits: int) -> Optional[float]:
+        if value is None or (isinstance(value, float) and math.isnan(value)):
+            return None
+        return int(round(float(value))) if digits == 0 else round(float(value), digits)
+
+    def pack(rel: float, item: dict[str, Any]) -> list[Any]:
+        rain = item.get("rain")
+        return [round(rel, 1), num(item.get("air"), 1), num(item.get("track"), 1), num(item.get("humidity"), 0),
+                num(item.get("wind"), 1), num(item.get("wind_dir"), 0),
+                None if rain is None or (isinstance(rain, float) and math.isnan(rain)) else (1 if rain else 0)]
+
+    out: list[list[Any]] = []
+    if initial is not None:
+        out.append(pack(0.0, initial))
+    out.extend(pack(item["ts"] - t0, item) for item in rest)
+    return out
+
+
 def stints_for(raw: RawSession, number: str) -> list[list[Any]]:
     """[[bileşen, ilk_tur, son_tur|null, başlangıç_yaşı], ...]"""
     items = sorted((raw.stints or {}).get(number) or [], key=lambda s: s["lap_start"])
@@ -364,7 +396,8 @@ def build_payload(raw: RawSession, hz: int = DEFAULT_HZ) -> dict[str, Any]:
     else:
         pits = extract_pits(raw.laps, codes, t0)
 
-    return {
+    weather = weather_rows(raw, t0)
+    payload: dict[str, Any] = {
         "version": SCHEMA_VERSION,
         "event": {
             "year": raw.year,
@@ -382,6 +415,9 @@ def build_payload(raw: RawSession, hz: int = DEFAULT_HZ) -> dict[str, Any]:
         "drivers": drivers,
         "pits": pits,
     }
+    if weather:
+        payload["weather"] = weather
+    return payload
 
 
 def validate_payload(payload: dict[str, Any], min_drivers: int = 10,
@@ -645,6 +681,27 @@ def load_raw(year: int, rnd: int, code: str = "R", cache_dir: str = ".fastf1-cac
             "age": 0 if age is None or pd.isna(age) else int(age),
         })
 
+    weather: list[dict[str, Any]] = []
+    for row in _optional_get("weather", {"session_key": session_key}):
+        when = _parse_iso(row.get("date"))
+        if when is None:
+            continue
+
+        def reading(key: str, row: dict[str, Any] = row) -> Optional[float]:
+            value = row.get(key)
+            return None if value is None or pd.isna(value) else float(value)
+
+        wind_ms = reading("wind_speed")           # OpenF1: m/s -> km/sa
+        weather.append({
+            "ts": (when - session_start).total_seconds(),
+            "air": reading("air_temperature"),
+            "track": reading("track_temperature"),
+            "humidity": reading("humidity"),
+            "wind": None if wind_ms is None else wind_ms * 3.6,
+            "wind_dir": reading("wind_direction"),
+            "rain": reading("rainfall"),
+        })
+
     car: dict[str, pd.DataFrame] = {}
     pos: dict[str, pd.DataFrame] = {}
 
@@ -687,6 +744,7 @@ def load_raw(year: int, rnd: int, code: str = "R", cache_dir: str = ".fastf1-cac
         pits_override=pits_override,
         position_log=position_log,
         stints=stints,
+        weather=weather,
     )
 
 

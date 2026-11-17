@@ -186,4 +186,44 @@ void main() {
     expect(formatLapTime(59.5), '0:59.500');
     expect(formatLapTime(5), '0:05.000');
   });
+
+  test('hava ölçümleri okunur ve ana göre seçilir', () {
+    final first = data.weatherAt(0)!;
+    expect(first.air, 24.0);
+    expect(first.track, 38.0);
+    expect(first.humidity, 52);
+    expect(first.wind, 12.0);
+    expect(first.windDirection, 135);
+    expect(first.raining, isFalse);
+    expect(data.weatherAt(29.9)!.raining, isFalse);
+    expect(data.weatherAt(30)!.raining, isTrue);
+    expect(data.weatherAt(30)!.air, 24.5);
+    expect(data.weatherAt(-5)!.time, 0.0); // ilk ölçümden önce: ilk ölçüm
+  });
+
+  test('hava verisi olmayan eski dosya açılır', () {
+    final json = loadFixture()..remove('weather');
+    final old = ReplayData.fromJson(json);
+    expect(old.weather, isEmpty);
+    expect(old.weatherAt(10), isNull);
+  });
+
+  test('en hızlı tur sahibi o ana kadarki turlardan seçilir', () {
+    expect(data.fastestLapHolderAt(10), isNull); // henüz tur bitmedi
+    expect(data.fastestLapHolderAt(25), 'AAA'); // 1. turlar bitti; eşitlikte ilk bitiren/ilk pilot
+  });
+
+  test('anlık lastik: tur bilgisi yoksa 1. tur kabul edilir', () {
+    final bravo = data.drivers[1];
+    expect(bravo.stintAt(-1)!.letter, 'M');
+    expect(bravo.stintAt(10)!.letter, 'M');
+    expect(bravo.stintAt(45)!.letter, 'H');
+    expect(data.drivers.first.stintAt(0)!.letter, 'S');
+    final json = loadFixture();
+    for (final driver in json['drivers'] as List) {
+      (driver as Map<String, dynamic>).remove('stints');
+    }
+    expect(ReplayData.fromJson(json).drivers.first.stintAt(0), isNull);
+  });
 }
+

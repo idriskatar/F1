@@ -97,6 +97,13 @@ def make_fake_openf1(past_race_end):
                  "lap_start": s["lap_start"], "lap_end": s["lap_end"], "tyre_age_at_start": s["age"]}
                 for num, items in raw.stints.items() for i, s in enumerate(items)
             ]
+        if endpoint == "weather":
+            return [
+                {"date": iso(w["ts"]), "air_temperature": w["air"], "track_temperature": w["track"],
+                 "humidity": w["humidity"], "wind_speed": w["wind"] / 3.6, "wind_direction": w["wind_dir"],
+                 "rainfall": w["rain"]}
+                for w in raw.weather
+            ]
         if endpoint == "pit":
             return [
                 {
@@ -170,6 +177,8 @@ class AdapterTest(unittest.TestCase):
         self.assertEqual(drv["BBB"]["positionLog"], [[0.0, 2], [30.0, 3]])
         self.assertEqual(drv["AAA"]["laps"][1][3], 5.5)
         self.assertEqual(drv["AAA"]["lastName"], "Alpha")
+        self.assertEqual(payload["weather"][0], [0.0, 24.0, 38.0, 52, 12.0, 135, 0])     # m/s -> km/sa dönüşümü
+        self.assertEqual(payload["weather"][1][6], 1)
 
     def test_fetch_schedule_parses_utc_and_missing(self):
         schedule = br.fetch_schedule(2099)
@@ -210,7 +219,7 @@ class AdapterTest(unittest.TestCase):
         original = self.fake_get
 
         def flaky(endpoint, params=None, retries=4):
-            if endpoint in ("position", "stints"):
+            if endpoint in ("position", "stints", "weather"):
                 raise RuntimeError("boom")
             return original(endpoint, params, retries)
 
@@ -219,9 +228,11 @@ class AdapterTest(unittest.TestCase):
                 raw = br.load_raw(2099, 1, "R")
         self.assertEqual(raw.position_log, {})
         self.assertEqual(raw.stints, {})
+        self.assertEqual(raw.weather, [])
         self.assertIn("::warning::", buf.getvalue())
         payload = br.build_payload(raw, hz=2)
         self.assertNotIn("positionLog", payload["drivers"][0])
+        self.assertNotIn("weather", payload)
 
     def _seed_index(self):
         with mock.patch.object(br, "validate_payload"):
