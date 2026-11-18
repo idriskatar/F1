@@ -130,6 +130,19 @@
       "duration": 6062.6,
       "hz": 2,
       "generatedAt": "2026-11-18T07:14:05Z"
+    },
+    {
+      "year": 2026,
+      "round": 12,
+      "session": "R",
+      "name": "Belgium",
+      "country": "Belgium",
+      "circuit": "Spa-Francorchamps",
+      "file": "2026/r12-R.json.gz",
+      "bytes": 1845968,
+      "duration": 5193.9,
+      "hz": 2,
+      "generatedAt": "2026-11-18T07:20:11Z"
     }
   ]
 }
