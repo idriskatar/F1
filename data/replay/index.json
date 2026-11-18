@@ -156,6 +156,19 @@
       "duration": 5239.9,
       "hz": 2,
       "generatedAt": "2026-11-18T07:23:16Z"
+    },
+    {
+      "year": 2026,
+      "round": 10,
+      "session": "R",
+      "name": "Austria",
+      "country": "Austria",
+      "circuit": "Spielberg",
+      "file": "2026/r10-R.json.gz",
+      "bytes": 1753888,
+      "duration": 5264.7,
+      "hz": 2,
+      "generatedAt": "2026-11-18T07:29:27Z"
     }
   ]
 }
