@@ -117,6 +117,19 @@
       "duration": 7555.2,
       "hz": 2,
       "generatedAt": "2026-11-18T06:50:39Z"
+    },
+    {
+      "year": 2026,
+      "round": 13,
+      "session": "R",
+      "name": "Hungary",
+      "country": "Hungary",
+      "circuit": "Hungaroring",
+      "file": "2026/r13-R.json.gz",
+      "bytes": 1358185,
+      "duration": 6062.6,
+      "hz": 2,
+      "generatedAt": "2026-11-18T07:14:05Z"
     }
   ]
 }
