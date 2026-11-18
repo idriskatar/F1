@@ -143,6 +143,19 @@
       "duration": 5193.9,
       "hz": 2,
       "generatedAt": "2026-11-18T07:20:11Z"
+    },
+    {
+      "year": 2026,
+      "round": 11,
+      "session": "R",
+      "name": "United Kingdom",
+      "country": "United Kingdom",
+      "circuit": "Silverstone",
+      "file": "2026/r11-R.json.gz",
+      "bytes": 1975005,
+      "duration": 5239.9,
+      "hz": 2,
+      "generatedAt": "2026-11-18T07:23:16Z"
     }
   ]
 }
