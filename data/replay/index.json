@@ -169,6 +169,19 @@
       "duration": 5264.7,
       "hz": 2,
       "generatedAt": "2026-11-18T07:29:27Z"
+    },
+    {
+      "year": 2026,
+      "round": 9,
+      "session": "R",
+      "name": "Spain",
+      "country": "Spain",
+      "circuit": "Catalunya",
+      "file": "2026/r09-R.json.gz",
+      "bytes": 1917474,
+      "duration": 5626.6,
+      "hz": 2,
+      "generatedAt": "2026-11-18T07:33:04Z"
     }
   ]
 }
