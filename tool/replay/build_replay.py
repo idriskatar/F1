@@ -543,6 +543,17 @@ def _parse_iso(ts: Any) -> Optional[datetime]:
     return dt.to_pydatetime()
 
 
+def _is_cancelled(session: dict[str, Any]) -> bool:
+    val = session.get("is_cancelled")
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, (int, float)):
+        return bool(val)
+    if isinstance(val, str):
+        return val.strip().lower() in ("true", "1", "yes")
+    return False
+
+
 def _resolve_session(year: int, rnd: int, code: str) -> dict[str, Any]:
     sessions = _openf1_get("sessions", {"year": year})
     if not sessions:
@@ -550,6 +561,8 @@ def _resolve_session(year: int, rnd: int, code: str) -> dict[str, Any]:
 
     race_meetings: dict[int, datetime] = {}
     for s in sessions:
+        if _is_cancelled(s):
+            continue
         sname = _clean(s.get("session_name")).lower()
         stype = _clean(s.get("session_type")).lower()
         if "testing" in sname or ("practice" in sname and "testing" in _clean(s.get("meeting_name")).lower()):
@@ -569,6 +582,8 @@ def _resolve_session(year: int, rnd: int, code: str) -> dict[str, Any]:
     target_name = "Sprint" if code.upper() == "S" else "Race"
 
     for s in sessions:
+        if _is_cancelled(s):
+            continue
         if s.get("meeting_key") == target_mk and _clean(s.get("session_name")).lower() == target_name.lower():
             return s
 
@@ -752,6 +767,8 @@ def fetch_schedule(year: int) -> list[dict[str, Any]]:
     sessions = _openf1_get("sessions", {"year": year})
     races = []
     for s in sessions:
+        if _is_cancelled(s):
+            continue
         if _clean(s.get("session_name")).lower() == "race":
             dt_start = _parse_iso(s.get("date_start"))
             dt_end = _parse_iso(s.get("date_end"))

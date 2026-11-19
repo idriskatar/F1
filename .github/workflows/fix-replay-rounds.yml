@@ -1,0 +1,166 @@
+name: Fix Replay Round Numbers
+
+on:
+  workflow_dispatch:
+    inputs:
+      replay_dir:
+        description: "Replay veri dizini"
+        required: false
+        default: "data/replay"
+      dry_run:
+        description: "Sadece değişiklik planını göster, dosyaları değiştirme (true/false)"
+        required: false
+        default: "true"
+      mapping_json:
+        description: 'Eski -> yeni round eşlemesi (ör: {"6":4,"7":5,"8":6,"9":7,"10":8})'
+        required: false
+        default: '{"6":4,"7":5,"8":6,"9":7,"10":8}'
+      year:
+        description: "Yalnızca bu yıl için uygula (boş bırakılırsa tüm yıllar)"
+        required: false
+        default: "2026"
+
+permissions:
+  contents: write
+
+jobs:
+  fix-rounds:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Migrate replay round numbers without re-encoding payload
+        env:
+          REPLAY_DIR: ${{ inputs.replay_dir }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          MAPPING_JSON: ${{ inputs.mapping_json }}
+          TARGET_YEAR: ${{ inputs.year }}
+        run: |
+          python - <<'PY'
+          import gzip
+          import json
+          import os
+          import tempfile
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          replay_dir = Path(os.environ["REPLAY_DIR"])
+          dry_run = os.environ["DRY_RUN"].strip().lower() == "true"
+          raw_map = json.loads(os.environ["MAPPING_JSON"])
+          round_map = {int(k): int(v) for k, v in raw_map.items()}
+          target_year = int(os.environ["TARGET_YEAR"]) if os.environ.get("TARGET_YEAR", "").strip() else None
+
+          index_path = replay_dir / "index.json"
+          if not index_path.exists():
+              raise SystemExit(f"index.json bulunamadi: {index_path}")
+
+          index_data = json.loads(index_path.read_text(encoding="utf-8"))
+          sessions = index_data.get("sessions", [])
+
+          def atomic_write(path: Path, data: bytes) -> None:
+              path.parent.mkdir(parents=True, exist_ok=True)
+              fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=path.name, suffix=".tmp")
+              try:
+                  with os.fdopen(fd, "wb") as handle:
+                      handle.write(data)
+                  os.replace(tmp, path)
+              except BaseException:
+                  if os.path.exists(tmp):
+                      os.unlink(tmp)
+                  raise
+
+          # Orijinal gzip byte'larını bozmadan yalnızca event.round alanını yama yapar
+          def patch_round_in_gz(src_path: Path, new_round: int) -> bytes:
+              raw_bytes = src_path.read_bytes()
+              obj = json.loads(gzip.decompress(raw_bytes).decode("utf-8"))
+              if "event" not in obj or not isinstance(obj["event"], dict):
+                  raise ValueError(f"'event' alani eksik: {src_path}")
+              obj["event"]["round"] = new_round
+              # İsteğe bağlı: mevcut verinin orijinal yapısını koruyarak tek alanı günceller
+              patched_text = json.dumps(obj, separators=(",", ":"), ensure_ascii=False)
+              return gzip.compress(patched_text.encode("utf-8"), compresslevel=9, mtime=0)
+
+          planned_moves = []
+          updated_entries = []
+          changed_count = 0
+
+          for entry in sessions:
+              yr = int(entry["year"])
+              old_rnd = int(entry["round"])
+              sess = str(entry["session"])
+              rel_old = Path(entry["file"])
+              src_file = replay_dir / rel_old
+
+              if target_year is not None and yr != target_year:
+                  updated_entries.append(entry)
+                  continue
+
+              if old_rnd not in round_map:
+                  updated_entries.append(entry)
+                  continue
+
+              new_rnd = round_map[old_rnd]
+              rel_new = Path(f"{yr}/r{new_rnd:02d}-{sess}.json.gz")
+              dst_file = replay_dir / rel_new
+
+              if not src_file.exists():
+                  print(f"::warning::Kaynak dosya bulunamadi, atlaniyor: {src_file}")
+                  updated_entries.append(entry)
+                  continue
+
+              planned_moves.append((yr, old_rnd, new_rnd, rel_old.as_posix(), rel_new.as_posix()))
+
+              if not dry_run:
+                  blob = patch_round_in_gz(src_file, new_rnd)
+                  atomic_write(dst_file, blob)
+                  if dst_file != src_file and src_file.exists():
+                      src_file.unlink()
+
+                  new_entry = dict(entry)
+                  new_entry["round"] = new_rnd
+                  new_entry["file"] = rel_new.as_posix()
+                  new_entry["bytes"] = len(blob)
+                  new_entry["generatedAt"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                  updated_entries.append(new_entry)
+                  changed_count += 1
+              else:
+                  updated_entries.append(entry)
+
+          for yr, old_r, new_r, old_p, new_p in planned_moves:
+              print(f"[{'DRY-RUN' if dry_run else 'APPLIED'}] {yr} r{old_r:02d} -> r{new_r:02d} ({old_p} => {new_p})")
+
+          if not dry_run and changed_count > 0:
+              updated_entries.sort(
+                  key=lambda s: (int(s["year"]), int(s["round"]), str(s["session"])),
+                  reverse=True,
+              )
+              index_data["sessions"] = updated_entries
+              atomic_write(
+                  index_path,
+                  (json.dumps(index_data, indent=2, ensure_ascii=False) + "\n").encode("utf-8"),
+              )
+              print(f"Toplam {changed_count} kayit ve index.json guncellendi.")
+          elif dry_run:
+              print(f"Dry-run tamamlandi. Planlanan degisiklik sayisi: {len(planned_moves)}")
+          else:
+              print("Guncellenecek kayit bulunamadi.")
+          PY
+
+      - name: Commit and push changes
+        if: inputs.dry_run != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${{ inputs.replay_dir }}"
+          if git diff --staged --quiet; then
+            echo "Commit edilecek degisiklik yok."
+          else
+            git commit -m "fix(replay): update round numbers for ${{ inputs.year }}"
+            git push
+          fi

@@ -33,6 +33,18 @@ def make_fake_openf1(past_race_end):
         if endpoint == "sessions":
             return [
                 {
+                    "session_key": 9000,
+                    "meeting_key": 100,
+                    "meeting_name": "Cancelled Grand Prix",
+                    "session_name": "Race",
+                    "session_type": "Race",
+                    "country_name": "Cancelia",
+                    "circuit_short_name": "Cancelville",
+                    "date_start": (base_dt - timedelta(days=7)).isoformat().replace("+00:00", "Z"),
+                    "date_end": (past_race_end - timedelta(days=7)).isoformat().replace("+00:00", "Z"),
+                    "is_cancelled": True,
+                },
+                {
                     "session_key": 9001,
                     "meeting_key": 101,
                     "meeting_name": "Fake Grand Prix",
@@ -42,6 +54,7 @@ def make_fake_openf1(past_race_end):
                     "circuit_short_name": "Fakeville",
                     "date_start": base_dt.isoformat().replace("+00:00", "Z"),
                     "date_end": past_race_end.isoformat().replace("+00:00", "Z"),
+                    "is_cancelled": False,
                 },
                 {
                     "session_key": 9002,
