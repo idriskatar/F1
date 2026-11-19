@@ -1,4 +1,37 @@
-- name: Migrate replay round numbers automatically from OpenF1 schedule
+name: Fix Replay Round Numbers
+
+on:
+  workflow_dispatch:
+    inputs:
+      replay_dir:
+        description: "Replay veri dizini"
+        required: false
+        default: "data/replay"
+      dry_run:
+        description: "Sadece değişiklik planını göster, dosyaları değiştirme (true/false)"
+        required: false
+        default: "true"
+      year:
+        description: "Yalnızca bu yıl için uygula (boş bırakılırsa tüm yıllar)"
+        required: false
+        default: "2026"
+
+permissions:
+  contents: write
+
+jobs:
+  fix-rounds:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Migrate replay round numbers automatically from OpenF1 schedule
         env:
           REPLAY_DIR: ${{ inputs.replay_dir }}
           DRY_RUN: ${{ inputs.dry_run }}
@@ -106,10 +139,10 @@
               lookup: dict[str, int] = {}
               for idx, (_, s) in enumerate(ordered, start=1):
                   for key in (
-                      s.get("meeting_name"),
-                      s.get("country_name"),
                       s.get("circuit_short_name"),
                       s.get("location"),
+                      s.get("meeting_name"),
+                      s.get("country_name"),
                   ):
                       cleaned = clean(key).lower()
                       if cleaned and cleaned not in lookup:
@@ -119,10 +152,10 @@
           years_to_map = sorted({int(e["year"]) for e in sessions if target_year is None or int(e["year"]) == target_year})
           lookups_by_year = {yr: build_year_round_lookup(yr) for yr in years_to_map}
 
-          def resolve_new_round(entry: dict[str, Any]) -> int | None:
+          def resolve_new_round(entry: dict[str, Any]) -> Optional[int]:
               yr = int(entry["year"])
               lookup = lookups_by_year.get(yr) or {}
-              for field_name in ("name", "circuit", "country"):
+              for field_name in ("circuit", "name", "country"):
                   val = clean(entry.get(field_name)).lower()
                   if val in lookup:
                       return lookup[val]
@@ -161,7 +194,7 @@
                   updated_entries.append(entry)
                   continue
 
-              planned_moves.append((yr, old_rnd, new_rnd, rel_old.as_posix(), rel_new.as_posix(), entry.get("name")))
+              planned_moves.append((yr, old_rnd, new_rnd, rel_old.as_posix(), rel_new.as_posix(), entry.get("name"), entry.get("circuit")))
 
               if not dry_run:
                   blob = patch_round_in_gz(src_file, new_rnd)
@@ -179,8 +212,8 @@
               else:
                   updated_entries.append(entry)
 
-          for yr, old_r, new_r, old_p, new_p, name in planned_moves:
-              print(f"[{'DRY-RUN' if dry_run else 'APPLIED'}] {yr} ({name}) r{old_r:02d} -> r{new_r:02d} ({old_p} => {new_p})")
+          for yr, old_r, new_r, old_p, new_p, name, circuit in planned_moves:
+              print(f"[{'DRY-RUN' if dry_run else 'APPLIED'}] {yr} ({name} / {circuit}) r{old_r:02d} -> r{new_r:02d} ({old_p} => {new_p})")
 
           if not dry_run and changed_count > 0:
               updated_entries.sort(
@@ -198,3 +231,16 @@
           else:
               print("Guncellenecek kayit bulunamadi.")
           PY
+
+      - name: Commit and push changes
+        if: inputs.dry_run != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${{ inputs.replay_dir }}"
+          if git diff --staged --quiet; then
+            echo "Commit edilecek degisiklik yok."
+          else
+            git commit -m "fix(replay): auto-align round numbers for ${{ inputs.year }}"
+            git push
+          fi
