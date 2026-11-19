@@ -208,6 +208,19 @@
       "duration": 5690.7,
       "hz": 2,
       "generatedAt": "2026-11-19T18:12:27Z"
+    },
+    {
+      "year": 2026,
+      "round": 3,
+      "session": "R",
+      "name": "Japan",
+      "country": "Japan",
+      "circuit": "Suzuka",
+      "file": "2026/r03-R.json.gz",
+      "bytes": 1975381,
+      "duration": 5376.3,
+      "hz": 2,
+      "generatedAt": "2026-11-19T18:17:24Z"
     }
   ]
 }
