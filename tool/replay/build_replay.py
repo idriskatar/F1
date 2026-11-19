@@ -3,6 +3,8 @@
 # Çıktı (varsayılan: data/replay/):
 #   index.json -> hazır seansların listesi
 #   <yıl>/r<tur>-<seans>.json.gz -> tek bir seansın replay verisi (şema v1)
+#   tracks.json -> konum verisi yetersiz olduğu için yalnızca pist çizgisi üretilen seanslar
+#   <yıl>/r<tur>-<seans>-track.json.gz -> pist çizgisi (replay yoksa)
 
 from __future__ import annotations
 
@@ -29,10 +31,18 @@ DRS_OPEN_MIN = 10          # F1 DRS kodu: 10/12/14 = açık, 8 = açılabilir, 0
 TRACK_MAX_POINTS = 400
 FALLBACK_COLOR = "#9AA0A6"
 OPENF1_BASE_URL = "https://api.openf1.org/v1"
+TRACK_INDEX_FILE = "tracks.json"   # replay üretilemeyen, yalnızca pist çizgisi olan seanslar
 
 
 class IncompleteData(RuntimeError):
     """Kaynak henüz tam yayınlanmamış ya da veri kalitesi yetersiz."""
+
+
+class IncompletePositions(IncompleteData):
+    """Seans verisi var ama konum kapsaması replay üretmek için yetersiz.
+
+    Bu durumda seans tamamen atılmaz: pist çizgisi hâlâ üretilebilir (tek bir tur yeter).
+    """
 
 
 @dataclass
@@ -190,43 +200,49 @@ def track_outline(raw: RawSession, max_points: int = TRACK_MAX_POINTS) -> dict[s
         if len(accurate):
             candidates = accurate
 
-    for _, lap in candidates.sort_values("_lt").head(40).iterrows():
-        pos = raw.pos.get(str(lap["DriverNumber"]))
+    # Pilot başına geçerli konum örnekleri. (0, 0) örnekleri GPS yokken gelir; pisti
+    # orijine çekmemesi için elenir.
+    prepared: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
+    for number, pos in raw.pos.items():
         if pos is None or "X" not in pos.columns or "Y" not in pos.columns:
             continue
         t = _seconds(pos["SessionTime"])
-        start = _seconds(pd.Series([lap["LapStartTime"]]))[0]
-        end = _seconds(pd.Series([lap["Time"]]))[0]
-        if np.isnan(start) or np.isnan(end):
+        xs = pd.to_numeric(pos["X"], errors="coerce").to_numpy(dtype=float, na_value=np.nan)
+        ys = pd.to_numeric(pos["Y"], errors="coerce").to_numpy(dtype=float, na_value=np.nan)
+        good = (~(np.isnan(t) | np.isnan(xs) | np.isnan(ys))
+                & ((np.abs(xs) > 1e-6) | (np.abs(ys) > 1e-6)))
+        if int(good.sum()) < 50:
             continue
+        order = np.argsort(t[good])
+        prepared[str(number)] = (t[good][order], xs[good][order], ys[good][order])
+
+    if not prepared or candidates.empty:
+        raise IncompleteData("Pist cizgisi icin konum verisi bulunamadi.")
+
+    laps_sorted = candidates.sort_values("_lt").reset_index(drop=True)
+    starts = _seconds(laps_sorted["LapStartTime"])
+    ends = _seconds(laps_sorted["Time"])
+    numbers = laps_sorted["DriverNumber"].astype(str).to_numpy()
+
+    # En hızlı turdan başla; veri eksikse (ör. yarışın sadece bir bölümünde konum varsa)
+    # konumu olan ilk tura kadar in. Tek bir tur pisti çizmeye yeter.
+    for i in range(len(laps_sorted)):
+        start, end = starts[i], ends[i]
+        if np.isnan(start) or np.isnan(end) or end <= start:
+            continue
+        data = prepared.get(numbers[i])
+        if data is None:
+            continue
+        t, xs, ys = data
         mask = (t >= start) & (t <= end)
-        xs = pd.to_numeric(pos["X"], errors="coerce").to_numpy(dtype=float, na_value=np.nan)[mask]
-        ys = pd.to_numeric(pos["Y"], errors="coerce").to_numpy(dtype=float, na_value=np.nan)[mask]
-        valid = ~(np.isnan(xs) | np.isnan(ys)) & ((np.abs(xs) > 1e-6) | (np.abs(ys) > 1e-6))
-        xs, ys = xs[valid], ys[valid]
-        if len(xs) < 5:
+        if int(mask.sum()) < 50:
             continue
+        xs, ys = xs[mask], ys[mask]
         step = max(1, len(xs) // max_points)
         xs, ys = xs[::step], ys[::step]
         xs = np.append(xs, xs[0])
         ys = np.append(ys, ys[0])
         return {"x": [int(v) for v in np.rint(xs)], "y": [int(v) for v in np.rint(ys)]}
-
-    # Yedek: aday tur penceresinde bulunamazsa seanstaki gecerli (0, 0) disi konumlardan cikar
-    for _, pos in raw.pos.items():
-        if pos is None or "X" not in pos.columns or "Y" not in pos.columns:
-            continue
-        xs = pd.to_numeric(pos["X"], errors="coerce").to_numpy(dtype=float, na_value=np.nan)
-        ys = pd.to_numeric(pos["Y"], errors="coerce").to_numpy(dtype=float, na_value=np.nan)
-        valid = ~(np.isnan(xs) | np.isnan(ys)) & ((np.abs(xs) > 1e-6) | (np.abs(ys) > 1e-6))
-        xs, ys = xs[valid], ys[valid]
-        if len(xs) >= 50:
-            step = max(1, len(xs) // max_points)
-            xs, ys = xs[::step], ys[::step]
-            xs = np.append(xs, xs[0])
-            ys = np.append(ys, ys[0])
-            return {"x": [int(v) for v in np.rint(xs)], "y": [int(v) for v in np.rint(ys)]}
-
     raise IncompleteData("Pist cizgisi icin konum verisi bulunamadi.")
 
 
@@ -416,14 +432,7 @@ def build_payload(raw: RawSession, hz: int = DEFAULT_HZ) -> dict[str, Any]:
     weather = weather_rows(raw, t0)
     payload: dict[str, Any] = {
         "version": SCHEMA_VERSION,
-        "event": {
-            "year": raw.year,
-            "round": raw.round,
-            "session": raw.code,
-            "name": raw.event_name,
-            "country": raw.country,
-            "circuit": raw.circuit,
-        },
+        "event": _event_block(raw),
         "hz": hz,
         "duration": round(t1 - t0, 1),
         "totalLaps": total,
@@ -437,6 +446,30 @@ def build_payload(raw: RawSession, hz: int = DEFAULT_HZ) -> dict[str, Any]:
     return payload
 
 
+def _event_block(raw: RawSession) -> dict[str, Any]:
+    return {
+        "year": raw.year,
+        "round": raw.round,
+        "session": raw.code,
+        "name": raw.event_name,
+        "country": raw.country,
+        "circuit": raw.circuit,
+    }
+
+
+def build_track_payload(raw: RawSession) -> dict[str, Any]:
+    """Konum verisi replay'e yetmeyen seanslar için yalnızca pist çizgisini taşır.
+
+    Pist çizgisi tek bir hızlı turdan çıkarıldığı için yarışın tamamı değil,
+    sadece kısa bir konum penceresi yeterlidir.
+    """
+    return {
+        "version": SCHEMA_VERSION,
+        "event": _event_block(raw),
+        "track": track_outline(raw),
+    }
+
+
 def validate_payload(payload: dict[str, Any], min_drivers: int = 10,
                      min_coverage: float = 0.5, min_duration: float = 600.0) -> None:
     if payload["duration"] < min_duration:
@@ -447,7 +480,7 @@ def validate_payload(payload: dict[str, Any], min_drivers: int = 10,
         if xs and sum(v is not None for v in xs) / len(xs) >= min_coverage:
             good += 1
     if good < min_drivers:
-        raise IncompleteData(f"Yeterli konum verisi olan pilot sayisi {good} (en az {min_drivers}).")
+        raise IncompletePositions(f"Yeterli konum verisi olan pilot sayisi {good} (en az {min_drivers}).")
 
 
 # --------------------------------------------------------------------------- dosya işleri
@@ -508,8 +541,89 @@ def write_session(out_dir: Path, payload: dict[str, Any], now: Optional[datetime
     return entry
 
 
+def load_track_index(out_dir: Path) -> dict[str, Any]:
+    path = out_dir / TRACK_INDEX_FILE
+    if path.exists():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and isinstance(data.get("tracks"), list):
+                return data
+        except json.JSONDecodeError:
+            pass
+    return {"version": SCHEMA_VERSION, "tracks": []}
+
+
+def is_track_only(tracks: dict[str, Any], year: int, rnd: int, code: str) -> bool:
+    return any(t["year"] == year and t["round"] == rnd and t["session"] == code for t in tracks["tracks"])
+
+
+def write_track_only(out_dir: Path, payload: dict[str, Any], reason: str,
+                     now: Optional[datetime] = None) -> dict[str, Any]:
+    ev = payload["event"]
+    rel = f"{ev['year']}/r{ev['round']:02d}-{ev['session']}-track.json.gz"
+    blob = encode(payload)
+    _atomic_write(out_dir / rel, blob)
+
+    entry = {
+        "year": ev["year"], "round": ev["round"], "session": ev["session"],
+        "name": ev["name"], "country": ev["country"], "circuit": ev["circuit"],
+        "file": rel, "bytes": len(blob), "reason": reason,
+        "generatedAt": (now or datetime.now(timezone.utc)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    tracks = load_track_index(out_dir)
+    tracks["tracks"] = [t for t in tracks["tracks"]
+                        if not (t["year"] == ev["year"] and t["round"] == ev["round"] and t["session"] == ev["session"])]
+    tracks["tracks"].append(entry)
+    tracks["tracks"].sort(key=lambda t: (t["year"], t["round"], t["session"]), reverse=True)
+    tracks["version"] = SCHEMA_VERSION
+    _atomic_write(out_dir / TRACK_INDEX_FILE, (json.dumps(tracks, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
+    return entry
+
+
+def remove_track_only(out_dir: Path, year: int, rnd: int, code: str) -> None:
+    """Replay üretilebilen seansın eski pist-only kaydını (ve dosyasını) siler."""
+    tracks = load_track_index(out_dir)
+    removed = [t for t in tracks["tracks"]
+               if t["year"] == year and t["round"] == rnd and t["session"] == code]
+    if not removed:
+        return
+    tracks["tracks"] = [t for t in tracks["tracks"] if t not in removed]
+    tracks["version"] = SCHEMA_VERSION
+    _atomic_write(out_dir / TRACK_INDEX_FILE, (json.dumps(tracks, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
+    for entry in removed:
+        try:
+            (out_dir / entry["file"]).unlink()
+        except OSError:
+            pass
+
+
+def build_and_write(raw: RawSession, out_dir: Path, hz: int = DEFAULT_HZ,
+                    **validate_kwargs: Any) -> tuple[dict[str, Any], str]:
+    """Replay'i üretir; konum verisi yetersizse yalnızca pist çizgisini yazar.
+
+    Dönen ikinci değer "replay" ya da "track". Pist çizgisi tek bir hızlı turdan
+    çıkarıldığı için yarışın yalnızca küçük bir bölümünde konum olsa bile üretilebilir.
+    """
+    try:
+        payload = build_payload(raw, hz=hz)
+        validate_payload(payload, **validate_kwargs)
+    except IncompletePositions as exc:
+        try:
+            track_payload = build_track_payload(raw)
+        except IncompleteData:
+            raise exc from None
+        entry = write_track_only(out_dir, track_payload, str(exc))
+        print(f"::warning::{raw.year} r{raw.round} ({raw.code}) replay uretilemedi ({exc}); "
+              f"yalnizca pist cizgisi yazildi: {entry['file']}")
+        return entry, "track"
+    entry = write_session(out_dir, payload)
+    remove_track_only(out_dir, raw.year, raw.round, raw.code)
+    return entry, "replay"
+
+
 def pending_races(schedule: list[dict[str, Any]], index: dict[str, Any], now: datetime,
-                  settle: timedelta = timedelta(hours=3)) -> list[dict[str, Any]]:
+                  settle: timedelta = timedelta(hours=3),
+                  tracks: Optional[dict[str, Any]] = None) -> list[dict[str, Any]]:
     due = []
     for ev in schedule:
         end = ev.get("race_end_utc")
@@ -517,6 +631,8 @@ def pending_races(schedule: list[dict[str, Any]], index: dict[str, Any], now: da
             continue
         if is_processed(index, ev["year"], ev["round"], "R"):
             continue
+        if tracks is not None and is_track_only(tracks, ev["year"], ev["round"], "R"):
+            continue                      # replay üretilemedi ama pist çizgisi zaten yazıldı
         due.append(ev)
     due.sort(key=lambda e: (e["year"], e["round"]), reverse=True)
     return due
@@ -524,7 +640,7 @@ def pending_races(schedule: list[dict[str, Any]], index: dict[str, Any], now: da
 
 # --------------------------------------------------------------------------- OpenF1 API katmanı
 
-def _openf1_get(endpoint: str, params: dict[str, Any], retries: int = 4) -> list[dict[str, Any]]:
+def _openf1_get(endpoint: str, params: dict[str, Any], retries: int = 5) -> list[dict[str, Any]]:
     import requests
 
     url = f"{OPENF1_BASE_URL}/{endpoint}"
@@ -534,7 +650,13 @@ def _openf1_get(endpoint: str, params: dict[str, Any], retries: int = 4) -> list
             data = resp.json()
             return data if isinstance(data, list) else []
         if resp.status_code in (429, 500, 502, 503, 504):
-            time.sleep(2.0 * (attempt + 1))
+            # Anonim erişimde hız sınırı sıkı: Retry-After varsa ona uy, yoksa kademeli bekle.
+            retry_after = resp.headers.get("Retry-After")
+            try:
+                delay = float(retry_after)
+            except (TypeError, ValueError):
+                delay = 3.0 * (attempt + 1)
+            time.sleep(min(max(delay, 1.0), 60.0))
             continue
         if resp.status_code == 404:
             return []
@@ -743,11 +865,8 @@ def load_raw(year: int, rnd: int, code: str = "R", cache_dir: str = ".fastf1-cac
         if loc_rows:
             df_loc = pd.DataFrame(loc_rows)
             df_loc["SessionTime"] = to_rel_td(df_loc["date"])
-            xs = pd.to_numeric(df_loc["x"], errors="coerce")
-            ys = pd.to_numeric(df_loc["y"], errors="coerce")
-            is_zero = (xs.abs() <= 1e-6) & (ys.abs() <= 1e-6)
-            df_loc["X"] = xs.mask(is_zero, np.nan)
-            df_loc["Y"] = ys.mask(is_zero, np.nan)
+            df_loc["X"] = pd.to_numeric(df_loc["x"], errors="coerce")
+            df_loc["Y"] = pd.to_numeric(df_loc["y"], errors="coerce")
             pos[num] = df_loc[["SessionTime", "X", "Y"]]
 
         car_rows = _openf1_get("car_data", {"session_key": session_key, "driver_number": int(num)})
@@ -783,133 +902,97 @@ def load_raw(year: int, rnd: int, code: str = "R", cache_dir: str = ".fastf1-cac
     )
 
 
-def _infer_race_end_utc(session: dict[str, Any], dt_start: Optional[datetime]) -> Optional[datetime]:
-    dt_end = _parse_iso(session.get("date_end"))
-    if dt_end is not None:
-        return dt_end
-    if dt_start is not None and _clean(session.get("session_status")).lower() == "finished":
-        return dt_start + timedelta(hours=2)
-    return None
-
-
 def fetch_schedule(year: int) -> list[dict[str, Any]]:
     sessions = _openf1_get("sessions", {"year": year})
     races = []
     for s in sessions:
         if _is_cancelled(s):
             continue
-        sname = _clean(s.get("session_name")).lower()
-        stype = _clean(s.get("session_type")).lower()
-        if "testing" in sname or ("practice" in sname and "testing" in _clean(s.get("meeting_name")).lower()):
-            continue
-        if stype == "race" and sname == "race":
+        if _clean(s.get("session_name")).lower() == "race":
             dt_start = _parse_iso(s.get("date_start"))
-            dt_end = _infer_race_end_utc(s, dt_start)
+            dt_end = _parse_iso(s.get("date_end"))
             if dt_start is not None:
-                races.append({
-                    "year": year,
-                    "meeting_key": s.get("meeting_key"),
-                    "event_name": _clean(s.get("meeting_name") or s.get("country_name")),
-                    "race_start_utc": dt_start,
-                    "race_end_utc": dt_end,
-                })
+                races.append((dt_start, dt_end))
 
-    races.sort(key=lambda r: r["race_start_utc"])
-    for idx_r, r in enumerate(races, start=1):
-        r["round"] = idx_r
-    return races
+    races.sort(key=lambda x: x[0])
+    events = []
+    for idx, (dt_start, dt_end) in enumerate(races, start=1):
+        events.append({"year": year, "round": idx, "race_end_utc": dt_end})
+    return events
 
 
-def refresh_existing(out_dir: Path, hz: int = DEFAULT_HZ, cache_dir: str = ".fastf1-cache",
-                     year: Optional[int] = None) -> int:
-    index = load_index(out_dir)
-    entries = list(index.get("sessions", []))
-    if year is not None:
-        entries = [e for e in entries if int(e["year"]) == year]
-    entries.sort(key=lambda e: (int(e["year"]), int(e["round"]), str(e["session"])))
-    ok_count = 0
-    fail_count = 0
-    for entry in entries:
-        yr = int(entry["year"])
-        rnd = int(entry["round"])
-        code = str(entry["session"])
-        expected_name = _clean(entry.get("name"))
-        try:
-            raw = load_raw(yr, rnd, code, cache_dir=cache_dir)
-            if expected_name and raw.event_name and raw.event_name != expected_name:
-                raise IncompleteData(f"Yaris adi degisti: '{expected_name}' -> '{raw.event_name}'")
-            payload = build_payload(raw, hz=hz)
-            validate_payload(payload)
-            write_session(out_dir, payload)
-            ok_count += 1
-        except Exception as exc:
-            print(f"::error::{yr} r{rnd} ({code}) yenilenemedi: {exc}")
-            fail_count += 1
-    print(f"Refresh tamamlandi: {ok_count} basarili, {fail_count} hatali.")
-    if entries and ok_count == 0:
-        return 1
-    return 0
-
-
-def build_one(year: int, rnd: int, code: str, out_dir: Path, hz: int,
-              cache_dir: str, force: bool = False) -> Optional[dict[str, Any]]:
-    index = load_index(out_dir)
-    if not force and is_processed(index, year, rnd, code.upper()):
-        print(f"{year} r{rnd} ({code.upper()}) zaten islenmis, atlaniyor.")
-        return None
-    raw = load_raw(year, rnd, code, cache_dir=cache_dir)
-    payload = build_payload(raw, hz=hz)
-    validate_payload(payload)
-    entry = write_session(out_dir, payload)
-    print(f"OK: {entry['file']} ({entry['bytes']} B, {entry['duration']} sn)")
-    return entry
+def process(year: int, rnd: int, code: str, out_dir: Path, hz: int, cache_dir: str,
+            expect_name: Optional[str] = None) -> tuple[dict[str, Any], str]:
+    raw = load_raw(year, rnd, code, cache_dir)
+    if expect_name and raw.event_name != expect_name:
+        # Yenilemede OpenF1 sıralaması kaymışsa yanlış yarışın üzerine yazmayalım.
+        raise IncompleteData(f"yaris adi uyusmuyor ('{expect_name}' beklenirken '{raw.event_name}' geldi)")
+    return build_and_write(raw, out_dir, hz, min_duration=600.0 if code == "R" else 300.0)
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="OpenF1 verisinden replay JSON.GZ dosyasi uretir.")
-    parser.add_argument("--year", type=int, default=datetime.now(timezone.utc).year)
-    parser.add_argument("--round", type=int, help="Tur numarasi (1..N)")
-    parser.add_argument("--session", default="R", choices=["R", "S"], help="Seans kodu (R=Race, S=Sprint)")
-    parser.add_argument("--latest", action="store_true", help="Tamamlanmis ama henuz islenmemis son yarisi uret")
-    parser.add_argument("--refresh", action="store_true", help="Mevcut replay dosyalarini yeniden uret")
-    parser.add_argument("--out", "--out-dir", dest="out_dir", type=Path, default=Path("data/replay"))
+    parser = argparse.ArgumentParser(description="OpenF1 Replay Builder")
+    parser.add_argument("--year", type=int)
+    parser.add_argument("--round", type=int)
+    parser.add_argument("--session", default="R", choices=["R", "S"])
+    parser.add_argument("--latest", action="store_true")
+    parser.add_argument("--limit", type=int, default=None, help="--latest: en fazla kaç yarış (varsayılan 2); --refresh: en fazla kaç dosya (varsayılan hepsi)")
+    parser.add_argument("--refresh", action="store_true", help="index.json'daki tüm seansları yeniden üret (yeni alanlar için)")
     parser.add_argument("--hz", type=int, default=DEFAULT_HZ)
-    parser.add_argument("--cache", "--cache-dir", dest="cache_dir", default=".fastf1-cache")
-    parser.add_argument("--force", action="store_true")
+    parser.add_argument("--out", default="data/replay")
+    parser.add_argument("--cache", default=".fastf1-cache")
     args = parser.parse_args(argv)
+    out_dir = Path(args.out)
 
     if args.refresh:
-        try:
-            return refresh_existing(args.out_dir, hz=args.hz, cache_dir=args.cache_dir, year=args.year if args.round else None)
-        except IncompleteData as exc:
-            print(f"::error::{exc}")
-            return 1
+        entries = list(load_index(out_dir)["sessions"])
+        entries += list(load_track_index(out_dir)["tracks"])
+        if args.limit:
+            entries = entries[: args.limit]
+        ok = track_only = failed = 0
+        for e in entries:
+            try:
+                entry, kind = process(e["year"], e["round"], e.get("session", "R"), out_dir, args.hz, args.cache,
+                                      expect_name=e.get("name"))
+                if kind == "track":
+                    track_only += 1
+                else:
+                    print(f"OK  {entry['name']} yenilendi ({entry['bytes'] / 1024:.0f} KB)")
+                    ok += 1
+            except Exception as error:
+                print(f"::warning::{e['year']} r{e['round']} yenilenemedi (eski dosya korunuyor): {error}")
+                failed += 1
+        print(f"Yenileme tamam: {ok} basarili, {track_only} pist-only, {failed} basarisiz.")
+        return 1 if entries and ok == 0 and track_only == 0 else 0
 
     if args.latest:
         now = datetime.now(timezone.utc)
-        schedule = fetch_schedule(args.year)
-        index = load_index(args.out_dir)
-        due = pending_races(schedule, index, now)
-        if not due:
+        index = load_index(out_dir)
+        tracks = load_track_index(out_dir)
+        todo = pending_races(fetch_schedule(now.year), index, now, tracks=tracks)[: (args.limit or 2)]
+        if not todo:
             print("Islenecek yeni yaris yok.")
             return 0
-        for ev in due:
+        for ev in todo:
             try:
-                build_one(ev["year"], ev["round"], "R", args.out_dir, args.hz, args.cache_dir, force=args.force)
-            except IncompleteData as exc:
-                print(f"::warning::{ev['year']} r{ev['round']} islenemedi: {exc}")
+                entry, kind = process(ev["year"], ev["round"], "R", out_dir, args.hz, args.cache)
+                if kind == "replay":
+                    print(f"OK  {entry['name']} ({entry['bytes'] / 1024:.0f} KB)")
+            except Exception as error:
+                print(f"::warning::{ev['year']} r{ev['round']} islenemedi: {error}")
         return 0
 
-    if args.round is None:
-        parser.error("--round veya --latest belirtmelisiniz.")
-
+    if args.year is None or args.round is None:
+        parser.error("--latest, --refresh ya da --year ve --round gerekli")
     try:
-        build_one(args.year, args.round, args.session, args.out_dir, args.hz, args.cache_dir, force=args.force)
-    except IncompleteData as exc:
-        print(f"::error::{exc}")
+        entry, kind = process(args.year, args.round, args.session, out_dir, args.hz, args.cache)
+    except Exception as error:
+        print(f"::error::{error}")
         return 1
+    if kind == "replay":
+        print(f"OK  {entry['name']} ({entry['bytes'] / 1024:.0f} KB)")
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    sys.exit(main())
