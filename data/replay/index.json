@@ -9,10 +9,10 @@
       "country": "Brazil",
       "circuit": "Interlagos",
       "file": "2026/r22-R.json.gz",
-      "bytes": 2069136,
+      "bytes": 2070259,
       "duration": 5810.6,
       "hz": 2,
-      "generatedAt": "2026-11-17T01:42:48Z"
+      "generatedAt": "2026-11-17T11:45:16Z"
     },
     {
       "year": 2026,
@@ -22,10 +22,10 @@
       "country": "Mexico",
       "circuit": "Mexico City",
       "file": "2026/r21-R.json.gz",
-      "bytes": 2181143,
+      "bytes": 2182725,
       "duration": 8459.9,
       "hz": 2,
-      "generatedAt": "2026-11-17T01:45:53Z"
+      "generatedAt": "2026-11-17T11:47:54Z"
     },
     {
       "year": 2026,
@@ -35,10 +35,10 @@
       "country": "United States",
       "circuit": "Austin",
       "file": "2026/r20-R.json.gz",
-      "bytes": 2148680,
+      "bytes": 2149667,
       "duration": 5812.0,
       "hz": 2,
-      "generatedAt": "2026-11-17T01:48:32Z"
+      "generatedAt": "2026-11-17T11:50:16Z"
     },
     {
       "year": 2026,
@@ -48,10 +48,10 @@
       "country": "Singapore",
       "circuit": "Singapore",
       "file": "2026/r19-R.json.gz",
-      "bytes": 2203401,
+      "bytes": 2204442,
       "duration": 6212.1,
       "hz": 2,
-      "generatedAt": "2026-11-17T01:51:19Z"
+      "generatedAt": "2026-11-17T11:52:38Z"
     },
     {
       "year": 2026,
@@ -61,10 +61,10 @@
       "country": "Bahrain",
       "circuit": "Kuala Lumpur",
       "file": "2026/r18-R.json.gz",
-      "bytes": 2355392,
+      "bytes": 2356372,
       "duration": 6464.6,
       "hz": 2,
-      "generatedAt": "2026-11-17T01:54:50Z"
+      "generatedAt": "2026-11-17T11:55:49Z"
     },
     {
       "year": 2026,
@@ -74,10 +74,179 @@
       "country": "Azerbaijan",
       "circuit": "Baku",
       "file": "2026/r17-R.json.gz",
-      "bytes": 2062200,
+      "bytes": 2063339,
       "duration": 5923.9,
       "hz": 2,
-      "generatedAt": "2026-11-17T01:57:31Z"
+      "generatedAt": "2026-11-17T11:58:06Z"
+    },
+    {
+      "year": 2026,
+      "round": 16,
+      "session": "R",
+      "name": "Spain",
+      "country": "Spain",
+      "circuit": "Madring",
+      "file": "2026/r16-R.json.gz",
+      "bytes": 2053958,
+      "duration": 5760.0,
+      "hz": 2,
+      "generatedAt": "2026-11-18T04:34:50Z"
+    },
+    {
+      "year": 2026,
+      "round": 15,
+      "session": "R",
+      "name": "Italy",
+      "country": "Italy",
+      "circuit": "Monza",
+      "file": "2026/r15-R.json.gz",
+      "bytes": 1752893,
+      "duration": 6754.6,
+      "hz": 2,
+      "generatedAt": "2026-11-18T06:43:49Z"
+    },
+    {
+      "year": 2026,
+      "round": 14,
+      "session": "R",
+      "name": "Netherlands",
+      "country": "Netherlands",
+      "circuit": "Zandvoort",
+      "file": "2026/r14-R.json.gz",
+      "bytes": 2026337,
+      "duration": 7555.2,
+      "hz": 2,
+      "generatedAt": "2026-11-18T06:50:39Z"
+    },
+    {
+      "year": 2026,
+      "round": 13,
+      "session": "R",
+      "name": "Hungary",
+      "country": "Hungary",
+      "circuit": "Hungaroring",
+      "file": "2026/r13-R.json.gz",
+      "bytes": 1358185,
+      "duration": 6062.6,
+      "hz": 2,
+      "generatedAt": "2026-11-18T07:14:05Z"
+    },
+    {
+      "year": 2026,
+      "round": 12,
+      "session": "R",
+      "name": "Belgium",
+      "country": "Belgium",
+      "circuit": "Spa-Francorchamps",
+      "file": "2026/r12-R.json.gz",
+      "bytes": 1845968,
+      "duration": 5193.9,
+      "hz": 2,
+      "generatedAt": "2026-11-18T07:20:11Z"
+    },
+    {
+      "year": 2026,
+      "round": 11,
+      "session": "R",
+      "name": "United Kingdom",
+      "country": "United Kingdom",
+      "circuit": "Silverstone",
+      "file": "2026/r11-R.json.gz",
+      "bytes": 1975005,
+      "duration": 5239.9,
+      "hz": 2,
+      "generatedAt": "2026-11-18T07:23:16Z"
+    },
+    {
+      "year": 2026,
+      "round": 10,
+      "session": "R",
+      "name": "Austria",
+      "country": "Austria",
+      "circuit": "Spielberg",
+      "file": "2026/r10-R.json.gz",
+      "bytes": 1753888,
+      "duration": 5264.7,
+      "hz": 2,
+      "generatedAt": "2026-11-18T07:29:27Z"
+    },
+    {
+      "year": 2026,
+      "round": 9,
+      "session": "R",
+      "name": "Spain",
+      "country": "Spain",
+      "circuit": "Catalunya",
+      "file": "2026/r09-R.json.gz",
+      "bytes": 1917474,
+      "duration": 5626.6,
+      "hz": 2,
+      "generatedAt": "2026-11-18T07:33:04Z"
+    },
+    {
+      "year": 2026,
+      "round": 7,
+      "session": "R",
+      "name": "Canada",
+      "country": "Canada",
+      "circuit": "Montreal",
+      "file": "2026/r07-R.json.gz",
+      "bytes": 1710067,
+      "duration": 5364.9,
+      "hz": 2,
+      "generatedAt": "2026-11-19T13:02:56Z"
+    },
+    {
+      "year": 2026,
+      "round": 6,
+      "session": "R",
+      "name": "United States",
+      "country": "United States",
+      "circuit": "Miami",
+      "file": "2026/r06-R.json.gz",
+      "bytes": 1806041,
+      "duration": 5690.7,
+      "hz": 2,
+      "generatedAt": "2026-11-19T13:22:51Z"
+    },
+    {
+      "year": 2026,
+      "round": 3,
+      "session": "R",
+      "name": "Japan",
+      "country": "Japan",
+      "circuit": "Suzuka",
+      "file": "2026/r03-R.json.gz",
+      "bytes": 1975381,
+      "duration": 5376.3,
+      "hz": 2,
+      "generatedAt": "2026-11-19T14:12:09Z"
+    },
+    {
+      "year": 2026,
+      "round": 2,
+      "session": "R",
+      "name": "China",
+      "country": "China",
+      "circuit": "Shanghai",
+      "file": "2026/r02-R.json.gz",
+      "bytes": 1638240,
+      "duration": 5683.4,
+      "hz": 2,
+      "generatedAt": "2026-11-19T14:15:03Z"
+    },
+    {
+      "year": 2026,
+      "round": 1,
+      "session": "R",
+      "name": "Australia",
+      "country": "Australia",
+      "circuit": "Melbourne",
+      "file": "2026/r01-R.json.gz",
+      "bytes": 1620926,
+      "duration": 5068.3,
+      "hz": 2,
+      "generatedAt": "2026-11-19T14:20:16Z"
     }
   ]
 }
