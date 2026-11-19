@@ -43,6 +43,19 @@
     {
       "year": 2026,
       "round": 17,
+      "session": "S",
+      "name": "Singapore",
+      "country": "Singapore",
+      "circuit": "Singapore",
+      "file": "2026/r17-S.json.gz",
+      "bytes": 738601,
+      "duration": 2444.3,
+      "hz": 2,
+      "generatedAt": "2026-11-19T20:10:13Z"
+    },
+    {
+      "year": 2026,
+      "round": 17,
       "session": "R",
       "name": "Singapore",
       "country": "Singapore",
