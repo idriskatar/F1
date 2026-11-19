@@ -186,6 +186,19 @@
     {
       "year": 2026,
       "round": 5,
+      "session": "S",
+      "name": "Canada",
+      "country": "Canada",
+      "circuit": "Montreal",
+      "file": "2026/r05-S.json.gz",
+      "bytes": 726169,
+      "duration": 1799.8,
+      "hz": 2,
+      "generatedAt": "2026-11-19T19:59:32Z"
+    },
+    {
+      "year": 2026,
+      "round": 5,
       "session": "R",
       "name": "Canada",
       "country": "Canada",
