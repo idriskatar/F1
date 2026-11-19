@@ -1,37 +1,4 @@
-name: Fix Replay Round Numbers
-
-on:
-  workflow_dispatch:
-    inputs:
-      replay_dir:
-        description: "Replay veri dizini"
-        required: false
-        default: "data/replay"
-      dry_run:
-        description: "Sadece değişiklik planını göster, dosyaları değiştirme (true/false)"
-        required: false
-        default: "true"
-      year:
-        description: "Yalnızca bu yıl için uygula (boş bırakılırsa tüm yıllar)"
-        required: false
-        default: "2026"
-
-permissions:
-  contents: write
-
-jobs:
-  fix-rounds:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Migrate replay round numbers automatically from OpenF1 schedule
+- name: Migrate replay round numbers automatically from OpenF1 schedule
         env:
           REPLAY_DIR: ${{ inputs.replay_dir }}
           DRY_RUN: ${{ inputs.dry_run }}
@@ -40,15 +7,16 @@ jobs:
           python - <<'PY'
           import gzip
           import json
+          import math
           import os
-          import sys
           import tempfile
           from datetime import datetime, timezone
           from pathlib import Path
+          from typing import Any, Optional
+          from urllib.parse import urlencode
+          from urllib.request import urlopen
 
-          sys.path.insert(0, "tool/replay")
-          import build_replay as br
-
+          OPENF1_BASE_URL = "https://api.openf1.org/v1"
           replay_dir = Path(os.environ["REPLAY_DIR"])
           dry_run = os.environ["DRY_RUN"].strip().lower() == "true"
           target_year = int(os.environ["TARGET_YEAR"]) if os.environ.get("TARGET_YEAR", "").strip() else None
@@ -59,6 +27,42 @@ jobs:
 
           index_data = json.loads(index_path.read_text(encoding="utf-8"))
           sessions = index_data.get("sessions", [])
+
+          def clean(value: Any, default: str = "") -> str:
+              if value is None:
+                  return default
+              if isinstance(value, float) and math.isnan(value):
+                  return default
+              text = str(value).strip()
+              return text if text else default
+
+          def parse_iso(ts: Any) -> Optional[datetime]:
+              if not ts:
+                  return None
+              try:
+                  dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+                  if dt.tzinfo is None:
+                      dt = dt.replace(tzinfo=timezone.utc)
+                  return dt.astimezone(timezone.utc)
+              except ValueError:
+                  return None
+
+          def is_cancelled(session: dict[str, Any]) -> bool:
+              val = session.get("is_cancelled")
+              if isinstance(val, bool):
+                  return val
+              if isinstance(val, (int, float)):
+                  return bool(val)
+              if isinstance(val, str):
+                  return val.strip().lower() in ("true", "1", "yes")
+              return False
+
+          def openf1_get_sessions(year: int) -> list[dict[str, Any]]:
+              query = urlencode({"year": year})
+              url = f"{OPENF1_BASE_URL}/sessions?{query}"
+              with urlopen(url, timeout=60) as resp:
+                  payload = json.loads(resp.read().decode("utf-8"))
+                  return payload if isinstance(payload, list) else []
 
           def atomic_write(path: Path, data: bytes) -> None:
               path.parent.mkdir(parents=True, exist_ok=True)
@@ -82,18 +86,18 @@ jobs:
               return gzip.compress(patched_text.encode("utf-8"), compresslevel=9, mtime=0)
 
           def build_year_round_lookup(yr: int) -> dict[str, int]:
-              raw_sessions = br._openf1_get("sessions", {"year": yr})
-              race_meetings: dict[int, tuple[Any, dict[str, Any]]] = {}
+              raw_sessions = openf1_get_sessions(yr)
+              race_meetings: dict[int, tuple[datetime, dict[str, Any]]] = {}
               for s in raw_sessions:
-                  if br._is_cancelled(s):
+                  if is_cancelled(s):
                       continue
-                  sname = br._clean(s.get("session_name")).lower()
-                  stype = br._clean(s.get("session_type")).lower()
-                  if "testing" in sname or ("practice" in sname and "testing" in br._clean(s.get("meeting_name")).lower()):
+                  sname = clean(s.get("session_name")).lower()
+                  stype = clean(s.get("session_type")).lower()
+                  if "testing" in sname or ("practice" in sname and "testing" in clean(s.get("meeting_name")).lower()):
                       continue
                   if stype == "race":
                       mk = s.get("meeting_key")
-                      dt = br._parse_iso(s.get("date_start"))
+                      dt = parse_iso(s.get("date_start"))
                       if mk is not None and dt is not None:
                           if mk not in race_meetings or dt < race_meetings[mk][0]:
                               race_meetings[mk] = (dt, s)
@@ -107,7 +111,7 @@ jobs:
                       s.get("circuit_short_name"),
                       s.get("location"),
                   ):
-                      cleaned = br._clean(key).lower()
+                      cleaned = clean(key).lower()
                       if cleaned and cleaned not in lookup:
                           lookup[cleaned] = idx
               return lookup
@@ -119,7 +123,7 @@ jobs:
               yr = int(entry["year"])
               lookup = lookups_by_year.get(yr) or {}
               for field_name in ("name", "circuit", "country"):
-                  val = br._clean(entry.get(field_name)).lower()
+                  val = clean(entry.get(field_name)).lower()
                   if val in lookup:
                       return lookup[val]
               return None
@@ -194,17 +198,3 @@ jobs:
           else:
               print("Guncellenecek kayit bulunamadi.")
           PY
-
-      - name: Commit and push changes
-        if: inputs.dry_run != 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "${{ inputs.replay_dir }}"
-          if git diff --staged --quiet; then
-            echo "Commit edilecek degisiklik yok."
-          else
-            git commit -m "fix(replay): auto-align round numbers for ${{ inputs.year }}"
-            git push
-          fi
-          
