@@ -787,9 +787,7 @@ def _infer_race_end_utc(session: dict[str, Any], dt_start: Optional[datetime]) -
     dt_end = _parse_iso(session.get("date_end"))
     if dt_end is not None:
         return dt_end
-    if dt_start is not None and (
-        "date_end" in session or _clean(session.get("session_status")).lower() == "finished"
-    ):
+    if dt_start is not None and _clean(session.get("session_status")).lower() == "finished":
         return dt_start + timedelta(hours=2)
     return None
 
@@ -829,14 +827,24 @@ def refresh_existing(out_dir: Path, hz: int = DEFAULT_HZ, cache_dir: str = ".fas
     if year is not None:
         entries = [e for e in entries if int(e["year"]) == year]
     entries.sort(key=lambda e: (int(e["year"]), int(e["round"]), str(e["session"])))
+    ok_count = 0
+    fail_count = 0
     for entry in entries:
         yr = int(entry["year"])
         rnd = int(entry["round"])
         code = str(entry["session"])
-        raw = load_raw(yr, rnd, code, cache_dir=cache_dir)
-        payload = build_payload(raw, hz=hz)
-        validate_payload(payload)
-        write_session(out_dir, payload)
+        try:
+            raw = load_raw(yr, rnd, code, cache_dir=cache_dir)
+            payload = build_payload(raw, hz=hz)
+            validate_payload(payload)
+            write_session(out_dir, payload)
+            ok_count += 1
+        except IncompleteData as exc:
+            print(f"::error::{yr} r{rnd} ({code}) yenilenemedi: {exc}")
+            fail_count += 1
+    print(f"Refresh tamamlandi: {ok_count} basarili, {fail_count} hatali.")
+    if entries and ok_count == 0:
+        return 1
     return 0
 
 
@@ -871,7 +879,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         try:
             return refresh_existing(args.out_dir, hz=args.hz, cache_dir=args.cache_dir, year=args.year if args.round else None)
         except IncompleteData as exc:
-            print(f"::error::{exc}", file=sys.stderr)
+            print(f"::error::{exc}")
             return 1
 
     if args.latest:
@@ -880,7 +888,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         index = load_index(args.out_dir)
         due = pending_races(schedule, index, now)
         if not due:
-            print("Islenecek yeni tamamlanmis yaris yok.")
+            print("Islenecek yeni yaris yok.")
             return 0
         for ev in due:
             try:
@@ -895,7 +903,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     try:
         build_one(args.year, args.round, args.session, args.out_dir, args.hz, args.cache_dir, force=args.force)
     except IncompleteData as exc:
-        print(f"::error::{exc}", file=sys.stderr)
+        print(f"::error::{exc}")
         return 1
     return 0
 
