@@ -234,6 +234,19 @@
       "duration": 5683.4,
       "hz": 2,
       "generatedAt": "2026-11-19T14:15:03Z"
+    },
+    {
+      "year": 2026,
+      "round": 1,
+      "session": "R",
+      "name": "Australia",
+      "country": "Australia",
+      "circuit": "Melbourne",
+      "file": "2026/r01-R.json.gz",
+      "bytes": 1620926,
+      "duration": 5068.3,
+      "hz": 2,
+      "generatedAt": "2026-11-19T14:20:16Z"
     }
   ]
 }
