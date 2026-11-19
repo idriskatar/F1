@@ -156,6 +156,32 @@
       "duration": 5239.9,
       "hz": 2,
       "generatedAt": "2026-11-19T17:55:29Z"
+    },
+    {
+      "year": 2026,
+      "round": 8,
+      "session": "R",
+      "name": "Austria",
+      "country": "Austria",
+      "circuit": "Spielberg",
+      "file": "2026/r08-R.json.gz",
+      "bytes": 1753889,
+      "duration": 5264.7,
+      "hz": 2,
+      "generatedAt": "2026-11-19T17:58:08Z"
+    },
+    {
+      "year": 2026,
+      "round": 7,
+      "session": "R",
+      "name": "Spain",
+      "country": "Spain",
+      "circuit": "Catalunya",
+      "file": "2026/r07-R.json.gz",
+      "bytes": 1917474,
+      "duration": 5626.6,
+      "hz": 2,
+      "generatedAt": "2026-11-19T18:00:02Z"
     }
   ]
 }
