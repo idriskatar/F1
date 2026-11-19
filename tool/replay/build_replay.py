@@ -203,7 +203,7 @@ def track_outline(raw: RawSession, max_points: int = TRACK_MAX_POINTS) -> dict[s
         ys = pd.to_numeric(pos["Y"], errors="coerce").to_numpy(dtype=float, na_value=np.nan)[mask]
         good = ~(np.isnan(xs) | np.isnan(ys))
         xs, ys = xs[good], ys[good]
-        if len(xs) < 50:
+        if len(xs) < 10:
             continue
         step = max(1, len(xs) // max_points)
         xs, ys = xs[::step], ys[::step]
