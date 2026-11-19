@@ -78,6 +78,32 @@
       "duration": 5923.9,
       "hz": 2,
       "generatedAt": "2026-11-19T17:29:54Z"
+    },
+    {
+      "year": 2026,
+      "round": 14,
+      "session": "R",
+      "name": "Spain",
+      "country": "Spain",
+      "circuit": "Madring",
+      "file": "2026/r14-R.json.gz",
+      "bytes": 2053962,
+      "duration": 5760.0,
+      "hz": 2,
+      "generatedAt": "2026-11-19T17:33:41Z"
+    },
+    {
+      "year": 2026,
+      "round": 13,
+      "session": "R",
+      "name": "Italy",
+      "country": "Italy",
+      "circuit": "Monza",
+      "file": "2026/r13-R.json.gz",
+      "bytes": 1752894,
+      "duration": 6754.6,
+      "hz": 2,
+      "generatedAt": "2026-11-19T17:35:55Z"
     }
   ]
 }
