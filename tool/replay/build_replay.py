@@ -504,7 +504,8 @@ def write_session(out_dir: Path, payload: dict[str, Any], now: Optional[datetime
     index["sessions"].append(entry)
     index["sessions"].sort(key=lambda s: (s["year"], s["round"], s["session"]), reverse=True)
     index["version"] = SCHEMA_VERSION
-    _atomic_write(out_dir / "index.json", (json.dumps(index, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
+    _atomic_write(out_dir / "index.json", (json.dumps(index, indent=2, ensure_ascii=False) + "
+").encode("utf-8"))
     return entry
 
 
@@ -743,8 +744,11 @@ def load_raw(year: int, rnd: int, code: str = "R", cache_dir: str = ".fastf1-cac
         if loc_rows:
             df_loc = pd.DataFrame(loc_rows)
             df_loc["SessionTime"] = to_rel_td(df_loc["date"])
-            df_loc["X"] = pd.to_numeric(df_loc["x"], errors="coerce")
-            df_loc["Y"] = pd.to_numeric(df_loc["y"], errors="coerce")
+            xs = pd.to_numeric(df_loc["x"], errors="coerce")
+            ys = pd.to_numeric(df_loc["y"], errors="coerce")
+            is_zero = (xs.abs() <= 1e-6) & (ys.abs() <= 1e-6)
+            df_loc["X"] = xs.mask(is_zero, np.nan)
+            df_loc["Y"] = ys.mask(is_zero, np.nan)
             pos[num] = df_loc[["SessionTime", "X", "Y"]]
 
         car_rows = _openf1_get("car_data", {"session_key": session_key, "driver_number": int(num)})
@@ -786,86 +790,81 @@ def fetch_schedule(year: int) -> list[dict[str, Any]]:
     for s in sessions:
         if _is_cancelled(s):
             continue
-        if _clean(s.get("session_name")).lower() == "race":
+        sname = _clean(s.get("session_name")).lower()
+        stype = _clean(s.get("session_type")).lower()
+        if "testing" in sname or ("practice" in sname and "testing" in _clean(s.get("meeting_name")).lower()):
+            continue
+        if stype == "race" and sname == "race":
             dt_start = _parse_iso(s.get("date_start"))
             dt_end = _parse_iso(s.get("date_end"))
             if dt_start is not None:
-                races.append((dt_start, dt_end))
+                races.append({
+                    "year": year,
+                    "meeting_key": s.get("meeting_key"),
+                    "event_name": _clean(s.get("meeting_name") or s.get("country_name")),
+                    "race_start_utc": dt_start,
+                    "race_end_utc": dt_end or (dt_start + timedelta(hours=2)),
+                })
 
-    races.sort(key=lambda x: x[0])
-    events = []
-    for idx, (dt_start, dt_end) in enumerate(races, start=1):
-        events.append({"year": year, "round": idx, "race_end_utc": dt_end})
-    return events
+    races.sort(key=lambda r: r["race_start_utc"])
+    for idx, r in enumerate(races, start=1):
+        r["round"] = idx
+    return races
 
 
-def process(year: int, rnd: int, code: str, out_dir: Path, hz: int, cache_dir: str,
-            expect_name: Optional[str] = None) -> dict[str, Any]:
-    raw = load_raw(year, rnd, code, cache_dir)
-    payload = build_payload(raw, hz)
-    if expect_name and payload["event"]["name"] != expect_name:
-        # Yenilemede OpenF1 sıralaması kaymışsa yanlış yarışın üzerine yazmayalım.
-        raise IncompleteData(f"yaris adi uyusmuyor ('{expect_name}' beklenirken '{payload['event']['name']}' geldi)")
-    validate_payload(payload, min_duration=600.0 if code == "R" else 300.0)
-    return write_session(out_dir, payload)
+# --------------------------------------------------------------------------- CLI
+
+def build_one(year: int, rnd: int, code: str, out_dir: Path, hz: int,
+              cache_dir: str, force: bool = False) -> Optional[dict[str, Any]]:
+    index = load_index(out_dir)
+    if not force and is_processed(index, year, rnd, code.upper()):
+        print(f"{year} r{rnd} ({code.upper()}) zaten islenmis, atlaniyor.")
+        return None
+    raw = load_raw(year, rnd, code, cache_dir=cache_dir)
+    payload = build_payload(raw, hz=hz)
+    validate_payload(payload)
+    entry = write_session(out_dir, payload)
+    print(f"Yazildi: {entry['file']} ({entry['bytes']} B, {entry['duration']} sn)")
+    return entry
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="OpenF1 Replay Builder")
-    parser.add_argument("--year", type=int)
-    parser.add_argument("--round", type=int)
-    parser.add_argument("--session", default="R", choices=["R", "S"])
-    parser.add_argument("--latest", action="store_true")
-    parser.add_argument("--limit", type=int, default=None, help="--latest: en fazla kaç yarış (varsayılan 2); --refresh: en fazla kaç dosya (varsayılan hepsi)")
-    parser.add_argument("--refresh", action="store_true", help="index.json'daki tüm seansları yeniden üret (yeni alanlar için)")
+    parser = argparse.ArgumentParser(description="OpenF1 verisinden replay JSON.GZ dosyasi uretir.")
+    parser.add_argument("--year", type=int, default=datetime.now(timezone.utc).year)
+    parser.add_argument("--round", type=int, help="Tur numarasi (1..N)")
+    parser.add_argument("--session", default="R", choices=["R", "S"], help="Seans kodu (R=Race, S=Sprint)")
+    parser.add_argument("--latest", action="store_true", help="Tamamlanmis ama henuz islenmemis son yarisi uret")
+    parser.add_argument("--out-dir", type=Path, default=Path("data/replay"))
     parser.add_argument("--hz", type=int, default=DEFAULT_HZ)
-    parser.add_argument("--out", default="data/replay")
-    parser.add_argument("--cache", default=".fastf1-cache")
+    parser.add_argument("--cache-dir", default=".fastf1-cache")
+    parser.add_argument("--force", action="store_true")
     args = parser.parse_args(argv)
-    out_dir = Path(args.out)
-
-    if args.refresh:
-        entries = list(load_index(out_dir)["sessions"])
-        if args.limit:
-            entries = entries[: args.limit]
-        ok = failed = 0
-        for e in entries:
-            try:
-                entry = process(e["year"], e["round"], e.get("session", "R"), out_dir, args.hz, args.cache,
-                                expect_name=e.get("name"))
-                print(f"OK  {entry['name']} yenilendi ({entry['bytes'] / 1024:.0f} KB)")
-                ok += 1
-            except Exception as error:
-                print(f"::warning::{e['year']} r{e['round']} yenilenemedi (eski dosya korunuyor): {error}")
-                failed += 1
-        print(f"Yenileme tamam: {ok} basarili, {failed} basarisiz.")
-        return 1 if entries and ok == 0 else 0
 
     if args.latest:
         now = datetime.now(timezone.utc)
-        index = load_index(out_dir)
-        todo = pending_races(fetch_schedule(now.year), index, now)[: (args.limit or 2)]
-        if not todo:
-            print("Islenecek yeni yaris yok.")
+        schedule = fetch_schedule(args.year)
+        index = load_index(args.out_dir)
+        due = pending_races(schedule, index, now)
+        if not due:
+            print("Islenecek yeni tamamlanmis yaris yok.")
             return 0
-        for ev in todo:
+        for ev in due:
             try:
-                entry = process(ev["year"], ev["round"], "R", out_dir, args.hz, args.cache)
-                print(f"OK  {entry['name']} ({entry['bytes'] / 1024:.0f} KB)")
-            except Exception as error:
-                print(f"::warning::{ev['year']} r{ev['round']} islenemedi: {error}")
+                build_one(ev["year"], ev["round"], "R", args.out_dir, args.hz, args.cache_dir, force=args.force)
+            except IncompleteData as exc:
+                print(f"::warning::{ev['year']} r{ev['round']} islenemedi: {exc}")
         return 0
 
-    if args.year is None or args.round is None:
-        parser.error("--latest, --refresh ya da --year ve --round gerekli")
+    if args.round is None:
+        parser.error("--round veya --latest belirtmelisiniz.")
+
     try:
-        entry = process(args.year, args.round, args.session, out_dir, args.hz, args.cache)
-    except Exception as error:
-        print(f"::error::{error}")
+        build_one(args.year, args.round, args.session, args.out_dir, args.hz, args.cache_dir, force=args.force)
+    except IncompleteData as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         return 1
-    print(f"OK  {entry['name']} ({entry['bytes'] / 1024:.0f} KB)")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
