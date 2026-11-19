@@ -504,8 +504,7 @@ def write_session(out_dir: Path, payload: dict[str, Any], now: Optional[datetime
     index["sessions"].append(entry)
     index["sessions"].sort(key=lambda s: (s["year"], s["round"], s["session"]), reverse=True)
     index["version"] = SCHEMA_VERSION
-    _atomic_write(out_dir / "index.json", (json.dumps(index, indent=2, ensure_ascii=False) + "
-").encode("utf-8"))
+    _atomic_write(out_dir / "index.json", (json.dumps(index, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
     return entry
 
 
