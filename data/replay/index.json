@@ -195,6 +195,19 @@
       "duration": 5364.9,
       "hz": 2,
       "generatedAt": "2026-11-19T13:02:56Z"
+    },
+    {
+      "year": 2026,
+      "round": 6,
+      "session": "R",
+      "name": "United States",
+      "country": "United States",
+      "circuit": "Miami",
+      "file": "2026/r06-R.json.gz",
+      "bytes": 1806041,
+      "duration": 5690.7,
+      "hz": 2,
+      "generatedAt": "2026-11-19T13:22:51Z"
     }
   ]
 }
