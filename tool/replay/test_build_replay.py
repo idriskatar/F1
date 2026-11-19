@@ -230,5 +230,58 @@ class PendingTest(unittest.TestCase):
         self.assertEqual([e["round"] for e in due], [21])
 
 
+class TrackOnlyTest(unittest.TestCase):
+    """Konum verisi replay'e yetmediğinde yalnızca pist çizgisi yazılmalı."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.out = Path(self.tmp.name)
+        self.raw = sample_data.synthetic_session()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_track_payload_has_event_and_track(self):
+        payload = br.build_track_payload(self.raw)
+        self.assertEqual(payload["version"], br.SCHEMA_VERSION)
+        self.assertEqual(payload["event"]["round"], 1)
+        self.assertGreaterEqual(len(payload["track"]["x"]), 3)
+        self.assertEqual(len(payload["track"]["x"]), len(payload["track"]["y"]))
+
+    def test_low_coverage_writes_track_only(self):
+        # Sentetik seansta 4 pilot var; varsayılan eşik 10 olduğu için replay üretilemez.
+        entry, kind = br.build_and_write(self.raw, self.out, 2, min_duration=30)
+        self.assertEqual(kind, "track")
+        self.assertTrue(entry["file"].endswith("-track.json.gz"))
+        self.assertIn("reason", entry)
+
+        tracks = br.load_track_index(self.out)
+        self.assertEqual(len(tracks["tracks"]), 1)
+        self.assertEqual(tracks["tracks"][0]["file"], "2099/r01-R-track.json.gz")
+        self.assertTrue(br.is_track_only(tracks, 2099, 1, "R"))
+        self.assertEqual(br.load_index(self.out)["sessions"], [])   # replay listesine girmez
+
+        data = json.loads(gzip.decompress((self.out / entry["file"]).read_bytes()))
+        self.assertIn("track", data)
+        self.assertEqual(data["event"]["name"], "Test Grand Prix")
+
+    def test_latest_skips_round_with_track_only(self):
+        now = datetime(2026, 11, 15, 20, 0, tzinfo=timezone.utc)
+        schedule = [{"year": 2026, "round": 21, "race_end_utc": now - timedelta(days=7)}]
+        index = {"version": 1, "sessions": []}
+        tracks = {"version": 1, "tracks": [{"year": 2026, "round": 21, "session": "R"}]}
+        self.assertEqual(br.pending_races(schedule, index, now), schedule)
+        self.assertEqual(br.pending_races(schedule, index, now, tracks=tracks), [])
+
+    def test_replay_removes_stale_track_only(self):
+        br.write_track_only(self.out, br.build_track_payload(self.raw), "eski deneme")
+        self.assertEqual(len(br.load_track_index(self.out)["tracks"]), 1)
+
+        _, kind = br.build_and_write(self.raw, self.out, 2, min_drivers=3, min_duration=30)
+        self.assertEqual(kind, "replay")
+        self.assertEqual(br.load_track_index(self.out)["tracks"], [])
+        self.assertEqual(len(br.load_index(self.out)["sessions"]), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
