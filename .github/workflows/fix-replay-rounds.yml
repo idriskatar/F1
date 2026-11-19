@@ -11,10 +11,6 @@ on:
         description: "Sadece değişiklik planını göster, dosyaları değiştirme (true/false)"
         required: false
         default: "true"
-      mapping_json:
-        description: 'Eski -> yeni round eşlemesi (ör: {"6":4,"7":5,"8":6,"9":7,"10":8})'
-        required: false
-        default: '{"6":4,"7":5,"8":6,"9":7,"10":8}'
       year:
         description: "Yalnızca bu yıl için uygula (boş bırakılırsa tüm yıllar)"
         required: false
@@ -35,25 +31,26 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Migrate replay round numbers without re-encoding payload
+      - name: Migrate replay round numbers automatically from OpenF1 schedule
         env:
           REPLAY_DIR: ${{ inputs.replay_dir }}
           DRY_RUN: ${{ inputs.dry_run }}
-          MAPPING_JSON: ${{ inputs.mapping_json }}
           TARGET_YEAR: ${{ inputs.year }}
         run: |
           python - <<'PY'
           import gzip
           import json
           import os
+          import sys
           import tempfile
           from datetime import datetime, timezone
           from pathlib import Path
 
+          sys.path.insert(0, "tool/replay")
+          import build_replay as br
+
           replay_dir = Path(os.environ["REPLAY_DIR"])
           dry_run = os.environ["DRY_RUN"].strip().lower() == "true"
-          raw_map = json.loads(os.environ["MAPPING_JSON"])
-          round_map = {int(k): int(v) for k, v in raw_map.items()}
           target_year = int(os.environ["TARGET_YEAR"]) if os.environ.get("TARGET_YEAR", "").strip() else None
 
           index_path = replay_dir / "index.json"
@@ -75,16 +72,57 @@ jobs:
                       os.unlink(tmp)
                   raise
 
-          # Orijinal gzip byte'larını bozmadan yalnızca event.round alanını yama yapar
           def patch_round_in_gz(src_path: Path, new_round: int) -> bytes:
               raw_bytes = src_path.read_bytes()
               obj = json.loads(gzip.decompress(raw_bytes).decode("utf-8"))
               if "event" not in obj or not isinstance(obj["event"], dict):
                   raise ValueError(f"'event' alani eksik: {src_path}")
               obj["event"]["round"] = new_round
-              # İsteğe bağlı: mevcut verinin orijinal yapısını koruyarak tek alanı günceller
               patched_text = json.dumps(obj, separators=(",", ":"), ensure_ascii=False)
               return gzip.compress(patched_text.encode("utf-8"), compresslevel=9, mtime=0)
+
+          def build_year_round_lookup(yr: int) -> dict[str, int]:
+              raw_sessions = br._openf1_get("sessions", {"year": yr})
+              race_meetings: dict[int, tuple[Any, dict[str, Any]]] = {}
+              for s in raw_sessions:
+                  if br._is_cancelled(s):
+                      continue
+                  sname = br._clean(s.get("session_name")).lower()
+                  stype = br._clean(s.get("session_type")).lower()
+                  if "testing" in sname or ("practice" in sname and "testing" in br._clean(s.get("meeting_name")).lower()):
+                      continue
+                  if stype == "race":
+                      mk = s.get("meeting_key")
+                      dt = br._parse_iso(s.get("date_start"))
+                      if mk is not None and dt is not None:
+                          if mk not in race_meetings or dt < race_meetings[mk][0]:
+                              race_meetings[mk] = (dt, s)
+
+              ordered = sorted(race_meetings.values(), key=lambda item: item[0])
+              lookup: dict[str, int] = {}
+              for idx, (_, s) in enumerate(ordered, start=1):
+                  for key in (
+                      s.get("meeting_name"),
+                      s.get("country_name"),
+                      s.get("circuit_short_name"),
+                      s.get("location"),
+                  ):
+                      cleaned = br._clean(key).lower()
+                      if cleaned and cleaned not in lookup:
+                          lookup[cleaned] = idx
+              return lookup
+
+          years_to_map = sorted({int(e["year"]) for e in sessions if target_year is None or int(e["year"]) == target_year})
+          lookups_by_year = {yr: build_year_round_lookup(yr) for yr in years_to_map}
+
+          def resolve_new_round(entry: dict[str, Any]) -> int | None:
+              yr = int(entry["year"])
+              lookup = lookups_by_year.get(yr) or {}
+              for field_name in ("name", "circuit", "country"):
+                  val = br._clean(entry.get(field_name)).lower()
+                  if val in lookup:
+                      return lookup[val]
+              return None
 
           planned_moves = []
           updated_entries = []
@@ -101,11 +139,16 @@ jobs:
                   updated_entries.append(entry)
                   continue
 
-              if old_rnd not in round_map:
+              new_rnd = resolve_new_round(entry)
+              if new_rnd is None:
+                  print(f"::warning::Yeni round eslesmesi bulunamadi, atlaniyor: {yr} r{old_rnd:02d} ({entry.get('name')})")
                   updated_entries.append(entry)
                   continue
 
-              new_rnd = round_map[old_rnd]
+              if new_rnd == old_rnd:
+                  updated_entries.append(entry)
+                  continue
+
               rel_new = Path(f"{yr}/r{new_rnd:02d}-{sess}.json.gz")
               dst_file = replay_dir / rel_new
 
@@ -114,7 +157,7 @@ jobs:
                   updated_entries.append(entry)
                   continue
 
-              planned_moves.append((yr, old_rnd, new_rnd, rel_old.as_posix(), rel_new.as_posix()))
+              planned_moves.append((yr, old_rnd, new_rnd, rel_old.as_posix(), rel_new.as_posix(), entry.get("name")))
 
               if not dry_run:
                   blob = patch_round_in_gz(src_file, new_rnd)
@@ -132,8 +175,8 @@ jobs:
               else:
                   updated_entries.append(entry)
 
-          for yr, old_r, new_r, old_p, new_p in planned_moves:
-              print(f"[{'DRY-RUN' if dry_run else 'APPLIED'}] {yr} r{old_r:02d} -> r{new_r:02d} ({old_p} => {new_p})")
+          for yr, old_r, new_r, old_p, new_p, name in planned_moves:
+              print(f"[{'DRY-RUN' if dry_run else 'APPLIED'}] {yr} ({name}) r{old_r:02d} -> r{new_r:02d} ({old_p} => {new_p})")
 
           if not dry_run and changed_count > 0:
               updated_entries.sort(
@@ -161,6 +204,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "Commit edilecek degisiklik yok."
           else
-            git commit -m "fix(replay): update round numbers for ${{ inputs.year }}"
+            git commit -m "fix(replay): auto-align round numbers for ${{ inputs.year }}"
             git push
           fi
+          
