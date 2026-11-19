@@ -108,6 +108,19 @@
     {
       "year": 2026,
       "round": 12,
+      "session": "S",
+      "name": "Netherlands",
+      "country": "Netherlands",
+      "circuit": "Zandvoort",
+      "file": "2026/r12-S.json.gz",
+      "bytes": 745809,
+      "duration": 1901.0,
+      "hz": 2,
+      "generatedAt": "2026-11-19T20:07:39Z"
+    },
+    {
+      "year": 2026,
+      "round": 12,
       "session": "R",
       "name": "Netherlands",
       "country": "Netherlands",
