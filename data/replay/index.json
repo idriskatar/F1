@@ -221,6 +221,19 @@
       "duration": 5376.3,
       "hz": 2,
       "generatedAt": "2026-11-19T18:17:24Z"
+    },
+    {
+      "year": 2026,
+      "round": 2,
+      "session": "R",
+      "name": "China",
+      "country": "China",
+      "circuit": "Shanghai",
+      "file": "2026/r02-R.json.gz",
+      "bytes": 1638240,
+      "duration": 5683.4,
+      "hz": 2,
+      "generatedAt": "2026-11-19T18:23:21Z"
     }
   ]
 }
