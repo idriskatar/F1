@@ -182,6 +182,19 @@
       "duration": 5626.6,
       "hz": 2,
       "generatedAt": "2026-11-18T07:33:04Z"
+    },
+    {
+      "year": 2026,
+      "round": 7,
+      "session": "R",
+      "name": "Canada",
+      "country": "Canada",
+      "circuit": "Montreal",
+      "file": "2026/r07-R.json.gz",
+      "bytes": 1710067,
+      "duration": 5364.9,
+      "hz": 2,
+      "generatedAt": "2026-11-19T13:02:56Z"
     }
   ]
 }
