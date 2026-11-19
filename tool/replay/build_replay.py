@@ -833,13 +833,16 @@ def refresh_existing(out_dir: Path, hz: int = DEFAULT_HZ, cache_dir: str = ".fas
         yr = int(entry["year"])
         rnd = int(entry["round"])
         code = str(entry["session"])
+        expected_name = _clean(entry.get("name"))
         try:
             raw = load_raw(yr, rnd, code, cache_dir=cache_dir)
+            if expected_name and raw.event_name and raw.event_name != expected_name:
+                raise IncompleteData(f"Yaris adi degisti: '{expected_name}' -> '{raw.event_name}'")
             payload = build_payload(raw, hz=hz)
             validate_payload(payload)
             write_session(out_dir, payload)
             ok_count += 1
-        except IncompleteData as exc:
+        except Exception as exc:
             print(f"::error::{yr} r{rnd} ({code}) yenilenemedi: {exc}")
             fail_count += 1
     print(f"Refresh tamamlandi: {ok_count} basarili, {fail_count} hatali.")
