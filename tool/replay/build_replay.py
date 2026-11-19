@@ -783,6 +783,17 @@ def load_raw(year: int, rnd: int, code: str = "R", cache_dir: str = ".fastf1-cac
     )
 
 
+def _infer_race_end_utc(session: dict[str, Any], dt_start: Optional[datetime]) -> Optional[datetime]:
+    dt_end = _parse_iso(session.get("date_end"))
+    if dt_end is not None:
+        return dt_end
+    if dt_start is not None and (
+        "date_end" in session or _clean(session.get("session_status")).lower() == "finished"
+    ):
+        return dt_start + timedelta(hours=2)
+    return None
+
+
 def fetch_schedule(year: int) -> list[dict[str, Any]]:
     sessions = _openf1_get("sessions", {"year": year})
     races = []
@@ -795,23 +806,39 @@ def fetch_schedule(year: int) -> list[dict[str, Any]]:
             continue
         if stype == "race" and sname == "race":
             dt_start = _parse_iso(s.get("date_start"))
-            dt_end = _parse_iso(s.get("date_end"))
+            dt_end = _infer_race_end_utc(s, dt_start)
             if dt_start is not None:
                 races.append({
                     "year": year,
                     "meeting_key": s.get("meeting_key"),
                     "event_name": _clean(s.get("meeting_name") or s.get("country_name")),
                     "race_start_utc": dt_start,
-                    "race_end_utc": dt_end or (dt_start + timedelta(hours=2)),
+                    "race_end_utc": dt_end,
                 })
 
     races.sort(key=lambda r: r["race_start_utc"])
-    for idx, r in enumerate(races, start=1):
-        r["round"] = idx
+    for idx_r, r in enumerate(races, start=1):
+        r["round"] = idx_r
     return races
 
 
-# --------------------------------------------------------------------------- CLI
+def refresh_existing(out_dir: Path, hz: int = DEFAULT_HZ, cache_dir: str = ".fastf1-cache",
+                     year: Optional[int] = None) -> int:
+    index = load_index(out_dir)
+    entries = list(index.get("sessions", []))
+    if year is not None:
+        entries = [e for e in entries if int(e["year"]) == year]
+    entries.sort(key=lambda e: (int(e["year"]), int(e["round"]), str(e["session"])))
+    for entry in entries:
+        yr = int(entry["year"])
+        rnd = int(entry["round"])
+        code = str(entry["session"])
+        raw = load_raw(yr, rnd, code, cache_dir=cache_dir)
+        payload = build_payload(raw, hz=hz)
+        validate_payload(payload)
+        write_session(out_dir, payload)
+    return 0
+
 
 def build_one(year: int, rnd: int, code: str, out_dir: Path, hz: int,
               cache_dir: str, force: bool = False) -> Optional[dict[str, Any]]:
@@ -823,7 +850,7 @@ def build_one(year: int, rnd: int, code: str, out_dir: Path, hz: int,
     payload = build_payload(raw, hz=hz)
     validate_payload(payload)
     entry = write_session(out_dir, payload)
-    print(f"Yazildi: {entry['file']} ({entry['bytes']} B, {entry['duration']} sn)")
+    print(f"OK: {entry['file']} ({entry['bytes']} B, {entry['duration']} sn)")
     return entry
 
 
@@ -833,11 +860,19 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--round", type=int, help="Tur numarasi (1..N)")
     parser.add_argument("--session", default="R", choices=["R", "S"], help="Seans kodu (R=Race, S=Sprint)")
     parser.add_argument("--latest", action="store_true", help="Tamamlanmis ama henuz islenmemis son yarisi uret")
-    parser.add_argument("--out-dir", type=Path, default=Path("data/replay"))
+    parser.add_argument("--refresh", action="store_true", help="Mevcut replay dosyalarini yeniden uret")
+    parser.add_argument("--out", "--out-dir", dest="out_dir", type=Path, default=Path("data/replay"))
     parser.add_argument("--hz", type=int, default=DEFAULT_HZ)
-    parser.add_argument("--cache-dir", default=".fastf1-cache")
+    parser.add_argument("--cache", "--cache-dir", dest="cache_dir", default=".fastf1-cache")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args(argv)
+
+    if args.refresh:
+        try:
+            return refresh_existing(args.out_dir, hz=args.hz, cache_dir=args.cache_dir, year=args.year if args.round else None)
+        except IncompleteData as exc:
+            print(f"::error::{exc}", file=sys.stderr)
+            return 1
 
     if args.latest:
         now = datetime.now(timezone.utc)
@@ -860,7 +895,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     try:
         build_one(args.year, args.round, args.session, args.out_dir, args.hz, args.cache_dir, force=args.force)
     except IncompleteData as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        print(f"::error::{exc}", file=sys.stderr)
         return 1
     return 0
 
