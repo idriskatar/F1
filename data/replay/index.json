@@ -104,6 +104,32 @@
       "duration": 6754.6,
       "hz": 2,
       "generatedAt": "2026-11-19T17:35:55Z"
+    },
+    {
+      "year": 2026,
+      "round": 12,
+      "session": "R",
+      "name": "Netherlands",
+      "country": "Netherlands",
+      "circuit": "Zandvoort",
+      "file": "2026/r12-R.json.gz",
+      "bytes": 2026342,
+      "duration": 7555.2,
+      "hz": 2,
+      "generatedAt": "2026-11-19T17:49:03Z"
+    },
+    {
+      "year": 2026,
+      "round": 11,
+      "session": "R",
+      "name": "Hungary",
+      "country": "Hungary",
+      "circuit": "Hungaroring",
+      "file": "2026/r11-R.json.gz",
+      "bytes": 1358185,
+      "duration": 6062.6,
+      "hz": 2,
+      "generatedAt": "2026-11-19T17:50:55Z"
     }
   ]
 }
