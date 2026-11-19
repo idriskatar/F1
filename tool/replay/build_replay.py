@@ -189,9 +189,10 @@ def track_outline(raw: RawSession, max_points: int = TRACK_MAX_POINTS) -> dict[s
         accurate = candidates[candidates["IsAccurate"].fillna(False).astype(bool)]
         if len(accurate):
             candidates = accurate
-    for _, lap in candidates.sort_values("_lt").head(15).iterrows():
+
+    for _, lap in candidates.sort_values("_lt").head(40).iterrows():
         pos = raw.pos.get(str(lap["DriverNumber"]))
-        if pos is None or "X" not in pos.columns:
+        if pos is None or "X" not in pos.columns or "Y" not in pos.columns:
             continue
         t = _seconds(pos["SessionTime"])
         start = _seconds(pd.Series([lap["LapStartTime"]]))[0]
@@ -201,15 +202,31 @@ def track_outline(raw: RawSession, max_points: int = TRACK_MAX_POINTS) -> dict[s
         mask = (t >= start) & (t <= end)
         xs = pd.to_numeric(pos["X"], errors="coerce").to_numpy(dtype=float, na_value=np.nan)[mask]
         ys = pd.to_numeric(pos["Y"], errors="coerce").to_numpy(dtype=float, na_value=np.nan)[mask]
-        good = ~(np.isnan(xs) | np.isnan(ys))
-        xs, ys = xs[good], ys[good]
-        if len(xs) < 10:
+        valid = ~(np.isnan(xs) | np.isnan(ys)) & ((np.abs(xs) > 1e-6) | (np.abs(ys) > 1e-6))
+        xs, ys = xs[valid], ys[valid]
+        if len(xs) < 20:
             continue
         step = max(1, len(xs) // max_points)
         xs, ys = xs[::step], ys[::step]
         xs = np.append(xs, xs[0])
         ys = np.append(ys, ys[0])
         return {"x": [int(v) for v in np.rint(xs)], "y": [int(v) for v in np.rint(ys)]}
+
+    # Yedek: aday tur penceresinde bulunamazsa seanstaki gecerli (0, 0) disi konumlardan cikar
+    for _, pos in raw.pos.items():
+        if pos is None or "X" not in pos.columns or "Y" not in pos.columns:
+            continue
+        xs = pd.to_numeric(pos["X"], errors="coerce").to_numpy(dtype=float, na_value=np.nan)
+        ys = pd.to_numeric(pos["Y"], errors="coerce").to_numpy(dtype=float, na_value=np.nan)
+        valid = ~(np.isnan(xs) | np.isnan(ys)) & ((np.abs(xs) > 1e-6) | (np.abs(ys) > 1e-6))
+        xs, ys = xs[valid], ys[valid]
+        if len(xs) >= 50:
+            step = max(1, len(xs) // max_points)
+            xs, ys = xs[::step], ys[::step]
+            xs = np.append(xs, xs[0])
+            ys = np.append(ys, ys[0])
+            return {"x": [int(v) for v in np.rint(xs)], "y": [int(v) for v in np.rint(ys)]}
+
     raise IncompleteData("Pist cizgisi icin konum verisi bulunamadi.")
 
 
