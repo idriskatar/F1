@@ -199,4 +199,128 @@ void main() {
     await tester.pumpAndSettle();
     expect(repo.indexCalls, 2);
   });
+
+  testWidgets('tur etiketine dokununca tura git sayfası açılır ve seçilen tura atlanır', (tester) async {
+    await openPlayer(tester);
+
+    await tester.tap(find.byKey(const Key('replay-lap-label')));
+    await tester.pumpAndSettle();
+    expect(find.text('Tura git'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('replay-lap-3')));
+    await tester.pumpAndSettle();
+    expect(find.text('Tura git'), findsNothing);
+    expect(find.text('Tur 3/3'), findsOneWidget); // 40. sn
+  });
+
+  testWidgets('sonraki/önceki tur düğmeleri tur sınırlarına atlar', (tester) async {
+    await openPlayer(tester);
+
+    await tester.tap(find.byIcon(Icons.skip_next_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Tur 2/3'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.skip_previous_rounded)); // tur başındayız: önceki tura
+    await tester.pumpAndSettle();
+    expect(find.text('Tur 1/3'), findsOneWidget);
+  });
+
+  testWidgets('zaman çubuğuna dokunmak o ana atlar', (tester) async {
+    await openPlayer(tester);
+
+    await tester.tap(find.byKey(const Key('replay-timeline'))); // ortası: 30. sn
+    await tester.pumpAndSettle();
+    expect(find.text('Tur 2/3'), findsOneWidget);
+  });
+
+  testWidgets('safety car sürerken haritada rozet görünür', (tester) async {
+    await openPlayer(tester);
+
+    expect(find.byKey(const Key('replay-period-badge')), findsNothing);
+    await tester.tap(find.byIcon(Icons.skip_next_rounded));
+    await tester.tap(find.byIcon(Icons.skip_next_rounded)); // 40. sn: safety car 35-45 arası
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('replay-period-badge')), findsOneWidget);
+    expect(find.text('SC'), findsOneWidget);
+  });
+
+  testWidgets('olaylar ve tur süreleri sayfaları açılır; olaya dokunmak 5 sn öncesine atlar', (tester) async {
+    await openPlayer(tester);
+
+    await tester.tap(find.byKey(const Key('replay-dot-3')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('tur süreleri'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('replay-dot-4')));
+    await tester.pumpAndSettle();
+    expect(find.text('Safety Car · Tur 2'), findsOneWidget);
+    expect(find.text('Sanal Safety Car · Tur 3'), findsOneWidget);
+    expect(find.text('Ceza · Tur 1'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('replay-event-1'))); // safety car: 35 sn -> 30 sn
+    await tester.pumpAndSettle();
+    expect(find.text('Tur 2/3'), findsOneWidget);
+  });
+
+  testWidgets('olay ve tur verisi olmayan dosyada ilgili sayfalar ve rozet yoktur', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final json = (jsonDecode(File('test/fixtures/replay_sample.json').readAsStringSync()) as Map<String, dynamic>)
+      ..remove('events');
+    for (final driver in json['drivers'] as List) {
+      (driver as Map<String, dynamic>).remove('laps');
+    }
+    await tester.pumpWidget(host(FakeReplayRepository(index: const ReplayIndex([entry]), data: ReplayData.fromJson(json))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Test Grand Prix'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('replay-dot-2')), findsOneWidget);
+    expect(find.byKey(const Key('replay-dot-3')), findsNothing);
+  });
+
+  testWidgets('AppBar\'daki düğme lastik stratejisi ekranını açar', (tester) async {
+    await openPlayer(tester);
+
+    await tester.tap(find.byTooltip('Lastik stratejisi'));
+    await tester.pumpAndSettle();
+    expect(find.text('Lastik stratejisi · Test Grand Prix'), findsOneWidget);
+    for (final code in ['AAA', 'BBB', 'CCC', 'DDD']) {
+      expect(find.byKey(Key('strategy-row-$code')), findsOneWidget);
+    }
+    expect(find.text('1 pit'), findsOneWidget); // yalnız BBB iki stint
+    expect(find.text('0 pit'), findsNWidgets(3));
+  });
+
+  testWidgets('liste: pist ve ülke görünür; sprint rozeti ve süzgeç çalışır', (tester) async {
+    const sprint = ReplayIndexEntry(
+      year: 2099,
+      round: 2,
+      session: 'S',
+      name: 'Sprint Grand Prix',
+      country: 'Sprintland',
+      circuit: 'Shortville',
+      file: '2099/r02-S.json.gz',
+      bytes: 500,
+      duration: 30,
+      generatedAt: '2026-11-15T12:00:00Z',
+    );
+    await tester.pumpWidget(host(FakeReplayRepository(index: const ReplayIndex([entry, sprint]))));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ovalville · Testland'), findsOneWidget);
+    expect(find.text('Shortville · Sprintland'), findsOneWidget);
+    expect(find.text('SPRINT'), findsOneWidget);
+
+    await tester.tap(find.text('Yalnız sprintler'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sprint Grand Prix'), findsOneWidget);
+    expect(find.text('Test Grand Prix'), findsNothing);
+
+    await tester.tap(find.text('Yalnız yarışlar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Test Grand Prix'), findsOneWidget);
+    expect(find.text('Sprint Grand Prix'), findsNothing);
+  });
 }

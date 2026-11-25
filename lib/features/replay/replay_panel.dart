@@ -36,8 +36,18 @@ Color _compoundColor(String letter) => switch (letter) {
       _ => AppColors.muted,
     };
 
+/// Lastik harfi (S/M/H/I/W) için renk; strateji ekranı da kullanır.
+Color replayCompoundColor(String letter) => _compoundColor(letter);
+
+/// Yarış yönetimi olayının rengi (zaman çubuğu, rozet, liste).
+Color replayEventColor(ReplayEventKind kind) => switch (kind) {
+      ReplayEventKind.safetyCar || ReplayEventKind.virtualSafetyCar => _yellow,
+      ReplayEventKind.redFlag => const Color(0xFFEF4444),
+      ReplayEventKind.penalty => const Color(0xFFFB923C),
+    };
+
 /// Oynatıcının alt bölümü: solda sıralama listesi, sağda sayfalı pilot kartı
-/// (Telemetri · Hız grafiği · Pit stoplar).
+/// (Telemetri · Hız grafiği · Pit stoplar · Tur süreleri · Olaylar).
 class ReplayLowerPanel extends StatefulWidget {
   const ReplayLowerPanel({
     super.key,
@@ -48,6 +58,7 @@ class ReplayLowerPanel extends StatefulWidget {
     required this.onSelect,
     required this.onClose,
     required this.onOpenPit,
+    this.onOpenEvent,
   });
 
   final ReplayData data;
@@ -61,16 +72,26 @@ class ReplayLowerPanel extends StatefulWidget {
   final ValueChanged<String> onSelect;
   final VoidCallback onClose;
   final ValueChanged<ReplayPit> onOpenPit;
+  final ValueChanged<ReplayEvent>? onOpenEvent;
 
   @override
   State<ReplayLowerPanel> createState() => _ReplayLowerPanelState();
 }
 
 class _ReplayLowerPanelState extends State<ReplayLowerPanel> {
-  static const _titles = ['Telemetri', 'Hız grafiği', 'Pit stoplar'];
-
   final PageController _pages = PageController();
   int _page = 0;
+
+  bool get _hasLaps => widget.data.drivers.any((d) => d.laps.isNotEmpty);
+
+  // Eski dosyalarda tur/olay verisi olmayabilir; o sayfalar hiç gösterilmez.
+  List<String> get _titles => [
+        'Telemetri',
+        'Hız grafiği',
+        'Pit stoplar',
+        if (_hasLaps) 'Tur süreleri',
+        if (widget.data.events.isNotEmpty) 'Olaylar',
+      ];
 
   @override
   void dispose() {
@@ -96,7 +117,7 @@ class _ReplayLowerPanelState extends State<ReplayLowerPanel> {
         const SizedBox(width: 10),
         Expanded(
           child: Column(children: [
-            _PageDots(titles: _titles, index: _page, onTap: _goTo),
+            _PageDots(titles: _titles, index: math.min(_page, _titles.length - 1), onTap: _goTo),
             const SizedBox(height: 2),
             Expanded(
               child: PageView(
@@ -106,6 +127,8 @@ class _ReplayLowerPanelState extends State<ReplayLowerPanel> {
                   _DriverCard(data: data, driver: driver, time: widget.time, slowTime: widget.slowTime, onClose: widget.onClose),
                   _SpeedPage(data: data, driver: driver, time: widget.time),
                   _PitTab(data: data, time: widget.slowTime, onOpen: widget.onOpenPit),
+                  if (_hasLaps) _LapTimesPage(data: data, driver: driver, time: widget.slowTime),
+                  if (data.events.isNotEmpty) _EventsPage(data: data, time: widget.slowTime, onOpen: widget.onOpenEvent),
                 ],
               ),
             ),
@@ -730,6 +753,225 @@ class _PitTab extends StatelessWidget {
               style: TextStyle(color: AppColors.muted, fontSize: 12),
             ),
             onTap: () => onOpen(pit),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------- Tur süreleri ve olaylar
+
+class _LapBand {
+  const _LapBand(this.firstLap, this.lastLap, this.color);
+
+  final int firstLap;
+  final int lastLap;
+  final Color color;
+}
+
+class _LapTimesPage extends StatelessWidget {
+  const _LapTimesPage({required this.data, required this.driver, required this.time});
+
+  final ReplayData data;
+  final ReplayDriver? driver;
+  final ValueListenable<double> time;
+
+  @override
+  Widget build(BuildContext context) {
+    final d = driver;
+    if (d == null) {
+      return Center(child: Text('Bir pilot seç.', style: TextStyle(color: AppColors.muted)));
+    }
+    final laps = [
+      for (final lap in d.laps)
+        if (lap.duration != null) lap,
+    ];
+    if (laps.length < 2) {
+      return Center(child: Text('Bu pilot için tur süresi verisi yok.', style: TextStyle(color: AppColors.muted)));
+    }
+    final sorted = [for (final lap in laps) lap.duration!]..sort();
+    final fastest = sorted.first;
+    final median = sorted[sorted.length ~/ 2];
+    // Pit ve safety car turları ölçeği bozmasın: median'ın %8 üstü tavan, üstü kenarda halka.
+    final top = math.max(fastest + 1.0, median * 1.08);
+    final bottom = fastest - 0.3;
+    final maxLap = math.max(data.totalLaps, laps.last.number);
+    final bands = [
+      for (final period in data.periods)
+        _LapBand(
+          data.lapAt(period.time),
+          data.lapAt(period.end ?? period.time),
+          replayEventColor(period.kind).withValues(alpha: period.kind == ReplayEventKind.virtualSafetyCar ? .10 : .18),
+        ),
+    ];
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(
+        '${d.code} · tur süreleri · en iyi ${formatLapTime(fastest)}',
+        style: TextStyle(color: AppColors.muted, fontSize: 11),
+      ),
+      const SizedBox(height: 6),
+      Expanded(
+        child: ValueListenableBuilder<double>(
+          valueListenable: time,
+          builder: (context, t, _) => CustomPaint(
+            size: Size.infinite,
+            painter: _LapTimesPainter(
+              laps: laps,
+              fastest: fastest,
+              bottom: bottom,
+              top: top,
+              maxLap: maxLap,
+              currentLap: data.lapAt(t),
+              bands: bands,
+              colorFor: (lap) => _compoundColor(d.stintAtLap(lap)?.letter ?? '?'),
+              gridColor: AppColors.border,
+              markerColor: AppColors.red,
+            ),
+          ),
+        ),
+      ),
+    ]);
+  }
+}
+
+class _LapTimesPainter extends CustomPainter {
+  _LapTimesPainter({
+    required this.laps,
+    required this.fastest,
+    required this.bottom,
+    required this.top,
+    required this.maxLap,
+    required this.currentLap,
+    required this.bands,
+    required this.colorFor,
+    required this.gridColor,
+    required this.markerColor,
+  });
+
+  final List<ReplayLap> laps;
+  final double fastest;
+  final double bottom;
+  final double top;
+  final int maxLap;
+  final int currentLap;
+  final List<_LapBand> bands;
+  final Color Function(int lap) colorFor;
+  final Color gridColor;
+  final Color markerColor;
+
+  static const _pad = 6.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    double xOf(int lap) => maxLap <= 1 ? _pad : _pad + (lap - 1) / (maxLap - 1) * (size.width - _pad * 2);
+    double yOf(double seconds) {
+      final ratio = ((seconds - bottom) / (top - bottom)).clamp(0.0, 1.0);
+      return size.height - _pad - ratio * (size.height - _pad * 2);
+    }
+
+    final step = maxLap <= 1 ? size.width : (size.width - _pad * 2) / (maxLap - 1);
+    for (final band in bands) {
+      final rect = Rect.fromLTRB(xOf(band.firstLap) - step / 2, 0, xOf(band.lastLap) + step / 2, size.height);
+      canvas.drawRect(rect, Paint()..color = band.color);
+    }
+    final grid = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+    canvas.drawLine(Offset(0, size.height), Offset(size.width, size.height), grid);
+    canvas.drawLine(Offset.zero, Offset(size.width, 0), grid);
+
+    // Süren tur çizgisi
+    canvas.drawLine(
+      Offset(xOf(currentLap), 0),
+      Offset(xOf(currentLap), size.height),
+      Paint()
+        ..color = markerColor.withValues(alpha: .7)
+        ..strokeWidth = 1.5,
+    );
+
+    final link = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+    ReplayLap? previous;
+    for (final lap in laps) {
+      final seconds = lap.duration!;
+      final center = Offset(xOf(lap.number), yOf(seconds));
+      final clipped = seconds > top;
+      final before = previous;
+      if (before != null && !clipped && before.duration! <= top && before.number == lap.number - 1) {
+        canvas.drawLine(Offset(xOf(before.number), yOf(before.duration!)), center, link);
+      }
+      previous = lap;
+      final color = colorFor(lap.number);
+      if (clipped) {
+        canvas.drawCircle(
+          center,
+          3,
+          Paint()
+            ..color = color
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5,
+        );
+      } else {
+        canvas.drawCircle(center, 3, Paint()..color = color);
+      }
+      if ((seconds - fastest).abs() < 0.0005) {
+        canvas.drawCircle(
+          center,
+          6,
+          Paint()
+            ..color = _purple
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LapTimesPainter old) => true;
+}
+
+class _EventsPage extends StatelessWidget {
+  const _EventsPage({required this.data, required this.time, this.onOpen});
+
+  final ReplayData data;
+  final ValueListenable<double> time;
+  final ValueChanged<ReplayEvent>? onOpen;
+
+  static IconData _icon(ReplayEventKind kind) => switch (kind) {
+        ReplayEventKind.safetyCar => Icons.warning_amber_rounded,
+        ReplayEventKind.virtualSafetyCar => Icons.speed_rounded,
+        ReplayEventKind.redFlag => Icons.flag_rounded,
+        ReplayEventKind.penalty => Icons.gavel_rounded,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final open = onOpen;
+    return ValueListenableBuilder<double>(
+      valueListenable: time,
+      builder: (context, t, _) => ListView.builder(
+        padding: const EdgeInsets.only(top: 2, bottom: 12),
+        itemCount: data.events.length,
+        itemBuilder: (context, i) {
+          final event = data.events[i];
+          final active = event.containsTime(t);
+          return ListTile(
+            key: Key('replay-event-$i'),
+            dense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+            leading: Icon(_icon(event.kind), size: 20, color: replayEventColor(event.kind)),
+            title: Text(
+              '${event.label}${event.lap == null ? '' : ' · Tur ${event.lap}'}',
+              style: TextStyle(fontWeight: FontWeight.w800, color: active ? AppColors.amber : null),
+            ),
+            subtitle: event.message.isEmpty
+                ? null
+                : Text(event.message, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.muted, fontSize: 12)),
+            trailing: Text(formatReplayClock(event.time), style: TextStyle(color: AppColors.muted, fontSize: 12)),
+            onTap: open == null ? null : () => open(event),
           );
         },
       ),

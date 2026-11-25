@@ -8,6 +8,7 @@ import '../../core/models/replay_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/remote/replay_repository.dart';
 import 'replay_panel.dart';
+import 'replay_strategy.dart';
 import '../../shared/widgets/section_title.dart';
 
 String _clock(double seconds) => formatReplayClock(seconds);
@@ -32,6 +33,10 @@ class _ReplayScreenState extends State<ReplayScreen> {
   late final ReplayRepository _repository;
   late final bool _ownsRepository;
   Future<ReplayIndex>? _index;
+  int? _yearFilter;
+
+  /// null: hepsi, false: yalnız yarışlar, true: yalnız sprintler.
+  bool? _sprintFilter;
 
   @override
   void initState() {
@@ -93,6 +98,13 @@ class _ReplayScreenState extends State<ReplayScreen> {
             action: FilledButton.tonal(onPressed: _reload, child: const Text('Yenile')),
           );
         }
+        final years = ({for (final e in index.sessions) e.year}.toList()..sort((a, b) => b.compareTo(a)));
+        final hasSprints = index.sessions.any((e) => e.session == 'S');
+        final hasRaces = index.sessions.any((e) => e.session != 'S');
+        final visible = [
+          for (final e in index.sessions)
+            if ((_yearFilter == null || e.year == _yearFilter) && (_sprintFilter == null || (e.session == 'S') == _sprintFilter)) e,
+        ];
         return RefreshIndicator(
           onRefresh: () async {
             _reload();
@@ -116,26 +128,76 @@ class _ReplayScreenState extends State<ReplayScreen> {
                   child: Text('Çevrimdışı kopya gösteriliyor', style: TextStyle(color: AppColors.amber, fontSize: 12)),
                 ),
               const SizedBox(height: 16),
-              for (final entry in index.sessions)
-                Card(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  child: ListTile(
-                    leading: Icon(Icons.play_circle_outline_rounded, color: AppColors.red),
-                    title: Text(entry.name, style: const TextStyle(fontWeight: FontWeight.w800)),
-                    subtitle: Text(
-                      '${entry.sessionLabel} · ${entry.year} · Yarış ${entry.round} · ${_clock(entry.duration)}',
-                      style: TextStyle(color: AppColors.muted, fontSize: 12),
-                    ),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(builder: (_) => ReplayPlayerScreen(repository: _repository, entry: entry)),
-                    ),
-                  ),
+              // Süzgeç yalnızca seçilecek bir şey varken görünür (tek yıl ve tek seans türünde gizli).
+              if (years.length > 1 || (hasSprints && hasRaces))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Wrap(spacing: 8, runSpacing: 4, children: [
+                    if (years.length > 1) ...[
+                      ChoiceChip(label: const Text('Tüm yıllar'), selected: _yearFilter == null, onSelected: (_) => setState(() => _yearFilter = null)),
+                      for (final year in years)
+                        ChoiceChip(label: Text('$year'), selected: _yearFilter == year, onSelected: (_) => setState(() => _yearFilter = year)),
+                    ],
+                    if (hasSprints && hasRaces) ...[
+                      ChoiceChip(label: const Text('Yarış ve sprint'), selected: _sprintFilter == null, onSelected: (_) => setState(() => _sprintFilter = null)),
+                      ChoiceChip(label: const Text('Yalnız yarışlar'), selected: _sprintFilter == false, onSelected: (_) => setState(() => _sprintFilter = false)),
+                      ChoiceChip(label: const Text('Yalnız sprintler'), selected: _sprintFilter == true, onSelected: (_) => setState(() => _sprintFilter = true)),
+                    ],
+                  ]),
                 ),
+              if (visible.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Text('Bu süzgece uyan replay yok.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted)),
+                ),
+              for (final entry in visible) _SessionCard(repository: _repository, entry: entry),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+/// Listedeki tek seans: ad (sprintse rozetle), pist ve ülke, ardından tür · yıl · tur · süre.
+class _SessionCard extends StatelessWidget {
+  const _SessionCard({required this.repository, required this.entry});
+
+  final ReplayRepository repository;
+  final ReplayIndexEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    // Aynı ülkede birden çok yarış olabildiği için (ör. ABD) pist adı ayırt edicidir.
+    final place = [entry.circuit, entry.country].where((part) => part.isNotEmpty).join(' · ');
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: ListTile(
+        isThreeLine: place.isNotEmpty,
+        leading: Icon(Icons.play_circle_outline_rounded, color: AppColors.red),
+        title: Row(children: [
+          Flexible(child: Text(entry.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800))),
+          if (entry.session == 'S') ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(color: AppColors.amber.withValues(alpha: .16), borderRadius: BorderRadius.circular(6)),
+              child: Text('SPRINT', style: TextStyle(color: AppColors.amber, fontSize: 10, fontWeight: FontWeight.w900)),
+            ),
+          ],
+        ]),
+        subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (place.isNotEmpty) Text(place, style: TextStyle(color: AppColors.muted, fontSize: 12)),
+          Text(
+            '${entry.sessionLabel} · ${entry.year} · Yarış ${entry.round} · ${_clock(entry.duration)}',
+            style: TextStyle(color: AppColors.muted, fontSize: 12),
+          ),
+        ]),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => ReplayPlayerScreen(repository: repository, entry: entry)),
+        ),
+      ),
     );
   }
 }
@@ -188,26 +250,39 @@ class _ReplayPlayerScreenState extends State<ReplayPlayerScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text(widget.entry.name)),
-        body: SafeArea(
-          child: FutureBuilder<ReplayData>(
-            future: _data,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const _Message(icon: Icons.downloading_rounded, text: 'Replay verisi hazırlanıyor…');
-              }
-              if (snapshot.hasError) {
-                return _Message(
-                  icon: Icons.error_outline_rounded,
-                  text: '${snapshot.error}',
-                  action: FilledButton(onPressed: _retry, child: const Text('Tekrar dene')),
-                );
-              }
-              return _ReplayView(data: snapshot.data!);
-            },
-          ),
-        ),
+  Widget build(BuildContext context) => FutureBuilder<ReplayData>(
+        future: _data,
+        builder: (context, snapshot) {
+          final data = snapshot.data;
+          final Widget body;
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            body = const _Message(icon: Icons.downloading_rounded, text: 'Replay verisi hazırlanıyor…');
+          } else if (snapshot.hasError || data == null) {
+            body = _Message(
+              icon: Icons.error_outline_rounded,
+              text: '${snapshot.error}',
+              action: FilledButton(onPressed: _retry, child: const Text('Tekrar dene')),
+            );
+          } else {
+            body = _ReplayView(data: data);
+          }
+          return Scaffold(
+            appBar: AppBar(
+              title: Text(widget.entry.name),
+              actions: [
+                if (data != null && data.drivers.any((d) => d.stints.isNotEmpty))
+                  IconButton(
+                    tooltip: 'Lastik stratejisi',
+                    icon: const Icon(Icons.stacked_bar_chart_rounded),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(builder: (_) => ReplayStrategyScreen(data: data)),
+                    ),
+                  ),
+              ],
+            ),
+            body: SafeArea(child: body),
+          );
+        },
       );
 }
 
@@ -281,6 +356,19 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
 
   void _seek(double seconds) => _time.value = seconds.clamp(0.0, widget.data.duration).toDouble();
 
+  void _jumpLap({required bool forward}) => _seek(widget.data.lapJumpTarget(_time.value, forward: forward));
+
+  Future<void> _pickLap() async {
+    final data = widget.data;
+    final target = await showModalBottomSheet<double>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => _LapPicker(data: data, current: data.lapAt(_time.value)),
+    );
+    if (target != null && mounted) _seek(target);
+  }
+
   void _select(String code) => setState(() => _selected = code);
 
   void _clearSelection() => setState(() => _selected = null);
@@ -314,10 +402,21 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
               if (data.inPit(d.code, t)) d.code,
           ];
           return Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+            padding: const EdgeInsets.fromLTRB(16, 0, 20, 4),
             child: Row(children: [
-              Text('Tur ${data.lapAt(t)}/${data.totalLaps}', style: const TextStyle(fontWeight: FontWeight.w900)),
-              const SizedBox(width: 14),
+              InkWell(
+                key: const Key('replay-lap-label'),
+                borderRadius: BorderRadius.circular(8),
+                onTap: data.lapStarts.isEmpty ? null : _pickLap,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 6, 2, 6),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Text('Tur ${data.lapAt(t)}/${data.totalLaps}', style: const TextStyle(fontWeight: FontWeight.w900)),
+                    if (data.lapStarts.isNotEmpty) Icon(Icons.arrow_drop_down_rounded, size: 18, color: AppColors.muted),
+                  ]),
+                ),
+              ),
+              const SizedBox(width: 10),
               Text('${_clock(t)} / ${_clock(data.duration)}', style: TextStyle(color: AppColors.muted, fontSize: 12)),
               const SizedBox(width: 14),
               Expanded(
@@ -368,6 +467,18 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
                   ),
                   if (data.weather.isNotEmpty)
                     Positioned(top: 10, left: 10, right: 10, child: ReplayWeatherStrip(data: data, time: _slowTime)),
+                  if (data.periods.isNotEmpty)
+                    Positioned(
+                      top: data.weather.isEmpty ? 10 : 46,
+                      left: 10,
+                      child: ValueListenableBuilder<double>(
+                        valueListenable: _slowTime,
+                        builder: (context, t, _) {
+                          final period = data.periodAt(t);
+                          return period == null ? const SizedBox.shrink() : _PeriodBadge(event: period);
+                        },
+                      ),
+                    ),
                 ]);
               },
             ),
@@ -377,6 +488,13 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(children: [
+          if (data.lapStarts.isNotEmpty)
+            IconButton(
+              tooltip: 'Önceki tur',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => _jumpLap(forward: false),
+              icon: const Icon(Icons.skip_previous_rounded),
+            ),
           IconButton(tooltip: '10 sn geri', onPressed: () => _seek(_time.value - 10), icon: const Icon(Icons.replay_10_rounded)),
           IconButton.filled(
             tooltip: _playing ? 'Duraklat' : 'Oynat',
@@ -384,6 +502,13 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
             icon: Icon(_playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
           ),
           IconButton(tooltip: '10 sn ileri', onPressed: () => _seek(_time.value + 10), icon: const Icon(Icons.forward_10_rounded)),
+          if (data.lapStarts.isNotEmpty)
+            IconButton(
+              tooltip: 'Sonraki tur',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => _jumpLap(forward: true),
+              icon: const Icon(Icons.skip_next_rounded),
+            ),
           const Spacer(),
           PopupMenuButton<double>(
             tooltip: 'Oynatma hızı',
@@ -404,14 +529,7 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
           ),
         ]),
       ),
-      ValueListenableBuilder<double>(
-        valueListenable: _time,
-        builder: (context, t, _) => Slider(
-          value: t.clamp(0.0, data.duration).toDouble(),
-          max: data.duration,
-          onChanged: _seek,
-        ),
-      ),
+      _ReplayTimeline(data: data, time: _time, selected: _selected, onSeek: _seek),
       Expanded(
         flex: 4,
         child: ReplayLowerPanel(
@@ -425,10 +543,224 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
             _select(pit.driver);
             _seek(pit.inTime - 5);
           },
+          onOpenEvent: (event) => _seek(event.time - 5),
         ),
       ),
     ]);
   }
+}
+
+/// Safety car / VSC / kırmızı bayrak sürerken haritanın köşesinde görünen rozet.
+class _PeriodBadge extends StatelessWidget {
+  const _PeriodBadge({required this.event});
+
+  final ReplayEvent event;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = replayEventColor(event.kind);
+    final outlined = event.kind == ReplayEventKind.virtualSafetyCar;
+    final textColor = outlined
+        ? color
+        : event.kind == ReplayEventKind.redFlag
+            ? Colors.white
+            : const Color(0xFF111111);
+    return Container(
+      key: const Key('replay-period-badge'),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: outlined ? color.withValues(alpha: .18) : color,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color, width: 1.5),
+      ),
+      child: Text(event.badge, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: textColor)),
+    );
+  }
+}
+
+/// "Tura git" alt sayfası: kısayollar ve tur numaraları. Seçilen anı (sn) döndürür.
+class _LapPicker extends StatelessWidget {
+  const _LapPicker({required this.data, required this.current});
+
+  final ReplayData data;
+  final int current;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = data.totalLaps;
+    final lastLapStart = data.lapStartTime(total);
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Tura git', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 12),
+          Wrap(spacing: 8, runSpacing: 4, children: [
+            ActionChip(label: const Text('Yarış başı'), onPressed: () => Navigator.of(context).pop(0.0)),
+            if (lastLapStart != null) ActionChip(label: const Text('Son tur'), onPressed: () => Navigator.of(context).pop(lastLapStart)),
+            ActionChip(label: const Text('Bitiş'), onPressed: () => Navigator.of(context).pop(data.duration)),
+          ]),
+          const SizedBox(height: 16),
+          Wrap(spacing: 8, runSpacing: 4, children: [
+            for (var lap = 1; lap <= total; lap++)
+              if (data.lapStartTime(lap) != null)
+                ChoiceChip(
+                  key: Key('replay-lap-$lap'),
+                  label: Text('$lap'),
+                  selected: lap == current,
+                  onSelected: (_) => Navigator.of(context).pop(data.lapStartTime(lap)),
+                ),
+          ]),
+        ]),
+      ),
+    );
+  }
+}
+
+/// Dokunup sürüklenebilen zaman çubuğu. Slider yerine özel çizilir; çünkü üzerine
+/// tur sınırları, pit stoplar ve safety car / kırmızı bayrak dönemleri işlenir.
+class _ReplayTimeline extends StatelessWidget {
+  const _ReplayTimeline({required this.data, required this.time, required this.selected, required this.onSeek});
+
+  final ReplayData data;
+  final ValueListenable<double> time;
+  final String? selected;
+  final ValueChanged<double> onSeek;
+
+  static const _inset = 12.0;
+  static const _height = 40.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final pits = data.pitsByDriver[selected] ?? const <ReplayPit>[];
+    final penalties = [
+      for (final event in data.events)
+        if (event.kind == ReplayEventKind.penalty) event.time,
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          double toTime(double dx) {
+            final span = math.max(width - _inset * 2, 1.0);
+            return ((dx - _inset) / span).clamp(0.0, 1.0) * data.duration;
+          }
+
+          return GestureDetector(
+            key: const Key('replay-timeline'),
+            behavior: HitTestBehavior.opaque,
+            onTapDown: (details) => onSeek(toTime(details.localPosition.dx)),
+            onHorizontalDragUpdate: (details) => onSeek(toTime(details.localPosition.dx)),
+            child: ValueListenableBuilder<double>(
+              valueListenable: time,
+              builder: (context, t, _) => CustomPaint(
+                size: Size(width, _height),
+                painter: _TimelinePainter(
+                  duration: data.duration,
+                  t: t,
+                  lapStarts: data.lapStarts,
+                  periods: data.periods,
+                  pitTimes: [for (final pit in pits) pit.inTime],
+                  penaltyTimes: penalties,
+                  trackColor: AppColors.border,
+                  tickColor: AppColors.muted.withValues(alpha: .5),
+                  progressColor: AppColors.red,
+                  pitColor: AppColors.amber,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _TimelinePainter extends CustomPainter {
+  _TimelinePainter({
+    required this.duration,
+    required this.t,
+    required this.lapStarts,
+    required this.periods,
+    required this.pitTimes,
+    required this.penaltyTimes,
+    required this.trackColor,
+    required this.tickColor,
+    required this.progressColor,
+    required this.pitColor,
+  });
+
+  final double duration;
+  final double t;
+  final List<double> lapStarts;
+  final List<ReplayEvent> periods;
+  final List<double> pitTimes;
+  final List<double> penaltyTimes;
+  final Color trackColor;
+  final Color tickColor;
+  final Color progressColor;
+  final Color pitColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const inset = _ReplayTimeline._inset;
+    final left = inset;
+    final span = math.max(size.width - inset * 2, 1.0);
+    double xOf(double seconds) => left + (duration <= 0 ? 0.0 : (seconds / duration).clamp(0.0, 1.0)) * span;
+    final midY = size.height / 2;
+
+    // Safety car / VSC / kırmızı bayrak bantları pistin arkasında.
+    for (final period in periods) {
+      final start = xOf(period.time);
+      final end = math.max(xOf(period.end ?? period.time), start + 2);
+      canvas.drawRect(
+        Rect.fromLTRB(start, midY - 9, end, midY + 9),
+        Paint()..color = replayEventColor(period.kind).withValues(alpha: .5),
+      );
+    }
+
+    final track = Paint()
+      ..color = trackColor
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(left, midY), Offset(left + span, midY), track);
+    canvas.drawLine(
+      Offset(left, midY),
+      Offset(xOf(t), midY),
+      Paint()
+        ..color = progressColor
+        ..strokeWidth = 4
+        ..strokeCap = StrokeCap.round,
+    );
+
+    final tick = Paint()
+      ..color = tickColor
+      ..strokeWidth = 1;
+    for (final start in lapStarts) {
+      final x = xOf(start);
+      canvas.drawLine(Offset(x, midY - 6), Offset(x, midY + 6), tick);
+    }
+
+    // Seçili pilotun pit girişleri üstte, cezalar altta küçük noktalar.
+    for (final seconds in pitTimes) {
+      canvas.drawCircle(Offset(xOf(seconds), midY - 14), 3, Paint()..color = pitColor);
+    }
+    for (final seconds in penaltyTimes) {
+      canvas.drawCircle(Offset(xOf(seconds), midY + 14), 2.5, Paint()..color = replayEventColor(ReplayEventKind.penalty));
+    }
+
+    canvas.drawCircle(Offset(xOf(t), midY), 7, Paint()..color = progressColor);
+    canvas.drawCircle(Offset(xOf(t), midY), 3, Paint()..color = Colors.white);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TimelinePainter old) =>
+      old.t != t ||
+      old.duration != duration ||
+      old.pitTimes != pitTimes ||
+      old.progressColor != progressColor ||
+      old.trackColor != trackColor;
 }
 
 /// Pist koordinatlarını ekrana oturtur. F1 y ekseni yukarı olduğu için y çevrilir.

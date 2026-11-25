@@ -117,11 +117,29 @@ def synthetic_session(hz_source: float = 4.0) -> br.RawSession:
         {"ts": before, "air": 24.0, "track": 38.0, "humidity": 52.0, "wind": 12.0, "wind_dir": 135.0, "rain": 0.0},
         {"ts": RACE_START + 30.0, "air": 24.5, "track": 39.0, "humidity": 55.0, "wind": 14.4, "wind_dir": 140.0, "rain": 1.0},
     ]
+    race_control = [
+        {"ts": RACE_START - 20.0, "category": "SafetyCar", "flag": None, "scope": None,
+         "message": "SAFETY CAR DEPLOYED", "lap": None},            # yarıştan önce: atılır
+        {"ts": RACE_START + 12.0, "category": "Other", "flag": None, "scope": None,
+         "message": "5 SECOND TIME PENALTY FOR CAR 3 (CCC) - TRACK LIMITS", "lap": 1},
+        {"ts": RACE_START + 20.0, "category": "Other", "flag": None, "scope": None,
+         "message": "5 SECOND TIME PENALTY FOR CAR 3 (CCC) SERVED", "lap": 2},   # "SERVED": olay sayılmaz
+        {"ts": RACE_START + 35.0, "category": "SafetyCar", "flag": None, "scope": None,
+         "message": "SAFETY CAR DEPLOYED", "lap": 2},
+        {"ts": RACE_START + 42.0, "category": "SafetyCar", "flag": None, "scope": None,
+         "message": "SAFETY CAR IN THIS LAP", "lap": 3},
+        {"ts": RACE_START + 45.0, "category": "Flag", "flag": "GREEN", "scope": "Track",
+         "message": "GREEN LIGHT - TRACK CLEAR", "lap": 3},
+        {"ts": RACE_START + 50.0, "category": "SafetyCar", "flag": None, "scope": None,
+         "message": "VIRTUAL SAFETY CAR DEPLOYED", "lap": 3},
+        {"ts": RACE_START + 55.0, "category": "SafetyCar", "flag": None, "scope": None,
+         "message": "VIRTUAL SAFETY CAR ENDING", "lap": 3},
+    ]
     return br.RawSession(
         year=2099, round=1, code="R",
         event_name="Test Grand Prix", country="Testland", circuit="Ovalville",
         results=results, laps=laps, car=car, pos=pos,
-        position_log=position_log, stints=stints, weather=weather,
+        position_log=position_log, stints=stints, weather=weather, race_control=race_control,
     )
 
 

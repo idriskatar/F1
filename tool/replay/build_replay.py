@@ -31,6 +31,8 @@ DRS_OPEN_MIN = 10          # F1 DRS kodu: 10/12/14 = açık, 8 = açılabilir, 0
 TRACK_MAX_POINTS = 400
 FALLBACK_COLOR = "#9AA0A6"
 OPENF1_BASE_URL = "https://api.openf1.org/v1"
+EVENT_TEXT_MAX = 140         # olay mesajı en fazla bu kadar karakter taşır (dosya boyutu)
+SC_CLOSE_WINDOW = 300.0      # "SAFETY CAR IN THIS LAP" sonrası pist yeşil bayrağı için beklenen azami süre (sn)
 TRACK_INDEX_FILE = "tracks.json"   # replay üretilemeyen, yalnızca pist çizgisi olan seanslar
 
 
@@ -64,6 +66,8 @@ class RawSession:
     stints: Optional[dict[str, list[dict[str, Any]]]] = None
     # [{'ts': oturum sn, 'air', 'track', 'humidity', 'wind' (km/sa), 'wind_dir', 'rain'}, ...]  (OpenF1 'weather' ucu)
     weather: Optional[list[dict[str, Any]]] = None
+    # [{'ts': oturum sn, 'category', 'flag', 'scope', 'message', 'lap'}, ...]  (OpenF1 'race_control' ucu)
+    race_control: Optional[list[dict[str, Any]]] = None
 
 
 # --------------------------------------------------------------------------- yardımcılar
@@ -346,6 +350,82 @@ def weather_rows(raw: RawSession, t0: float) -> list[list[Any]]:
     return out
 
 
+def race_control_events(raw: RawSession, t0: float, duration: float) -> list[list[Any]]:
+    """[[replay_sn, tür, tur|null, mesaj, bitiş_sn|null], ...] zamana göre artan.
+
+    tür: "SC" (safety car), "VSC", "RED" (kırmızı bayrak) -> bitiş_sn dolu (dönem);
+         "PENALTY" -> bitiş_sn null (tek an). Yarış penceresi dışındaki olaylar atılır.
+    Dönemler race_control mesajlarından çıkarılır; kapanışı bulunamayan dönem yarış sonunda biter.
+    """
+    rows = sorted((r for r in (raw.race_control or []) if r.get("ts") is not None), key=lambda r: r["ts"])
+    events: list[list[Any]] = []
+    current: Optional[dict[str, Any]] = None
+    pending_end: Optional[float] = None      # SC için: "IN THIS LAP" duyurusunun zamanı
+
+    def clip(value: float) -> float:
+        return round(min(max(value, 0.0), duration), 1)
+
+    def close(end: float) -> None:
+        nonlocal current, pending_end
+        if current is not None:
+            events.append([clip(current["start"]), current["kind"], current["lap"], current["text"],
+                           clip(max(end, current["start"]))])
+        current = None
+        pending_end = None
+
+    def start(kind: str, rel: float, lap: Optional[int], text: str) -> None:
+        nonlocal current, pending_end
+        if current is not None:
+            if current["kind"] == kind:
+                return                         # tekrar eden duyuru
+            close(rel)                         # SC -> kırmızı bayrak gibi geçişler
+        current = {"kind": kind, "start": rel, "lap": lap, "text": text}
+        pending_end = None
+
+    for row in rows:
+        rel = float(row["ts"]) - t0
+        if rel < 0 or rel > duration:
+            continue
+        category = _clean(row.get("category")).upper().replace(" ", "")
+        flag = _clean(row.get("flag")).upper()
+        scope = _clean(row.get("scope")).upper()
+        text = _clean(row.get("message"))[:EVENT_TEXT_MAX]
+        message = text.upper()
+        lap_value = row.get("lap")
+        lap = int(lap_value) if isinstance(lap_value, (int, float)) and not math.isnan(lap_value) else None
+        track_clear = category == "FLAG" and flag in ("GREEN", "CLEAR") and scope in ("TRACK", "")
+
+        if current is not None:
+            if current["kind"] == "SC" and pending_end is not None and rel - pending_end > SC_CLOSE_WINDOW:
+                close(pending_end)             # yeşil bayrak gelmedi: duyuru anında bitmiş say
+            elif current["kind"] == "RED" and track_clear:
+                close(rel)
+            elif current["kind"] == "SC" and pending_end is not None and track_clear:
+                close(rel)
+
+        if category == "SAFETYCAR":
+            if "VIRTUAL SAFETY CAR" in message or "VSC" in message:
+                if "DEPLOYED" in message:
+                    start("VSC", rel, lap, text)
+                elif "ENDING" in message and current is not None and current["kind"] == "VSC":
+                    close(rel)
+            elif "SAFETY CAR" in message:
+                if "DEPLOYED" in message:
+                    start("SC", rel, lap, text)
+                elif "IN THIS LAP" in message and current is not None and current["kind"] == "SC":
+                    pending_end = rel
+        elif category == "FLAG" and flag == "RED":
+            start("RED", rel, lap, text or "RED FLAG")
+
+        if "PENALTY" in message and "SERVED" not in message and "NO FURTHER" not in message:
+            events.append([clip(rel), "PENALTY", lap, text, None])
+
+    if current is not None:
+        close(pending_end if pending_end is not None else duration)
+    events.sort(key=lambda e: (e[0], e[1]))
+    return events
+
+
 def stints_for(raw: RawSession, number: str) -> list[list[Any]]:
     """[[bileşen, ilk_tur, son_tur|null, başlangıç_yaşı], ...]"""
     items = sorted((raw.stints or {}).get(number) or [], key=lambda s: s["lap_start"])
@@ -443,6 +523,9 @@ def build_payload(raw: RawSession, hz: int = DEFAULT_HZ) -> dict[str, Any]:
     }
     if weather:
         payload["weather"] = weather
+    events = race_control_events(raw, t0, t1 - t0)
+    if events:
+        payload["events"] = events
     return payload
 
 
@@ -856,6 +939,21 @@ def load_raw(year: int, rnd: int, code: str = "R", cache_dir: str = ".fastf1-cac
             "rain": reading("rainfall"),
         })
 
+    race_control: list[dict[str, Any]] = []
+    for row in _optional_get("race_control", {"session_key": session_key}):
+        when = _parse_iso(row.get("date"))
+        if when is None:
+            continue
+        lap_number = row.get("lap_number")
+        race_control.append({
+            "ts": (when - session_start).total_seconds(),
+            "category": row.get("category"),
+            "flag": row.get("flag"),
+            "scope": row.get("scope"),
+            "message": row.get("message"),
+            "lap": None if lap_number is None or pd.isna(lap_number) else int(lap_number),
+        })
+
     car: dict[str, pd.DataFrame] = {}
     pos: dict[str, pd.DataFrame] = {}
 
@@ -899,6 +997,7 @@ def load_raw(year: int, rnd: int, code: str = "R", cache_dir: str = ".fastf1-cac
         position_log=position_log,
         stints=stints,
         weather=weather,
+        race_control=race_control,
     )
 
 

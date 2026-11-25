@@ -56,8 +56,9 @@ python -m unittest discover -s tool/replay -p "test_*.py" -v     # ağ gerektirm
 | `position` | Yarış boyunca sıra değişimleri (canlı sıralama listesi) |
 | `stints` | Lastik bileşeni, stint tur aralığı, stint başındaki lastik yaşı |
 | `weather` | Hava ve pist sıcaklığı, nem, rüzgâr (hız, yön), yağış |
+| `race_control` | Safety car, VSC, kırmızı bayrak ve ceza mesajları (olay akışı) |
 
-`position`, `stints` ve `weather` **isteğe bağlıdır**: bu uçlardan biri alınamazsa betik uyarı verir ve o alanlar
+`position`, `stints`, `weather` ve `race_control` **isteğe bağlıdır**: bu uçlardan biri alınamazsa betik uyarı verir ve o alanlar
 olmadan devam eder (replay yine üretilir).
 
 Betik her pilot için `location` ve `car_data` uçlarını ayrı çağırır (yaklaşık 40+ istek). İstek
@@ -89,7 +90,9 @@ Flutter karşılığı `lib/core/models/replay_models.dart`. İkisi arasındaki 
       "stints": [["MEDIUM", 1, 18, 0], ["HARD", 19, null, 0]]   # [bileşen, ilk_tur, son_tur|null, başlangıç_yaşı]
   }],
   "pits": [{"driver": "VER", "lap": 12, "in": 1234.5, "out": 1257.0, "pitLane": 22.5}],
-  "weather": [[0.0, 24.0, 38.0, 52, 12.0, 135, 0], ...]   # isteğe bağlı: [replay_sn, hava°C, pist°C, nem%, rüzgâr km/sa, rüzgâr yönü°, yağmur 0/1]
+  "weather": [[0.0, 24.0, 38.0, 52, 12.0, 135, 0], ...],  # isteğe bağlı: [replay_sn, hava°C, pist°C, nem%, rüzgâr km/sa, rüzgâr yönü°, yağmur 0/1]
+  "events": [[1520.0, "SC", 21, "SAFETY CAR DEPLOYED", 1710.0], [812.5, "PENALTY", 12, "5 SECOND TIME PENALTY FOR CAR 4 (NOR) ...", null]]
+                                                         # isteğe bağlı: [replay_sn, tür, tur|null, mesaj, bitiş_sn|null]
 }
 ```
 
@@ -118,6 +121,14 @@ edilmesi gerekir.
 - **Hava durumu:** Haritanın üstündeki tek satırlık şerit `weather` kaydından beslenir. OpenF1 rüzgâr
   hızını m/s verir, betik km/sa'ye çevirir (×3,6). Yağış, OpenF1'in `rainfall` alanındaki 0/1 değerinden
   gelir. Rüzgâr yönü dosyada saklanır ama şu an ekranda gösterilmez. Ölçüm yoksa şerit hiç görünmez.
+- **Olaylar (`events`):** `race_control` mesajlarından çıkarılır. Tür `SC`, `VSC`, `RED` ise kayıt bir
+  *dönemdir* (son alan bitiş saniyesi) ve zaman çubuğunda renkli bant, harita köşesinde rozet olarak görünür;
+  `PENALTY` tek bir andır (son alan `null`). Dönemler mesaj metninden türetilir: SC `SAFETY CAR DEPLOYED` ile
+  açılır, `IN THIS LAP` duyurusundan sonraki ilk pist yeşil/clear bayrağında kapanır (5 dk içinde gelmezse duyuru
+  anında); VSC `ENDING` mesajında; kırmızı bayrak ilk pist yeşil bayrağında ya da safety car'da kapanır.
+  Kapanışı bulunamayan dönem yarış sonunda biter. Yarış başlamadan önceki olaylar atılır, mesajlar 140 karaktere
+  kısaltılır. `SERVED` / `NO FURTHER` içeren ceza mesajları olay sayılmaz. Uç boşsa `events` yazılmaz ve
+  uygulamada "Olaylar" sayfası görünmez.
 - **Lastik ve en hızlı tur simgeleri:** Sıralama listesindeki lastik simgesi, pilotun o an süren turuna
   denk gelen `stints` kaydından; kronometre, o ana kadar tamamlanan en hızlı turun sahibinden gelir.
   Tur bilgisi henüz yokken (yarışın ilk anları) 1. tur kabul edilir.

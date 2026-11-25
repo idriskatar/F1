@@ -225,5 +225,49 @@ void main() {
     }
     expect(ReplayData.fromJson(json).drivers.first.stintAt(0), isNull);
   });
-}
 
+  test('yarış yönetimi olayları okunur: dönemler ve cezalar', () {
+    expect(
+      data.events.map((e) => e.kind),
+      [ReplayEventKind.penalty, ReplayEventKind.safetyCar, ReplayEventKind.virtualSafetyCar],
+    );
+    expect(data.events.first.lap, 1);
+    expect(data.events.first.end, isNull);
+    expect(data.periods.length, 2); // ceza dönem değildir
+    expect(data.periodAt(36)!.kind, ReplayEventKind.safetyCar);
+    expect(data.periodAt(45), isNull); // bitiş anı dahil değil
+    expect(data.periodAt(52)!.badge, 'VSC');
+    expect(data.periodAt(12), isNull);
+  });
+
+  test('bozuk olay satırları atlanır, alan yoksa liste boş kalır', () {
+    final json = loadFixture();
+    json['events'] = [
+      [5, 'UNKNOWN', 1, 'x', 9],
+      'garbage',
+      [10],
+      [20, 'RED', null, 'RED FLAG', 30],
+    ];
+    final parsed = ReplayData.fromJson(json);
+    expect(parsed.events.length, 1);
+    expect(parsed.events.single.kind, ReplayEventKind.redFlag);
+    expect(parsed.events.single.lap, isNull);
+    expect(parsed.periodAt(25)!.label, 'Kırmızı bayrak');
+
+    json.remove('events');
+    final old = ReplayData.fromJson(json);
+    expect(old.events, isEmpty);
+    expect(old.periodAt(36), isNull);
+  });
+
+  test('tur atlama hedefi: ileri sonraki tura, geri önce tur başına sonra önceki tura', () {
+    expect(data.lapJumpTarget(0, forward: true), 20);
+    expect(data.lapJumpTarget(25, forward: true), 40);
+    expect(data.lapJumpTarget(45, forward: true), 60); // son turdan sonra yarış sonu
+    expect(data.lapJumpTarget(25, forward: false), 20); // tur başından 3 sn'den fazla geçti
+    expect(data.lapJumpTarget(21, forward: false), 0); // tur başına çok yakın: önceki tur
+    expect(data.lapJumpTarget(2, forward: false), 0);
+    expect(data.lapStartTime(2), 20);
+    expect(data.lapStartTime(4), isNull);
+  });
+}

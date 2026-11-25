@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1 Replay - Mockup with New Features</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d0d0d; color: #e8e8e8; min-height: 100vh; }
+  
+  /* Layout */
+  .app { display: flex; flex-direction: column; height: 100vh; }
+  .header { display: flex; align-items: center; gap: 16px; padding: 8px 20px; background: #1a1a1a; border-bottom: 1px solid #333; }
+  .header h1 { font-size: 18px; font-weight: 800; }
+  .header .clock { color: #888; font-size: 12px; margin-left: auto; }
+  
+  /* Race Control Banner (NEW) */
+  .race-control-banner { display: none; padding: 8px 20px; background: #1a1a1a; border-bottom: 1px solid #333; font-size: 13px; font-weight: 600; }
+  .race-control-banner.active { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .rc-badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+  .rc-yellow { background: #facc15; color: #1a1a1a; }
+  .rc-sc { background: #2f6bff; color: white; }
+  .rc-red { background: #ef4444; color: white; }
+  .rc-penalty { background: #b138dd; color: white; }
+  .rc-investigation { background: #f97316; color: white; }
+  
+  /* Track Area */
+  .track-container { flex: 1; position: relative; margin: 16px; background: #141414; border-radius: 18px; border: 1px solid #2a2a2a; overflow: hidden; }
+  .track-canvas { width: 100%; height: 100%; display: block; }
+  .weather-strip { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(20,20,20,0.94); border: 1px solid #2a2a2a; border-radius: 14px; padding: 4px 12px; font-size: 11px; display: flex; gap: 16px; align-items: center; z-index: 10; }
+  .weather-item { display: flex; align-items: center; gap: 4px; color: #aaa; }
+  .weather-item strong { color: #fff; }
+  
+  /* Controls */
+  .controls { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #1a1a1a; border-radius: 12px; margin: 0 16px 8px; border: 1px solid #2a2a2a; }
+  .ctrl-btn { background: none; border: none; color: #e8e8e8; cursor: pointer; padding: 8px; border-radius: 8px; display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  .ctrl-btn:hover { background: #2a2a2a; }
+  .ctrl-btn.filled { background: #ef4444; font-weight: 700; }
+  .speed-menu { position: relative; }
+  .speed-value { padding: 6px 12px; background: #2a2a2a; border-radius: 8px; font-weight: 800; font-size: 13px; cursor: pointer; }
+  
+  /* Timeline / Slider */
+  .timeline { padding: 0 20px 12px; position: relative; }
+  .timeline-markers { position: absolute; top: -8px; left: 0; right: 0; height: 8px; pointer-events: none; z-index: 5; }
+  .timeline-marker { position: absolute; top: 0; width: 2px; height: 100%; }
+  .timeline-marker.yellow { background: #facc15; box-shadow: 0 0 4px #facc15; }
+  .timeline-marker.sc { background: #2f6bff; box-shadow: 0 0 4px #2f6bff; }
+  .timeline-marker.red { background: #ef4444; box-shadow: 0 0 4px #ef4444; }
+  .timeline-marker.penalty { background: #b138dd; box-shadow: 0 0 4px #b138dd; }
+  .timeline-marker::after { content: attr(data-tooltip); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 10px; background: #000; color: #fff; padding: 2px 6px; border-radius: 3px; margin-bottom: 4px; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+  .timeline-marker:hover::after { opacity: 1; }
+  input[type="range"] { width: 100%; accent-color: #ef4444; cursor: pointer; }
+  
+  /* Lower Panel */
+  .lower-panel { display: flex; height: 320px; background: #141414; border-radius: 18px; border: 1px solid #2a2a2a; margin: 0 16px 16px; overflow: hidden; }
+  
+  /* Position List (Left) - No visible scrollbars, touch/mouse scrollable */
+  .position-list { 
+    width: 190px; 
+    border-right: 1px solid #2a2a2a; 
+    background: #0d0d0d; 
+    flex-shrink: 0; 
+    overflow-x: hidden; 
+    overflow-y: auto; 
+    /* Hide scrollbar but keep scrolling */
+    -ms-overflow-style: none;  /* IE/Edge */
+    scrollbar-width: none;      /* Firefox */
+  }
+  .position-list::-webkit-scrollbar { display: none; } /* Chrome/Safari/Opera */
+  .position-header { padding: 6px 8px; font-size: 10px; font-weight: 800; color: #888; letter-spacing: 0.6px; text-transform: uppercase; }
+  .pos-row { display: flex; align-items: center; height: 44px; padding: 0 6px; cursor: pointer; transition: background 0.1s; border-radius: 6px; margin: 1px 4px; gap: 4px; }
+  .pos-row:hover { background: #1a1a1a; }
+  .pos-row.selected { background: #1a1a1a; border: 1.2px solid #ef4444; }
+  .pos-rank { width: 20px; font-weight: 800; font-size: 11px; text-align: right; flex-shrink: 0; }
+  .pos-color { width: 3px; height: 14px; border-radius: 2px; flex-shrink: 0; }
+  .pos-code { font-weight: 800; font-size: 12px; white-space: nowrap; min-width: 36px; text-align: left; flex-shrink: 0; }
+  .pos-code.pit { color: #facc15; }
+  .pos-fl-icon { font-size: 12px; color: #b138dd; flex-shrink: 0; }
+  .pos-tyre { width: 16px; height: 16px; border-radius: 50%; border: 2.5px solid; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 900; flex-shrink: 0; }
+  
+  /* Grid arrows - next to tyre */
+  .pos-grid-arrow { font-size: 10px; font-weight: 700; flex-shrink: 0; margin-left: 2px; }
+  .pos-grid-arrow.up { color: #22c55e; }
+  .pos-grid-arrow.down { color: #ef4444; }
+  
+  /* Gap/Intervals - Far right, stacked vertically */
+  .pos-gaps { display: flex; flex-direction: column; align-items: flex-end; justify-content: center; min-width: 70px; flex-shrink: 0; margin-left: auto; padding-right: 8px; }
+  .pos-gap-row { font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; text-align: right; }
+  .pos-gap-interval { color: #e8e8e8; }  /* Gap to car ahead */
+  .pos-gap-leader { color: #888; font-size: 9px; }  /* Gap to P1 */
+  .pos-gap-row.battle .pos-gap-interval { color: #ef4444; animation: pulse 1s infinite; }
+  .pos-gap-row.battle .pos-gap-leader { color: #ef4444; animation: pulse 1s infinite; }
+  
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  
+  /* Right Panel (Tabs) */
+  .right-panel { flex: 1; display: flex; flex-direction: column; }
+  .tab-dots { display: flex; align-items: center; gap: 4px; padding: 8px 12px 4px; border-bottom: 1px solid #2a2a2a; }
+  .tab-dot { width: 8px; height: 8px; border-radius: 4px; background: #2a2a2a; cursor: pointer; transition: all 0.15s; }
+  .tab-dot.active { width: 18px; background: #ef4444; }
+  .tab-label { margin-left: auto; color: #888; font-size: 10px; font-weight: 700; }
+  
+  .tab-content { flex: 1; overflow: hidden; position: relative; }
+  .tab-page { display: none; height: 100%; }
+  .tab-page.active { display: block; }
+  
+  /* Driver Card */
+  .driver-card { padding: 12px; height: 100%; display: flex; flex-direction: column; }
+  .driver-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .driver-color-bar { width: 4px; height: 34px; border-radius: 2px; }
+  .driver-info { flex: 1; min-width: 0; }
+  .driver-name { font-weight: 900; font-size: 17px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .driver-team { color: #888; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .driver-close { background: none; border: none; color: #888; cursor: pointer; padding: 4px; }
+  
+  .lap-tyre-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+  .lap-label { color: #888; font-size: 9px; font-weight: 800; }
+  .lap-time { padding: 2px 8px; border-radius: 6px; font-weight: 800; font-size: 11px; }
+  .lap-time.purple { background: #b138dd; color: #fff; }
+  .lap-time.green { background: #22c55e; color: #fff; }
+  .lap-time.yellow { background: #facc15; color: #1a1a1a; }
+  .lap-time.gray { background: #2a2a2a; color: #e8e8e8; }
+  
+  .gauge-container { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; }
+  .gauge-canvas { max-width: 100%; max-height: 100%; }
+  .gauge-center { position: absolute; text-align: center; pointer-events: none; }
+  .gauge-speed { font-size: 36px; font-weight: 900; line-height: 1; }
+  .gauge-speed-unit { color: #888; font-size: 9px; font-weight: 700; }
+  .gauge-rpm { font-size: 14px; font-weight: 800; margin-top: 2px; }
+  .gauge-rpm-unit { color: #888; font-size: 9px; font-weight: 700; }
+  .gauge-gear-drs { position: absolute; bottom: -24px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; font-size: 11px; font-weight: 900; }
+  .gauge-drs { color: #22c55e; }
+  .gauge-labels { position: absolute; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-between; padding: 0 20px; font-size: 8px; font-weight: 800; }
+  .gauge-label.throttle { color: #22c55e; }
+  .gauge-label.brake { color: #ef4444; }
+  
+  .sector-bars { display: flex; gap: 8px; padding-top: 8px; }
+  .sector-bar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .sector-bar-fill { width: 100%; height: 5px; border-radius: 3px; }
+  .sector-bar-label { color: #888; font-size: 10px; font-weight: 700; }
+  
+  /* Speed Graph */
+  .speed-graph { height: 100%; padding: 8px 12px; }
+  .speed-graph-title { color: #888; font-size: 10px; margin-bottom: 6px; }
+  .speed-canvas { width: 100%; height: 100%; }
+  
+  /* Pit List - No visible scrollbars */
+  .pit-list { height: 100%; overflow-y: auto; padding: 4px 8px 12px; -ms-overflow-style: none; scrollbar-width: none; }
+  .pit-list::-webkit-scrollbar { display: none; }
+  .pit-item { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; cursor: pointer; }
+  .pit-item:hover { background: #1a1a1a; }
+  .pit-item.active { background: rgba(250, 204, 21, 0.1); }
+  .pit-avatar { width: 12px; height: 12px; border-radius: 50%; }
+  .pit-info { flex: 1; }
+  .pit-driver-lap { font-weight: 800; font-size: 12px; }
+  .pit-driver-lap.active { color: #facc15; }
+  .pit-time { color: #888; font-size: 11px; }
+  .pit-lane { color: #888; font-size: 11px; margin-left: auto; }
+  
+  /* Empty states */
+  .empty-state { display: flex; align-items: center; justify-content: center; height: 100%; color: #888; text-align: center; padding: 20px; }
+  
+  /* Legend for new features */
+  .legend { display: flex; gap: 16px; padding: 12px 20px; background: #1a1a1a; border-radius: 12px; margin: 0 16px 16px; border: 1px solid #2a2a2a; font-size: 11px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-color { width: 12px; height: 12px; border-radius: 3px; }
+  .legend-color.stripe { background: repeating-linear-gradient(45deg, #ef4444, #ef4444 4px, transparent 4px, transparent 8px); }
+  
+  /* Demo data notice */
+  .demo-notice { text-align: center; padding: 20px; color: #888; font-size: 12px; }
+  .demo-notice strong { color: #facc15; }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Header -->
+  <div class="header">
+    <h1>Yarış Replay</h1>
+    <div class="clock">Tur 12/58 · 12:34 / 1:24:28</div>
+  </div>
+
+  <!-- Race Control Banner (NEW FEATURE) -->
+  <div class="race-control-banner active" id="raceControlBanner">
+    <span class="rc-badge rc-yellow">🟡 SARI BAYRAK</span>
+    <span class="rc-badge rc-sc">🟢 SAFETY CAR</span>
+    <span class="rc-badge rc-penalty">⚖️ 5s CEZA - VER</span>
+    <span class="rc-badge rc-investigation">🔍 SORUŞTIRMA - NOR/LEC</span>
+  </div>
+
+  <!-- Track Map Area -->
+  <div class="track-container">
+    <canvas class="track-canvas" id="trackCanvas"></canvas>
+    <div class="weather-strip">
+      <div class="weather-item"><span>☀️</span><strong>Kuru</strong></div>
+      <div class="weather-item">Hava <strong>24°</strong></div>
+      <div class="weather-item">Pist <strong>38°</strong></div>
+      <div class="weather-item">Nem <strong>%54</strong></div>
+      <div class="weather-item">Rüzgâr <strong>12 km/sa</strong></div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button class="ctrl-btn" title="10 sn geri">⏪ 10sn</button>
+    <button class="ctrl-btn filled" id="playBtn">⏯️ Oynat</button>
+    <button class="ctrl-btn" title="10 sn ileri">10sn ⏩</button>
+    <div class="speed-menu">
+      <div class="speed-value" id="speedValue">10×</div>
+    </div>
+    <button class="ctrl-btn" id="namesBtn" title="Pilot kodlarını göster/gizle">🏷️ İsimler</button>
+  </div>
+
+  <!-- Timeline with Markers (NEW FEATURE) -->
+  <div class="timeline">
+    <div class="timeline-markers" id="timelineMarkers">
+      <!-- Markers injected by JS -->
+    </div>
+    <input type="range" id="timelineSlider" min="0" max="5068" value="754" step="0.5">
+  </div>
+
+  <!-- Legend for new features -->
+  <div class="legend">
+    <div class="legend-item"><span class="legend-color" style="background:#ef4444"></span> Gap < 1s (Savaş)</div>
+    <div class="legend-item"><span class="legend-color" style="background:#22c55e">▲</span> Pozisyon kazandım ↑</div>
+    <div class="legend-item"><span class="legend-color" style="background:#ef4444">▼</span> Pozisyon kaybettim ↓</div>
+    <div class="legend-item"><span class="legend-color rc-yellow"></span> Sarı Bayrak</div>
+    <div class="legend-item"><span class="legend-color rc-sc"></span> Safety Car</div>
+    <div class="legend-item"><span class="legend-color rc-red"></span> Kırmızı Bayrak</div>
+    <div class="legend-item"><span class="legend-color rc-penalty"></span> Ceza</div>
+    <div class="legend-item"><span class="legend-color rc-investigation"></span> Soruşturma</div>
+  </div>
+
+  <!-- Lower Panel -->
+  <div class="lower-panel">
+    <!-- Position List (Left) -->
+    <div class="position-list">
+      <div class="position-header">SIRALAMA</div>
+      <div id="positionList">
+        <!-- Rows injected by JS -->
+      </div>
+    </div>
+
+    <!-- Right Panel (Tabs) -->
+    <div class="right-panel">
+      <div class="tab-dots">
+        <div class="tab-dot active" data-tab="telemetry"></div>
+        <div class="tab-dot" data-tab="speed"></div>
+        <div class="tab-dot" data-tab="pits"></div>
+        <span class="tab-label" id="tabLabel">TELEMETRİ</span>
+      </div>
+      
+      <div class="tab-content">
+        <!-- Telemetry Tab -->
+        <div class="tab-page active" id="tabTelemetry">
+          <div class="driver-card" id="driverCard">
+            <div class="empty-state">Soldan bir pilot seç ya da pistteki araca dokun.</div>
+          </div>
+        </div>
+        
+        <!-- Speed Graph Tab -->
+        <div class="tab-page" id="tabSpeed">
+          <div class="speed-graph">
+            <div class="speed-graph-title">VER · son 60 sn hız (km/sa)</div>
+            <canvas class="speed-canvas" id="speedCanvas"></canvas>
+          </div>
+        </div>
+        
+        <!-- Pits Tab -->
+        <div class="tab-page" id="tabPits">
+          <div class="pit-list" id="pitList">
+            <!-- Items injected by JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo-notice">
+    <strong>DEMO MOCKUP</strong> — Gerçek veri ve Flutter entegrasyonu yok. Yeni özellikler: <strong>Gap/Interval</strong>, <strong>Race Control</strong>, <strong>Grid→Bitiş</strong>
+  </div>
+</div>
+
+<script>
+// ============ DEMO DATA ============
+const drivers = [
+  {code:'VER', name:'VERSTAPPEN', team:'Red Bull Racing', color:'#3671C6', position:1, grid:1, gap:0, interval:0, inPit:false, tyre:'M', hasFL:true},
+  {code:'NOR', name:'NORRIS', team:'McLaren', color:'#FF8000', position:2, grid:3, gap:1.234, interval:1.234, inPit:false, tyre:'S', hasFL:false},
+  {code:'PIA', name:'PIASTRI', team:'McLaren', color:'#FF8000', position:3, grid:2, gap:2.567, interval:1.333, inPit:false, tyre:'M', hasFL:false},
+  {code:'LEC', name:'LECLERC', team:'Ferrari', color:'#EF1A2D', position:4, grid:5, gap:3.891, interval:1.324, inPit:false, tyre:'H', hasFL:false},
+  {code:'SAI', name:'SAINZ', team:'Ferrari', color:'#EF1A2D', position:5, grid:4, gap:5.123, interval:1.232, inPit:true, tyre:'M', hasFL:false},
+  {code:'HAM', name:'HAMILTON', team:'Mercedes', color:'#27F4D2', position:6, grid:8, gap:8.456, interval:3.333, inPit:false, tyre:'H', hasFL:false},
+  {code:'RUS', name:'RUSSELL', team:'Mercedes', color:'#27F4D2', position:7, grid:7, gap:9.789, interval:1.333, inPit:false, tyre:'M', hasFL:false},
+  {code:'ALO', name:'ALONSO', team:'Aston Martin', color:'#229971', position:8, grid:10, gap:12.345, interval:2.556, inPit:false, tyre:'S', hasFL:false},
+  {code:'STR', name:'STROLL', team:'Aston Martin', color:'#229971', position:9, grid:9, gap:14.567, interval:2.222, inPit:false, tyre:'M', hasFL:false},
+  {code:'GAS', name:'GASLY', team:'Alpine', color:'#FF87BC', position:10, grid:12, gap:16.789, interval:2.222, inPit:false, tyre:'H', hasFL:false},
+  {code:'OCO', name:'OCON', team:'Alpine', color:'#FF87BC', position:11, grid:11, gap:18.901, interval:2.112, inPit:false, tyre:'M', hasFL:false},
+  {code:'TSU', name:'TSUNODA', team:'RB', color:'#6692FF', position:12, grid:14, gap:21.234, interval:2.333, inPit:false, tyre:'S', hasFL:false},
+  {code:'LAW', name:'LAWSON', team:'RB', color:'#6692FF', position:13, grid:13, gap:23.456, interval:2.222, inPit:false, tyre:'M', hasFL:false},
+  {code:'ALB', name:'ALBON', team:'Williams', color:'#64C4FF', position:14, grid:16, gap:25.678, interval:2.222, inPit:false, tyre:'H', hasFL:false},
+  {code:'SAR', name:'SARGEANT', team:'Williams', color:'#64C4FF', position:15, grid:15, gap:27.890, interval:2.212, inPit:false, tyre:'M', hasFL:false},
+  {code:'BOT', name:'BOTTAS', team:'Sauber', color:'#52E252', position:16, grid:18, gap:30.123, interval:2.233, inPit:false, tyre:'S', hasFL:false},
+  {code:'ZHO', name:'ZHOU', team:'Sauber', color:'#52E252', position:17, grid:17, gap:32.345, interval:2.222, inPit:false, tyre:'M', hasFL:false},
+  {code:'MAG', name:'MAGNUSSEN', team:'Haas', color:'#B6BABD', position:18, grid:20, gap:34.567, interval:2.222, inPit:false, tyre:'H', hasFL:false},
+  {code:'HUL', name:'HULKENBERG', team:'Haas', color:'#B6BABD', position:19, grid:19, gap:36.789, interval:2.222, inPit:false, tyre:'M', hasFL:false},
+  {code:'RIC', name:'RICCIARDO', team:'RB', color:'#6692FF', position:20, grid:22, gap:39.012, interval:2.223, inPit:false, tyre:'S', hasFL:false},
+  {code:'COL', name:'COLAPINTO', team:'Williams', color:'#64C4FF', position:21, grid:21, gap:41.234, interval:2.222, inPit:false, tyre:'M', hasFL:false},
+  {code:'BEAR', name:'BEARMAN', team:'Haas', color:'#B6BABD', position:22, grid:22, gap:43.456, interval:2.222, inPit:false, tyre:'H', hasFL:false},
+];
+
+const raceEvents = [
+  {time: 120, type:'yellow', msg:'SARI BAYRAK - 4. virajda çöp'},
+  {time: 300, type:'sc', msg:'SAFETY CAR - STR aracı pistte'},
+  {time: 450, type:'sc-end', msg:'SAFETY CAR BİTİŞ'},
+  {time: 780, type:'yellow', msg:'SARI BAYRAK - 12. virajda parçalar'},
+  {time: 1200, type:'penalty', msg:'5s CEZA - VER (pitt limti aşımı)'},
+  {time: 1800, type:'investigation', msg:'SORUŞTIRMA - NOR/LEC (çarpışma)'},
+  {time: 2400, type:'red', msg:'KIRMIZI BAYRAK - HUL devrilme'},
+  {time: 2700, type:'sc', msg:'SAFETY CAR - Pisti temizleme'},
+  {time: 3000, type:'sc-end', msg:'SAFETY CAR BİTİŞ'},
+  {time: 3600, type:'yellow', msg:'SARI BAYRAK - Sargeant durağan'},
+];
+
+const pits = [
+  {driver:'VER', lap:18, in:345.2, out:368.5, lane:23.3},
+  {driver:'NOR', lap:22, in:412.8, out:435.1, lane:22.3},
+  {driver:'PIA', lap:20, in:389.1, out:411.4, lane:22.3},
+  {driver:'LEC', lap:25, in:478.3, out:501.2, lane:22.9},
+  {driver:'SAI', lap:24, in:456.7, out:479.4, lane:22.7},
+  {driver:'HAM', lap:30, in:567.2, out:590.1, lane:22.9},
+  {driver:'RUS', lap:28, in:534.5, out:557.3, lane:22.8},
+  {driver:'ALO', lap:35, in:667.8, out:690.4, lane:22.6},
+];
+
+const duration = 5068.3;
+let selectedDriver = null;
+let playing = false;
+let currentTime = 754;
+let speed = 10;
+
+// ============ RENDER FUNCTIONS ============
+
+function renderPositionList() {
+  const container = document.getElementById('positionList');
+  container.innerHTML = drivers.map((d, i) => {
+    const gap = d.gap;
+    const interval = d.interval;
+    const isBattle = interval > 0 && interval < 1.0;  // Battle = interval to car ahead < 1s
+    const gridDiff = d.grid - d.position;
+    const gridArrow = gridDiff > 0 ? '<span class="pos-grid-arrow up">▲' + gridDiff + '</span>' : 
+                      gridDiff < 0 ? '<span class="pos-grid-arrow down">▼' + Math.abs(gridDiff) + '</span>' : '';
+    
+    const intervalStr = d.position === 1 ? '—' : '+'+interval.toFixed(3);
+    const gapToLeader = d.position === 1 ? '—' : '+'+gap.toFixed(3);
+    const battleClass = isBattle ? 'battle' : '';
+    
+    return '<div class="pos-row '+(d.code === selectedDriver ? 'selected' : '')+'" data-driver="'+d.code+'">'+
+      '<span class="pos-rank">'+d.position+'</span>'+
+      '<span class="pos-color" style="background:'+d.color+'"></span>'+
+      '<span class="pos-code '+(d.inPit ? 'pit' : '')+'">'+d.code+'</span>'+
+      (d.hasFL ? '<span class="pos-fl-icon">🏁</span>' : '')+
+      '<span class="pos-tyre" style="border-color:'+tyreColor(d.tyre)+'">'+d.tyre+'</span>'+
+      gridArrow+
+      '<div class="pos-gaps">'+
+        '<div class="pos-gap-row '+battleClass+'">'+
+          '<span class="pos-gap-interval">'+intervalStr+'</span>'+
+        '</div>'+
+        '<div class="pos-gap-row '+battleClass+'">'+
+          '<span class="pos-gap-leader">'+gapToLeader+'</span>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+  
+  // Click handlers
+  container.querySelectorAll('.pos-row').forEach(row => {
+    row.addEventListener('click', () => selectDriver(row.dataset.driver));
+  });
+}
+
+function tyreColor(letter) {
+  const colors = {'S':'#EF4444','M':'#FACC15','H':'#E5E7EB','I':'#22C55E','W':'#3B82F6'};
+  return colors[letter] || '#888';
+}
+
+function selectDriver(code) {
+  selectedDriver = code;
+  renderPositionList();
+  renderDriverCard();
+  renderSpeedGraph();
+}
+
+function renderDriverCard() {
+  const container = document.getElementById('driverCard');
+  if (!selectedDriver) {
+    container.innerHTML = '<div class="empty-state">Soldan bir pilot seç ya da pistteki araca dokun.</div>';
+    return;
+  }
+  const d = drivers.find(x => x.code === selectedDriver);
+  if (!d) return;
+  
+  container.innerHTML = ''+
+    '<div class="driver-header">'+
+      '<div class="driver-color-bar" style="background:'+d.color+'"></div>'+
+      '<div class="driver-info">'+
+        '<div class="driver-name">'+d.name+'</div>'+
+        '<div class="driver-team">'+d.team+'</div>'+
+      '</div>'+
+      '<button class="driver-close" onclick="selectDriver(null)">✕</button>'+
+    '</div>'+
+    '<div class="lap-tyre-row">'+
+      '<span class="lap-label">SON TUR</span>'+
+      '<span class="lap-time '+(d.position <= 3 ? 'purple' : 'green')+'">1:23.'+Math.floor(Math.random()*900).toString().padStart(3,'0')+'</span>'+
+      '<span class="lap-time yellow" style="margin-left:auto">'+d.tyre+' '+(12+Math.floor(Math.random()*8))+' tur</span>'+
+    '</div>'+
+    '<div class="gauge-container" style="flex:1">'+
+      '<canvas class="gauge-canvas" id="gaugeCanvas" width="200" height="200"></canvas>'+
+      '<div class="gauge-center">'+
+        '<div class="gauge-speed">287</div>'+
+        '<div class="gauge-speed-unit">KM/SA</div>'+
+        '<div class="gauge-rpm">11,200</div>'+
+        '<div class="gauge-rpm-unit">RPM</div>'+
+      '</div>'+
+      '<div class="gauge-gear-drs">V7 <span class="gauge-drs">DRS</span></div>'+
+      '<div class="gauge-labels">'+
+        '<span class="gauge-label throttle">GAZ</span>'+
+        '<span class="gauge-label brake">FREN</span>'+
+      '</div>'+
+    '</div>'+
+    '<div class="sector-bars">'+
+      '<div class="sector-bar"><div class="sector-bar-fill" style="background:#B138DD"></div><span class="sector-bar-label">S1</span></div>'+
+      '<div class="sector-bar"><div class="sector-bar-fill" style="background:#22C55E"></div><span class="sector-bar-label">S2</span></div>'+
+      '<div class="sector-bar"><div class="sector-bar-fill" style="background:#FACC15"></div><span class="sector-bar-label">S3</span></div>'+
+    '</div>';
+  drawGauge();
+}
+
+function drawGauge() {
+  const canvas = document.getElementById('gaugeCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const size = 200;
+  canvas.width = size * 2;
+  canvas.height = size * 2;
+  canvas.style.width = size + 'px';
+  canvas.style.height = size + 'px';
+  ctx.scale(2, 2);
+  
+  const center = size/2;
+  const outerR = size/2 - 12;
+  const innerR = outerR - 18;
+  
+  // Outer track (speed)
+  ctx.beginPath();
+  ctx.arc(center, center, outerR, 3*Math.PI/4, 3*Math.PI/4 + 3*Math.PI/2);
+  ctx.strokeStyle = '#2a2a2a';
+  ctx.lineWidth = 12;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  
+  // Speed fill (0-360 km/h)
+  const speedPct = 0.8;
+  ctx.beginPath();
+  ctx.arc(center, center, outerR, 3*Math.PI/4, 3*Math.PI/4 + 3*Math.PI/2 * speedPct);
+  ctx.strokeStyle = '#2F6BFF';
+  ctx.lineWidth = 12;
+  ctx.stroke();
+  
+  // Inner throttle arc
+  ctx.beginPath();
+  ctx.arc(center, center, innerR, 3*Math.PI/4, 3*Math.PI/4 + Math.PI);
+  ctx.strokeStyle = '#2a2a2a';
+  ctx.lineWidth = 8;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(center, center, innerR, 3*Math.PI/4, 3*Math.PI/4 + Math.PI * 0.9);
+  ctx.strokeStyle = '#22C55E';
+  ctx.lineWidth = 8;
+  ctx.stroke();
+  
+  // Inner brake arc
+  ctx.beginPath();
+  ctx.arc(center, center, innerR, 3*Math.PI/4 + Math.PI, 3*Math.PI/4 + 1.5*Math.PI);
+  ctx.strokeStyle = '#2a2a2a';
+  ctx.lineWidth = 8;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(center, center, innerR, 3*Math.PI/4 + 1.5*Math.PI - 0.5*Math.PI, 3*Math.PI/4 + 1.5*Math.PI);
+  ctx.strokeStyle = '#EF4444';
+  ctx.lineWidth = 8;
+  ctx.stroke();
+}
+
+function renderSpeedGraph() {
+  const canvas = document.getElementById('speedCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.parentElement.clientWidth;
+  const h = canvas.parentElement.clientHeight - 24;
+  canvas.width = w * 2;
+  canvas.height = h * 2;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  ctx.scale(2, 2);
+  
+  // Grid
+  ctx.strokeStyle = '#2a2a2a';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  ctx.lineTo(w, h);
+  ctx.moveTo(0, 0);
+  ctx.lineTo(w, 0);
+  ctx.stroke();
+  
+  // Sample data
+  const pts = 60;
+  const driver = drivers.find(d => d.code === selectedDriver) || drivers[0];
+  const color = driver.color;
+  
+  ctx.beginPath();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  
+  for (let i = 0; i < pts; i++) {
+    const x = (w * i) / (pts - 1);
+    const baseSpeed = 200 + Math.sin(i * 0.3) * 80 + Math.random() * 40;
+    const y = h * (1 - baseSpeed / 360);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+}
+
+function renderPitList() {
+  const container = document.getElementById('pitList');
+  container.innerHTML = pits.map(p => {
+    const d = drivers.find(x => x.code === p.driver);
+    const active = Math.abs(p.in - currentTime) < 10;
+    return '<div class="pit-item '+(active ? 'active' : '')+'" data-driver="'+p.driver+'">'+
+      '<div class="pit-avatar" style="background:'+(d?.color || '#888')+'"></div>'+
+      '<div class="pit-info">'+
+        '<div class="pit-driver-lap '+(active ? 'active' : '')+'">'+p.driver+' · Tur '+p.lap+'</div>'+
+        '<div class="pit-time">Giriş '+formatTime(p.in)+'</div>'+
+      '</div>'+
+      '<div class="pit-lane">Pit şeridi '+p.lane.toFixed(1).replace('.', ',')+' sn</div>'+
+    '</div>';
+  }).join('');
+}
+
+function renderTimelineMarkers() {
+  const container = document.getElementById('timelineMarkers');
+  const width = document.getElementById('timelineSlider').clientWidth;
+  container.innerHTML = raceEvents.map(e => {
+    const left = (e.time / duration) * width;
+    const typeClass = e.type === 'yellow' ? 'yellow' : 
+                      e.type === 'sc' || e.type === 'sc-end' ? 'sc' :
+                      e.type === 'red' ? 'red' :
+                      e.type === 'penalty' ? 'penalty' : 'investigation';
+    return '<div class="timeline-marker '+typeClass+'" style="left:'+left+'px" data-tooltip="'+e.msg+'"></div>';
+  }).join('');
+}
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60).toString().padStart(2, '0');
+  return m+':'+s;
+}
+
+// String.prototype.padStart polyfill
+if (!String.prototype.padStart) {
+  String.prototype.padStart = function(len, char) {
+    return (new Array(len - this.length + 1)).join(char || ' ') + this;
+  };
+}
+
+// ============ INTERACTIONS ============
+document.getElementById('playBtn').addEventListener('click', () => {
+  playing = !playing;
+  document.getElementById('playBtn').textContent = playing ? '⏸️ Duraklat' : '⏯️ Oynat';
+});
+
+document.getElementById('timelineSlider').addEventListener('input', (e) => {
+  currentTime = parseFloat(e.target.value);
+  document.querySelector('.clock').textContent = 'Tur '+ (Math.floor(currentTime/85)+1) +'/58 · '+formatTime(currentTime)+' / '+formatTime(duration);
+});
+
+document.querySelectorAll('.tab-dot').forEach(dot => {
+  dot.addEventListener('click', () => {
+    document.querySelectorAll('.tab-dot').forEach(d => d.classList.remove('active'));
+    document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+    dot.classList.add('active');
+    const tabId = 'tab' + dot.dataset.tab.charAt(0).toUpperCase() + dot.dataset.tab.slice(1);
+    document.getElementById(tabId).classList.add('active');
+    document.getElementById('tabLabel').textContent = dot.dataset.tab.toUpperCase();
+    if (dot.dataset.tab === 'speed') renderSpeedGraph();
+    if (dot.dataset.tab === 'pits') renderPitList();
+  });
+});
+
+// Canvas click for track (simplified)
+document.getElementById('trackCanvas').addEventListener('click', (e) => {
+  const rect = e.target.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const idx = Math.floor((x / rect.width) * drivers.length);
+  if (idx < drivers.length) selectDriver(drivers[idx].code);
+});
+
+// ============ INIT ============
+function init() {
+  // Setup track canvas
+  const trackCanvas = document.getElementById('trackCanvas');
+  const tc = trackCanvas.parentElement;
+  trackCanvas.width = tc.clientWidth * 2;
+  trackCanvas.height = tc.clientHeight * 2;
+  trackCanvas.style.width = tc.clientWidth + 'px';
+  trackCanvas.style.height = tc.clientHeight + 'px';
+  const tctx = trackCanvas.getContext('2d');
+  tctx.scale(2, 2);
+  
+  // Draw oval track
+  const w = tc.clientWidth, h = tc.clientHeight;
+  const cx = w/2, cy = h/2;
+  const rx = w/2 - 30, ry = h/2 - 30;
+  tctx.strokeStyle = '#2a2a2a';
+  tctx.lineWidth = 20;
+  tctx.lineCap = 'round';
+  tctx.beginPath();
+  tctx.ellipse(cx, cy, rx, ry, 0, 0, 2*Math.PI);
+  tctx.stroke();
+  tctx.strokeStyle = '#1a1a1a';
+  tctx.lineWidth = 14;
+  tctx.beginPath();
+  tctx.ellipse(cx, cy, rx, ry, 0, 0, 2*Math.PI);
+  tctx.stroke();
+  
+  // Draw cars
+  drivers.forEach((d, i) => {
+    const angle = (i / drivers.length) * 2 * Math.PI - Math.PI/2;
+    const x = cx + Math.cos(angle) * rx;
+    const y = cy + Math.sin(angle) * ry;
+    tctx.beginPath();
+    tctx.arc(x, y, d.code === selectedDriver ? 8.5 : 6, 0, 2*Math.PI);
+    tctx.fillStyle = d.color;
+    tctx.fill();
+    tctx.strokeStyle = d.inPit ? '#FACC15' : '#fff';
+    tctx.lineWidth = d.inPit ? 3 : 1.5;
+    tctx.stroke();
+    tctx.fillStyle = '#888';
+    tctx.font = '10px sans-serif';
+    tctx.textAlign = 'center';
+    tctx.fillText(d.code, x, y - 10);
+  });
+  
+  renderPositionList();
+  renderTimelineMarkers();
+  renderPitList();
+  
+  // Resize handler
+  window.addEventListener('resize', () => {
+    trackCanvas.width = tc.clientWidth * 2;
+    trackCanvas.height = tc.clientHeight * 2;
+    init();
+  });
+}
+
+init();
+</script>
+</body>
+</html>

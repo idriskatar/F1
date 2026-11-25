@@ -163,6 +163,61 @@ class NewFieldsTest(unittest.TestCase):
         raw.weather = None
         self.assertEqual(br.weather_rows(raw, 100.0), [])
 
+    def test_race_control_events(self):
+        self.assertEqual(self.payload["events"], [
+            [12.0, "PENALTY", 1, "5 SECOND TIME PENALTY FOR CAR 3 (CCC) - TRACK LIMITS", None],
+            [35.0, "SC", 2, "SAFETY CAR DEPLOYED", 45.0],     # "IN THIS LAP" sonrası ilk yeşil bayrakta biter
+            [50.0, "VSC", 3, "VIRTUAL SAFETY CAR DEPLOYED", 55.0],
+        ])
+
+    def _events(self, rows, duration=60.0):
+        raw = sample_data.synthetic_session()
+        raw.race_control = rows
+        return br.race_control_events(raw, 100.0, duration)
+
+    def test_events_without_data_are_omitted(self):
+        raw = sample_data.synthetic_session()
+        raw.race_control = None
+        self.assertNotIn("events", br.build_payload(raw, hz=2))
+        raw.race_control = []
+        self.assertNotIn("events", br.build_payload(raw, hz=2))
+
+    def test_unclosed_periods_end_with_the_race_or_the_announcement(self):
+        sc = {"category": "SafetyCar", "message": "SAFETY CAR DEPLOYED"}
+        # kapanış hiç gelmedi -> yarış sonu
+        self.assertEqual(self._events([{"ts": 130.0, **sc}]), [[30.0, "SC", None, "SAFETY CAR DEPLOYED", 60.0]])
+        # "IN THIS LAP" geldi ama yeşil bayrak gelmedi -> duyuru anı
+        rows = [{"ts": 110.0, **sc}, {"ts": 120.0, "category": "SafetyCar", "message": "SAFETY CAR IN THIS LAP"}]
+        self.assertEqual(self._events(rows), [[10.0, "SC", None, "SAFETY CAR DEPLOYED", 20.0]])
+
+    def test_red_flag_ends_at_track_green_and_replaces_safety_car(self):
+        rows = [
+            {"ts": 110.0, "category": "SafetyCar", "message": "SAFETY CAR DEPLOYED"},
+            {"ts": 120.0, "category": "Flag", "flag": "RED", "scope": "Track", "message": "RED FLAG"},
+            {"ts": 135.0, "category": "Flag", "flag": "GREEN", "scope": "Sector", "message": "GREEN IN SECTOR 3"},
+            {"ts": 140.0, "category": "Flag", "flag": "GREEN", "scope": "Track", "message": "TRACK CLEAR"},
+        ]
+        self.assertEqual(self._events(rows), [
+            [10.0, "SC", None, "SAFETY CAR DEPLOYED", 20.0],     # kırmızı bayrak safety car'ı kapatır
+            [20.0, "RED", None, "RED FLAG", 40.0],               # sektör yeşili kırmızıyı bitirmez
+        ])
+
+    def test_event_rows_are_robust_to_garbage(self):
+        rows = [
+            {"ts": 105.0},                                                      # boş satır
+            {"ts": 106.0, "category": float("nan"), "message": None, "lap": float("nan")},
+            {"ts": 107.0, "category": "SafetyCar", "message": "SAFETY CAR DEPLOYED"},
+            {"ts": 108.0, "category": "SafetyCar", "message": "SAFETY CAR DEPLOYED"},   # tekrar
+            {"ts": 400.0, "category": "Other", "message": "10 SECOND STOP/GO PENALTY"},   # yarıştan sonra
+            {"ts": None, "category": "Other", "message": "PENALTY"},
+        ]
+        events = self._events(rows)
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0][:2], [7.0, "SC"])
+        long_text = "5 SECOND TIME PENALTY " + "X" * 400
+        penalty = self._events([{"ts": 110.0, "category": "Other", "message": long_text}])[0]
+        self.assertEqual(len(penalty[3]), br.EVENT_TEXT_MAX)
+
     def test_old_style_input_has_no_new_keys(self):
         raw = sample_data.synthetic_session()
         raw.position_log = None
@@ -171,7 +226,9 @@ class NewFieldsTest(unittest.TestCase):
         raw.car = {k: v.drop(columns=["RPM"]) for k, v in raw.car.items()}
         d = br.build_payload(raw, hz=2)["drivers"][0]
         raw.weather = None
+        raw.race_control = None
         self.assertNotIn("weather", br.build_payload(raw, hz=2))
+        self.assertNotIn("events", br.build_payload(raw, hz=2))
         for key in ("positionLog", "stints", "rpm"):
             self.assertNotIn(key, d)
         self.assertEqual(d["laps"][1][3:], [None, None, None])       # sektör bilgisi yok -> null

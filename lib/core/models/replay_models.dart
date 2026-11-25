@@ -409,6 +409,45 @@ class ReplayDriver {
   }
 }
 
+enum ReplayEventKind { safetyCar, virtualSafetyCar, redFlag, penalty }
+
+/// Yarış yönetimi olayı. Safety car, VSC ve kırmızı bayrak [end] ile biten bir dönemdir;
+/// ceza tek bir andır ([end] null).
+class ReplayEvent {
+  const ReplayEvent({required this.time, required this.kind, this.lap, this.message = '', this.end});
+
+  final double time;
+  final ReplayEventKind kind;
+  final int? lap;
+
+  /// Yarış yönetiminin özgün (İngilizce) mesajı.
+  final String message;
+  final double? end;
+
+  /// Zaman çubuğunda bant olarak çizilen, süresi olan olay.
+  bool get isPeriod => end != null && kind != ReplayEventKind.penalty;
+
+  bool containsTime(double t) {
+    final finish = end;
+    return isPeriod && finish != null && t >= time && t < finish;
+  }
+
+  String get label => switch (kind) {
+        ReplayEventKind.safetyCar => 'Safety Car',
+        ReplayEventKind.virtualSafetyCar => 'Sanal Safety Car',
+        ReplayEventKind.redFlag => 'Kırmızı bayrak',
+        ReplayEventKind.penalty => 'Ceza',
+      };
+
+  /// Yarış başlığındaki rozet için kısa ad.
+  String get badge => switch (kind) {
+        ReplayEventKind.safetyCar => 'SC',
+        ReplayEventKind.virtualSafetyCar => 'VSC',
+        ReplayEventKind.redFlag => 'KIRMIZI BAYRAK',
+        ReplayEventKind.penalty => 'CEZA',
+      };
+}
+
 class ReplayData {
   ReplayData({
     required this.event,
@@ -421,7 +460,12 @@ class ReplayData {
     required this.drivers,
     required this.pits,
     this.weather = const [],
+    this.events = const [],
   })  : pitsByDriver = _groupPits(pits),
+        periods = [
+          for (final event in events)
+            if (event.isPeriod) event,
+        ],
         hasLivePositions = drivers.any((d) => d.positionLog.isNotEmpty),
         minX = _extent(trackX, true),
         maxX = _extent(trackX, false),
@@ -446,6 +490,12 @@ class ReplayData {
 
   /// Pist hava ölçümleri (zamana göre artan). Eski dosyalarda boş.
   final List<ReplayWeather> weather;
+
+  /// Yarış yönetimi olayları (zamana göre artan). Eski dosyalarda boş.
+  final List<ReplayEvent> events;
+
+  /// [events] içinden süresi olanlar (safety car, VSC, kırmızı bayrak).
+  final List<ReplayEvent> periods;
   final Map<String, List<ReplayPit>> pitsByDriver;
 
   /// Dosyada sıra geçmişi varsa true; yoksa sıralama listesi bitiş sırasını gösterir.
@@ -474,6 +524,30 @@ class ReplayData {
       }
     }
     return math.min(lap, totalLaps);
+  }
+
+  /// [lap] turunun başladığı an (sn); tur bilinmiyorsa null.
+  double? lapStartTime(int lap) => lap >= 1 && lap <= lapStarts.length ? lapStarts[lap - 1] : null;
+
+  /// Geri/ileri tur atlama hedefi. Geri giderken tur başından 3 sn'den fazla geçtiyse
+  /// önce o turun başına döner; ileri giderken son turdan sonra yarış sonuna gider.
+  double lapJumpTarget(double t, {required bool forward}) {
+    if (lapStarts.isEmpty) return forward ? duration : 0.0;
+    final current = lapAt(t);
+    if (forward) {
+      return lapStartTime(current + 1) ?? duration;
+    }
+    final begin = lapStartTime(current) ?? 0.0;
+    if (t - begin > 3.0 || current <= 1) return begin;
+    return lapStartTime(current - 1) ?? 0.0;
+  }
+
+  /// [t] anında süren safety car / VSC / kırmızı bayrak dönemi; yoksa null.
+  ReplayEvent? periodAt(double t) {
+    for (final period in periods) {
+      if (period.containsTime(t)) return period;
+    }
+    return null;
   }
 
   bool inPit(String code, double t) {
@@ -660,6 +734,7 @@ class ReplayData {
       drivers: drivers,
       pits: pits,
       weather: _parseRows(json['weather'], _weatherFromJson)..sort((a, b) => a.time.compareTo(b.time)),
+      events: _parseRows(json['events'], _replayEventFromJson)..sort((a, b) => a.time.compareTo(b.time)),
     );
   }
 }
@@ -704,6 +779,29 @@ ReplayWeather? _weatherFromJson(Object? row) {
     wind: at(4),
     windDirection: at(5)?.round(),
     raining: rain == null ? null : rain > 0,
+  );
+}
+
+ReplayEvent? _replayEventFromJson(Object? row) {
+  if (row is! List || row.length < 2) return null;
+  final time = row[0];
+  final kind = switch (row[1]) {
+    'SC' => ReplayEventKind.safetyCar,
+    'VSC' => ReplayEventKind.virtualSafetyCar,
+    'RED' => ReplayEventKind.redFlag,
+    'PENALTY' => ReplayEventKind.penalty,
+    _ => null,
+  };
+  if (time is! num || kind == null) return null;
+  final lap = row.length > 2 ? row[2] : null;
+  final message = row.length > 3 ? row[3] : null;
+  final end = row.length > 4 ? row[4] : null;
+  return ReplayEvent(
+    time: time.toDouble(),
+    kind: kind,
+    lap: lap is num ? lap.round() : null,
+    message: message is String ? message : '',
+    end: end is num ? end.toDouble() : null,
   );
 }
 
