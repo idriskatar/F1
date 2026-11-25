@@ -705,7 +705,7 @@ class _TimelinePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     const inset = _ReplayTimeline._inset;
-    final left = inset;
+    const left = inset;
     final span = math.max(size.width - inset * 2, 1.0);
     double xOf(double seconds) => left + (duration <= 0 ? 0.0 : (seconds / duration).clamp(0.0, 1.0)) * span;
     final midY = size.height / 2;
