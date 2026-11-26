@@ -276,8 +276,9 @@ void main() {
     await tester.tap(find.text('Test Grand Prix'));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('replay-dot-2')), findsOneWidget);
-    expect(find.byKey(const Key('replay-dot-3')), findsNothing);
+    // Telemetri · Hız · Pit · Karşılaştır: tur süreleri ve olaylar sayfaları yok.
+    expect(find.byKey(const Key('replay-dot-3')), findsOneWidget);
+    expect(find.byKey(const Key('replay-dot-4')), findsNothing);
   });
 
   testWidgets('AppBar\'daki düğme lastik stratejisi ekranını açar', (tester) async {
@@ -322,5 +323,63 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Test Grand Prix'), findsOneWidget);
     expect(find.text('Sprint Grand Prix'), findsNothing);
+  });
+
+  testWidgets('sıralamada lider ve farklar görünür; mod düğmesi öndekine fark gösterir', (tester) async {
+    await openPlayer(tester);
+
+    expect(find.text('Lider'), findsOneWidget);
+    expect(find.text('LİDERE'), findsOneWidget);
+    expect(find.text('+2.0'), findsOneWidget); // BBB
+    expect(find.text('+5.0'), findsOneWidget); // CCC
+    expect(find.text('+7.0'), findsOneWidget); // DDD
+
+    await tester.tap(find.byKey(const Key('replay-gap-mode')));
+    await tester.pumpAndSettle();
+    expect(find.text('ÖNDEKİNE'), findsOneWidget);
+    expect(find.text('+2.0'), findsNWidgets(3)); // üç pilotun da öndekine farkı 2.0
+    expect(find.text('+5.0'), findsNothing);
+  });
+
+  testWidgets('karşılaştır sayfası: varsayılan rakip öndeki pilot; rakip seçilebilir; aradaki fark görünür', (tester) async {
+    await openPlayer(tester); // seçili pilot: lider AAA, rakip: ikinci sıradaki BBB
+
+    await tester.tap(find.byKey(const Key('replay-dot-5')));
+    await tester.pumpAndSettle();
+    expect(find.text('Hız (km/sa) · son 60 sn'), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('replay-compare-pick')), matching: find.text('BBB')), findsOneWidget);
+    expect(find.text('Δ 2.0 sn'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('replay-compare-pick')));
+    await tester.pumpAndSettle();
+    expect(find.text('Rakip seç'), findsOneWidget);
+    expect(find.byKey(const Key('replay-rival-AAA')), findsNothing); // seçili pilot listede yok
+    await tester.tap(find.byKey(const Key('replay-rival-CCC')));
+    await tester.pumpAndSettle();
+
+    expect(find.descendant(of: find.byKey(const Key('replay-compare-pick')), matching: find.text('CCC')), findsOneWidget);
+    expect(find.text('Δ 5.0 sn'), findsOneWidget);
+  });
+
+  testWidgets('geniş ve alçak ekranda yatay düzen kullanılır', (tester) async {
+    tester.view.physicalSize = const Size(1200, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(host(FakeReplayRepository(index: const ReplayIndex([entry]), data: loadData())));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Test Grand Prix'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('replay-landscape')), findsOneWidget);
+    expect(find.text('Tur 1/3'), findsOneWidget);
+    expect(find.byKey(const Key('replay-timeline')), findsOneWidget);
+    expect(find.text('SIRALAMA'), findsOneWidget);
+    expect(find.byIcon(Icons.skip_next_rounded), findsOneWidget);
+  });
+
+  testWidgets('dikey ekranda yatay düzen kullanılmaz', (tester) async {
+    await openPlayer(tester);
+
+    expect(find.byKey(const Key('replay-landscape')), findsNothing);
   });
 }

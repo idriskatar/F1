@@ -253,6 +253,29 @@ String formatLapTime(double seconds) {
   return '$minutes:${rest.toStringAsFixed(3).padLeft(6, '0')}';
 }
 
+/// Bir pilotun bir andaki farkı (OpenF1 `intervals`). Örnekler yaklaşık 5 sn aralıklıdır.
+class ReplayGap {
+  const ReplayGap({required this.time, this.toLeader, this.toAhead, this.lapped});
+
+  final double time;
+
+  /// Lidere fark (sn); tur kaybettiyse veya bilinmiyorsa null.
+  final double? toLeader;
+
+  /// Hemen öndeki pilota fark (sn); bilinmiyorsa null.
+  final double? toAhead;
+
+  /// Fark saniye olarak ifade edilemiyorsa tur farkı metni ("+1 LAP").
+  final String? lapped;
+
+  /// Listede gösterilen metin: "+12.3" ya da "+1 LAP"; veri yoksa null.
+  String? text({required bool toLeader}) {
+    final seconds = toLeader ? this.toLeader : toAhead;
+    if (seconds != null) return '+${seconds.toStringAsFixed(1)}';
+    return lapped;
+  }
+}
+
 class ReplayDriver {
   const ReplayDriver({
     required this.number,
@@ -273,6 +296,7 @@ class ReplayDriver {
     this.positionLog = const [],
     this.laps = const [],
     this.stints = const [],
+    this.gaps = const [],
   });
 
   final String number;
@@ -301,6 +325,29 @@ class ReplayDriver {
   final List<ReplayPositionEvent> positionLog;
   final List<ReplayLap> laps;
   final List<ReplayStint> stints;
+
+  /// Lidere/öndekine fark örnekleri (zamana göre artan). Eski dosyalarda ve lider için boş.
+  final List<ReplayGap> gaps;
+
+  /// [t] anındaki son fark örneği. Örnek [maxAge] saniyeden eskiyse (pilot yarıştan çekilmiş
+  /// olabilir) ya da henüz örnek yoksa null.
+  ReplayGap? gapAt(double t, {double maxAge = 120}) {
+    var low = 0;
+    var high = gaps.length - 1;
+    var found = -1;
+    while (low <= high) {
+      final mid = (low + high) >> 1;
+      if (gaps[mid].time <= t) {
+        found = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+    if (found < 0) return null;
+    final sample = gaps[found];
+    return t - sample.time <= maxAge ? sample : null;
+  }
 
   /// Kartta büyük yazılacak ad: soyad, yoksa tam adın son sözcüğü, o da yoksa kod.
   String get surname {
@@ -407,6 +454,15 @@ class ReplayDriver {
     final end = math.min(data.length - 1, (toT * hz).floor());
     return [for (var i = start; i <= end; i++) data[i]?.toDouble()];
   }
+
+  /// [speedSeries] gibi, gaz pedalı (0-100) için.
+  List<double?> throttleSeries(double fromT, double toT, double hz) {
+    final data = throttle;
+    if (data == null || data.isEmpty) return const [];
+    final start = math.max(0, (fromT * hz).ceil());
+    final end = math.min(data.length - 1, (toT * hz).floor());
+    return [for (var i = start; i <= end; i++) data[i]?.toDouble()];
+  }
 }
 
 enum ReplayEventKind { safetyCar, virtualSafetyCar, redFlag, penalty }
@@ -467,6 +523,7 @@ class ReplayData {
             if (event.isPeriod) event,
         ],
         hasLivePositions = drivers.any((d) => d.positionLog.isNotEmpty),
+        hasGaps = drivers.any((d) => d.gaps.isNotEmpty),
         minX = _extent(trackX, true),
         maxX = _extent(trackX, false),
         minY = _extent(trackY, true),
@@ -500,6 +557,9 @@ class ReplayData {
 
   /// Dosyada sıra geçmişi varsa true; yoksa sıralama listesi bitiş sırasını gösterir.
   final bool hasLivePositions;
+
+  /// En az bir pilot için fark verisi var mı?
+  final bool hasGaps;
   final double minX;
   final double maxX;
   final double minY;
@@ -599,6 +659,17 @@ class ReplayData {
   }
 
   /// [t] anındaki sıralama. Sıra geçmişi yoksa bitiş sırası (dosyadaki pilot sırası) döner.
+  /// [t] anında iki pilot arasındaki zaman farkı (sn): lidere farklarının mutlak farkı.
+  /// Lider 0 sayılır. Birinin farkı saniye olarak bilinmiyorsa (tur kaybı, bayat örnek) null.
+  double? gapBetween(ReplayDriver a, ReplayDriver b, double t) {
+    if (!hasGaps || drivers.isEmpty) return null;
+    final leader = orderAt(t).first;
+    double? toLeader(ReplayDriver d) => d.code == leader.code ? 0.0 : d.gapAt(t)?.toLeader;
+    final fromA = toLeader(a);
+    final fromB = toLeader(b);
+    return fromA == null || fromB == null ? null : (fromA - fromB).abs();
+  }
+
   List<ReplayDriver> orderAt(double t) {
     final list = List<ReplayDriver>.of(drivers);
     if (!hasLivePositions) return list;
@@ -758,6 +829,7 @@ ReplayDriver _driverFromJson(Map<String, dynamic> json) => ReplayDriver(
       positionLog: _parseRows(json['positionLog'], _eventFromJson),
       laps: _parseRows(json['laps'], _lapFromJson),
       stints: _parseRows(json['stints'], _stintFromJson),
+      gaps: _parseRows(json['gaps'], _gapFromJson)..sort((a, b) => a.time.compareTo(b.time)),
     );
 
 ReplayWeather? _weatherFromJson(Object? row) {
@@ -779,6 +851,24 @@ ReplayWeather? _weatherFromJson(Object? row) {
     wind: at(4),
     windDirection: at(5)?.round(),
     raining: rain == null ? null : rain > 0,
+  );
+}
+
+ReplayGap? _gapFromJson(Object? row) {
+  if (row is! List || row.length < 3) return null;
+  final time = row[0];
+  if (time is! num) return null;
+  final leader = row[1];
+  final ahead = row[2];
+  return ReplayGap(
+    time: time.toDouble(),
+    toLeader: leader is num ? leader.toDouble() : null,
+    toAhead: ahead is num ? ahead.toDouble() : null,
+    lapped: leader is String
+        ? leader
+        : ahead is String
+            ? ahead
+            : null,
   );
 }
 

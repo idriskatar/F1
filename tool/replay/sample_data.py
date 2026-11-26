@@ -106,6 +106,14 @@ def synthetic_session(hz_source: float = 4.0) -> br.RawSession:
         "3": [(before, 3), (RACE_START + 30.0, 2)],     # CCC 2. sıraya çıkar
         "4": [(before, 4)],
     }
+    # Farklar 2 sn'de bir gelir (build 5 sn'lik adıma indirir): lider boş, CCC sabit, DDD tur kaybeder.
+    intervals = {
+        "1": [(RACE_START + 2.0 * k, None, None) for k in range(15)],
+        "2": [(RACE_START - 5.0, 9.9, 9.9)]                            # yarıştan önce: atılır
+        + [(RACE_START + 2.0 * k, round(2.0 + 0.1 * k, 1), round(2.0 + 0.1 * k, 1)) for k in range(15)],
+        "3": [(RACE_START + 2.0 * k, 5.0, 2.0) for k in range(15)],
+        "4": [(RACE_START + 2.0 * k, 7.0, 2.0) for k in range(5)] + [(RACE_START + 16.0, "+1 LAP", "+1 LAP")],
+    }
     stints = {
         "1": [{"compound": "SOFT", "lap_start": 1, "lap_end": 3, "age": 0}],
         "2": [{"compound": "MEDIUM", "lap_start": 1, "lap_end": 2, "age": 0},
@@ -140,6 +148,7 @@ def synthetic_session(hz_source: float = 4.0) -> br.RawSession:
         event_name="Test Grand Prix", country="Testland", circuit="Ovalville",
         results=results, laps=laps, car=car, pos=pos,
         position_log=position_log, stints=stints, weather=weather, race_control=race_control,
+        intervals=intervals,
     )
 
 

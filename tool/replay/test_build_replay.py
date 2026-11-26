@@ -163,6 +163,27 @@ class NewFieldsTest(unittest.TestCase):
         raw.weather = None
         self.assertEqual(br.weather_rows(raw, 100.0), [])
 
+    def test_gaps_are_downsampled_and_dropped_for_the_leader(self):
+        by_code = {d["code"]: d for d in self.payload["drivers"]}
+        self.assertNotIn("gaps", by_code["AAA"])                 # lider: yalnız boş değerler
+        self.assertEqual(by_code["BBB"]["gaps"], [               # 2 sn'lik satırlar -> 6 sn'lik adım; grid satırı atıldı
+            [0.0, 2.0, 2.0], [6.0, 2.3, 2.3], [12.0, 2.6, 2.6], [18.0, 2.9, 2.9], [24.0, 3.2, 3.2],
+        ])
+        self.assertEqual(by_code["CCC"]["gaps"], [          # değişmeyen değer de yazılır (bayatlık yaşa bakılarak anlaşılır)
+            [0.0, 5.0, 2.0], [6.0, 5.0, 2.0], [12.0, 5.0, 2.0], [18.0, 5.0, 2.0], [24.0, 5.0, 2.0],
+        ])
+        self.assertEqual(by_code["DDD"]["gaps"], [[0.0, 7.0, 2.0], [6.0, 7.0, 2.0], [16.0, "+1 LAP", "+1 LAP"]])
+
+    def test_gap_values_are_normalised(self):
+        self.assertIsNone(br._gap_value(None))
+        self.assertIsNone(br._gap_value(float("nan")))
+        self.assertIsNone(br._gap_value(""))
+        self.assertIsNone(br._gap_value(True))
+        self.assertEqual(br._gap_value(12.345), 12.3)
+        self.assertEqual(br._gap_value("7.25"), 7.2)               # sayı biçimli metin sayıya çevrilir
+        self.assertEqual(br._gap_value(" +2 laps "), "+2 LAPS")
+        self.assertEqual(len(br._gap_value("+" + "9" * 40 + " LAPS")), 12)
+
     def test_race_control_events(self):
         self.assertEqual(self.payload["events"], [
             [12.0, "PENALTY", 1, "5 SECOND TIME PENALTY FOR CAR 3 (CCC) - TRACK LIMITS", None],
@@ -227,8 +248,10 @@ class NewFieldsTest(unittest.TestCase):
         d = br.build_payload(raw, hz=2)["drivers"][0]
         raw.weather = None
         raw.race_control = None
+        raw.intervals = None
         self.assertNotIn("weather", br.build_payload(raw, hz=2))
         self.assertNotIn("events", br.build_payload(raw, hz=2))
+        self.assertTrue(all("gaps" not in d for d in br.build_payload(raw, hz=2)["drivers"]))
         for key in ("positionLog", "stints", "rpm"):
             self.assertNotIn(key, d)
         self.assertEqual(d["laps"][1][3:], [None, None, None])       # sektör bilgisi yok -> null

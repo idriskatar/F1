@@ -270,4 +270,54 @@ void main() {
     expect(data.lapStartTime(2), 20);
     expect(data.lapStartTime(4), isNull);
   });
+
+  test('fark örnekleri okunur; gapAt son örneği verir, yoksa ya da bayatsa null', () {
+    final bbb = data.driverByCode('BBB')!;
+    expect(bbb.gaps.length, 5);
+    expect(bbb.gapAt(-1), isNull); // henüz örnek yok
+    expect(bbb.gapAt(7)!.toLeader, 2.3); // 6. sn örneği
+    expect(bbb.gapAt(7)!.text(toLeader: true), '+2.3');
+    expect(bbb.gapAt(30)!.text(toLeader: false), '+3.2');
+    expect(bbb.gapAt(24 + 121), isNull); // 120 sn'den eski örnek bayat sayılır
+    expect(bbb.gapAt(24 + 121, maxAge: 200), isNotNull);
+
+    final ddd = data.driverByCode('DDD')!;
+    expect(ddd.gapAt(20)!.lapped, '+1 LAP');
+    expect(ddd.gapAt(20)!.toLeader, isNull);
+    expect(ddd.gapAt(20)!.text(toLeader: true), '+1 LAP');
+
+    expect(data.driverByCode('AAA')!.gaps, isEmpty); // lider
+    expect(data.hasGaps, isTrue);
+  });
+
+  test('gapBetween: lider 0 sayılır; tur kaybı ya da bayat örnek varsa null', () {
+    final a = data.driverByCode('AAA')!;
+    final b = data.driverByCode('BBB')!;
+    final c = data.driverByCode('CCC')!;
+    final d = data.driverByCode('DDD')!;
+    expect(data.gapBetween(a, b, 7), closeTo(2.3, 1e-9));
+    expect(data.gapBetween(b, c, 7), closeTo(2.7, 1e-9)); // 5.0 - 2.3
+    expect(data.gapBetween(c, b, 7), closeTo(2.7, 1e-9)); // sıra önemsiz
+    expect(data.gapBetween(b, d, 20), isNull); // DDD tur kaybetti
+  });
+
+  test('bozuk fark satırları atılır, fark alanı yoksa hasGaps false olur', () {
+    final json = loadFixture();
+    final drivers = json['drivers'] as List;
+    (drivers[1] as Map<String, dynamic>)['gaps'] = [
+      [5, 3.0, 1.0],
+      [1],
+      'x',
+      ['a', 1.0, 1.0],
+    ];
+    final parsed = ReplayData.fromJson(json);
+    expect(parsed.driverByCode('BBB')!.gaps.length, 1);
+
+    for (final driver in drivers) {
+      (driver as Map<String, dynamic>).remove('gaps');
+    }
+    final old = ReplayData.fromJson(json);
+    expect(old.hasGaps, isFalse);
+    expect(old.gapBetween(old.drivers[0], old.drivers[1], 7), isNull);
+  });
 }

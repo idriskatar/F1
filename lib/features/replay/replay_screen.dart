@@ -393,8 +393,43 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
-    return Column(children: [
-      ValueListenableBuilder<double>(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Yatay mod: geniş ve alçak ekranda harita solda, pilot paneli sağda. 760 dp altında sol sütun
+        // kontrol satırını (~330 dp) taşıyamaz; orada dikey düzen kalır.
+        final landscape = constraints.maxWidth >= 760 && constraints.maxWidth > constraints.maxHeight * 1.15;
+        if (!landscape) {
+          return Column(children: [
+            _buildHeader(data, const EdgeInsets.fromLTRB(16, 0, 20, 4)),
+            Expanded(flex: 5, child: _buildMap(data, const EdgeInsets.symmetric(horizontal: 16))),
+            _buildControls(data),
+            _ReplayTimeline(data: data, time: _time, selected: _selected, onSeek: _seek),
+            Expanded(flex: 4, child: _buildPanel(data)),
+          ]);
+        }
+        final sideWidth = (constraints.maxWidth * 0.42).clamp(360.0, 520.0).toDouble();
+        return Row(key: const Key('replay-landscape'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Expanded(
+            child: Column(children: [
+              Expanded(child: _buildMap(data, const EdgeInsets.fromLTRB(16, 4, 8, 0))),
+              _ReplayTimeline(data: data, time: _time, selected: _selected, onSeek: _seek),
+              _buildControls(data),
+            ]),
+          ),
+          SizedBox(
+            width: sideWidth,
+            child: Column(children: [
+              _buildHeader(data, const EdgeInsets.fromLTRB(4, 4, 16, 4)),
+              Expanded(child: _buildPanel(data)),
+            ]),
+          ),
+        ]);
+      },
+    );
+  }
+
+  /// Tur etiketi, saat ve pitteki pilotlar.
+  Widget _buildHeader(ReplayData data, EdgeInsets padding) => ValueListenableBuilder<double>(
         valueListenable: _time,
         builder: (context, t, _) {
           final inPits = [
@@ -402,7 +437,7 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
               if (data.inPit(d.code, t)) d.code,
           ];
           return Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 20, 4),
+            padding: padding,
             child: Row(children: [
               InkWell(
                 key: const Key('replay-lap-label'),
@@ -430,62 +465,63 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
             ]),
           );
         },
-      ),
-      Expanded(
-        flex: 5,
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(18),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final size = Size(constraints.maxWidth, constraints.maxHeight);
-                return Stack(children: [
-                  Positioned.fill(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTapUp: (details) => _onTapTrack(details.localPosition, size),
-                      child: CustomPaint(
-                        size: size,
-                        painter: _TrackPainter(
-                          data: data,
-                          time: _time,
-                          selected: _selected,
-                          showNames: _showNames,
-                          labels: _labels,
-                          trackColor: AppColors.surface2,
-                          edgeColor: AppColors.border,
-                          labelColor: AppColors.muted,
-                        ),
+      );
+
+  /// Pist haritası: araçlar, hava şeridi ve safety car rozeti.
+  Widget _buildMap(ReplayData data, EdgeInsets margin) => Container(
+        margin: margin,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final size = Size(constraints.maxWidth, constraints.maxHeight);
+              return Stack(children: [
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapUp: (details) => _onTapTrack(details.localPosition, size),
+                    child: CustomPaint(
+                      size: size,
+                      painter: _TrackPainter(
+                        data: data,
+                        time: _time,
+                        selected: _selected,
+                        showNames: _showNames,
+                        labels: _labels,
+                        trackColor: AppColors.surface2,
+                        edgeColor: AppColors.border,
+                        labelColor: AppColors.muted,
                       ),
                     ),
                   ),
-                  if (data.weather.isNotEmpty)
-                    Positioned(top: 10, left: 10, right: 10, child: ReplayWeatherStrip(data: data, time: _slowTime)),
-                  if (data.periods.isNotEmpty)
-                    Positioned(
-                      top: data.weather.isEmpty ? 10 : 46,
-                      left: 10,
-                      child: ValueListenableBuilder<double>(
-                        valueListenable: _slowTime,
-                        builder: (context, t, _) {
-                          final period = data.periodAt(t);
-                          return period == null ? const SizedBox.shrink() : _PeriodBadge(event: period);
-                        },
-                      ),
+                ),
+                if (data.weather.isNotEmpty)
+                  Positioned(top: 10, left: 10, right: 10, child: ReplayWeatherStrip(data: data, time: _slowTime)),
+                if (data.periods.isNotEmpty)
+                  Positioned(
+                    top: data.weather.isEmpty ? 10 : 46,
+                    left: 10,
+                    child: ValueListenableBuilder<double>(
+                      valueListenable: _slowTime,
+                      builder: (context, t, _) {
+                        final period = data.periodAt(t);
+                        return period == null ? const SizedBox.shrink() : _PeriodBadge(event: period);
+                      },
                     ),
-                ]);
-              },
-            ),
+                  ),
+              ]);
+            },
           ),
         ),
-      ),
-      Padding(
+      );
+
+  /// Oynat/duraklat, ±10 sn, tur atlama, hız ve kod göster/gizle.
+  Widget _buildControls(ReplayData data) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(children: [
           if (data.lapStarts.isNotEmpty)
@@ -528,26 +564,21 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
             icon: Icon(Icons.label_outline, color: _showNames ? AppColors.red : AppColors.muted),
           ),
         ]),
-      ),
-      _ReplayTimeline(data: data, time: _time, selected: _selected, onSeek: _seek),
-      Expanded(
-        flex: 4,
-        child: ReplayLowerPanel(
-          data: data,
-          time: _time,
-          slowTime: _slowTime,
-          selected: _selected,
-          onSelect: _select,
-          onClose: _clearSelection,
-          onOpenPit: (pit) {
-            _select(pit.driver);
-            _seek(pit.inTime - 5);
-          },
-          onOpenEvent: (event) => _seek(event.time - 5),
-        ),
-      ),
-    ]);
-  }
+      );
+
+  Widget _buildPanel(ReplayData data) => ReplayLowerPanel(
+        data: data,
+        time: _time,
+        slowTime: _slowTime,
+        selected: _selected,
+        onSelect: _select,
+        onClose: _clearSelection,
+        onOpenPit: (pit) {
+          _select(pit.driver);
+          _seek(pit.inTime - 5);
+        },
+        onOpenEvent: (event) => _seek(event.time - 5),
+      );
 }
 
 /// Safety car / VSC / kırmızı bayrak sürerken haritanın köşesinde görünen rozet.

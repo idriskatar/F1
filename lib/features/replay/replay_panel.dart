@@ -47,7 +47,7 @@ Color replayEventColor(ReplayEventKind kind) => switch (kind) {
     };
 
 /// Oynatıcının alt bölümü: solda sıralama listesi, sağda sayfalı pilot kartı
-/// (Telemetri · Hız grafiği · Pit stoplar · Tur süreleri · Olaylar).
+/// (Telemetri · Hız grafiği · Pit stoplar · Tur süreleri · Olaylar · Karşılaştır).
 class ReplayLowerPanel extends StatefulWidget {
   const ReplayLowerPanel({
     super.key,
@@ -82,6 +82,9 @@ class _ReplayLowerPanelState extends State<ReplayLowerPanel> {
   final PageController _pages = PageController();
   int _page = 0;
 
+  /// Karşılaştırma sayfasında kullanıcının seçtiği rakip; null ise otomatik (öndeki pilot).
+  String? _compareCode;
+
   bool get _hasLaps => widget.data.drivers.any((d) => d.laps.isNotEmpty);
 
   // Eski dosyalarda tur/olay verisi olmayabilir; o sayfalar hiç gösterilmez.
@@ -91,7 +94,55 @@ class _ReplayLowerPanelState extends State<ReplayLowerPanel> {
         'Pit stoplar',
         if (_hasLaps) 'Tur süreleri',
         if (widget.data.events.isNotEmpty) 'Olaylar',
+        if (_canCompare) 'Karşılaştır',
       ];
+
+  bool get _canCompare => widget.data.drivers.where((d) => d.hasTelemetry).length >= 2;
+
+  /// Karşılaştırılacak rakip: seçilmişse o, değilse hemen öndeki pilot (liderse ikinci).
+  ReplayDriver? _rival(ReplayDriver? primary) {
+    if (primary == null) return null;
+    final data = widget.data;
+    final chosen = data.driverByCode(_compareCode);
+    if (chosen != null && chosen.code != primary.code && chosen.hasTelemetry) return chosen;
+    final order = [
+      for (final d in data.orderAt(widget.slowTime.value))
+        if (d.hasTelemetry) d,
+    ];
+    if (order.isEmpty) return null;
+    final index = order.indexWhere((d) => d.code == primary.code);
+    if (index < 0) return order.first;
+    if (index > 0) return order[index - 1];
+    return order.length > 1 ? order[1] : null;
+  }
+
+  Future<void> _pickRival(ReplayDriver? current) async {
+    final data = widget.data;
+    final code = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListView(shrinkWrap: true, children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Text('Rakip seç', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+          ),
+          for (final d in data.orderAt(widget.slowTime.value))
+            if (d.hasTelemetry && d.code != widget.selected)
+              ListTile(
+                key: Key('replay-rival-${d.code}'),
+                dense: true,
+                selected: d.code == current?.code,
+                leading: Container(width: 4, height: 24, decoration: BoxDecoration(color: Color(d.colorValue), borderRadius: BorderRadius.circular(2))),
+                title: Text('${d.code} · ${d.surname}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: d.team.isEmpty ? null : Text(d.team),
+                onTap: () => Navigator.of(context).pop(d.code),
+              ),
+        ]),
+      ),
+    );
+    if (code != null && mounted) setState(() => _compareCode = code);
+  }
 
   @override
   void dispose() {
@@ -129,6 +180,15 @@ class _ReplayLowerPanelState extends State<ReplayLowerPanel> {
                   _PitTab(data: data, time: widget.slowTime, onOpen: widget.onOpenPit),
                   if (_hasLaps) _LapTimesPage(data: data, driver: driver, time: widget.slowTime),
                   if (data.events.isNotEmpty) _EventsPage(data: data, time: widget.slowTime, onOpen: widget.onOpenEvent),
+                  if (_canCompare)
+                    _ComparePage(
+                      data: data,
+                      driver: driver,
+                      rival: _rival(driver),
+                      time: widget.time,
+                      slowTime: widget.slowTime,
+                      onPickRival: () => _pickRival(_rival(driver)),
+                    ),
                 ],
               ),
             ),
@@ -186,8 +246,16 @@ class _PositionList extends StatefulWidget {
 }
 
 class _PositionListState extends State<_PositionList> {
-  static const _rowHeight = 32.0;
   final ScrollController _scroll = ScrollController();
+
+  /// true: lidere fark, false: hemen öndekine fark.
+  bool _toLeader = true;
+
+  /// Fark yalnız canlı sıralama varken anlamlıdır (bitiş sırası farkla çelişirdi).
+  bool get _showGaps => widget.data.hasGaps && widget.data.hasLivePositions;
+
+  /// Fark satırı için satır biraz yüksek olur.
+  double get _rowHeight => _showGaps ? 40.0 : 32.0;
 
   @override
   void didUpdateWidget(covariant _PositionList oldWidget) {
@@ -220,13 +288,26 @@ class _PositionListState extends State<_PositionList> {
   @override
   Widget build(BuildContext context) {
     final live = widget.data.hasLivePositions;
+    final headerStyle = TextStyle(color: AppColors.muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.6);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(4, 2, 0, 4),
-        child: Text(
-          live ? 'SIRALAMA' : 'BİTİŞ SIRASI',
-          style: TextStyle(color: AppColors.muted, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.6),
-        ),
+        child: Row(children: [
+          Expanded(child: Text(live ? 'SIRALAMA' : 'BİTİŞ SIRASI', maxLines: 1, overflow: TextOverflow.ellipsis, style: headerStyle)),
+          if (_showGaps)
+            InkWell(
+              key: const Key('replay-gap-mode'),
+              borderRadius: BorderRadius.circular(4),
+              onTap: () => setState(() => _toLeader = !_toLeader),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                child: Text(
+                  _toLeader ? 'LİDERE' : 'ÖNDEKİNE',
+                  style: headerStyle.copyWith(color: AppColors.amber, letterSpacing: 0.2, fontSize: 9),
+                ),
+              ),
+            ),
+        ]),
       ),
       Expanded(
         child: ValueListenableBuilder<double>(
@@ -241,8 +322,15 @@ class _PositionListState extends State<_PositionList> {
               itemBuilder: (context, i) {
                 final driver = order[i];
                 final rank = live ? driver.rankAt(t) : driver.position;
+                // Lider için "Lider"; diğerleri için seçili moda göre fark, örnek yoksa/bayatsa "–".
+                final gap = !_showGaps
+                    ? null
+                    : i == 0
+                        ? 'Lider'
+                        : driver.gapAt(t)?.text(toLeader: _toLeader) ?? '–';
                 return _PositionRow(
                   rank: rank == null ? '–' : '$rank',
+                  gap: gap,
                   driver: driver,
                   selected: driver.code == widget.selected,
                   inPit: widget.data.inPit(driver.code, t),
@@ -268,9 +356,13 @@ class _PositionRow extends StatelessWidget {
     required this.tyre,
     required this.hasFastestLap,
     required this.onTap,
+    this.gap,
   });
 
   final String rank;
+
+  /// Pilot kodunun altında küçük yazılan fark metni; veri yoksa null (satır tek satır kalır).
+  final String? gap;
   final ReplayDriver driver;
   final bool selected;
   final bool inPit;
@@ -304,12 +396,16 @@ class _PositionRow extends StatelessWidget {
             const SizedBox(width: 5),
             // Expanded: yer daralırsa (büyük yazı boyutu vb.) kod kısalır, satır taşmaz.
             Expanded(
-              child: Text(
-                driver.code,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: inPit ? AppColors.amber : null),
-              ),
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(
+                  driver.code,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, height: 1.1, color: inPit ? AppColors.amber : null),
+                ),
+                if (gap != null)
+                  Text(gap!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.muted, fontSize: 10, height: 1.1)),
+              ]),
             ),
             if (hasFastestLap) ...[
               const Icon(Icons.timer_outlined, size: 15, color: _purple),
@@ -977,6 +1073,226 @@ class _EventsPage extends StatelessWidget {
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------------- Pilot karşılaştırma
+
+/// İki renk birbirine çok yakınsa (takım arkadaşları) rakip için ayırt edilebilir bir renk seçer.
+Color _rivalColor(Color primary, Color rival) {
+  double distance(Color a, Color b) {
+    final dr = a.r - b.r;
+    final dg = a.g - b.g;
+    final db = a.b - b.b;
+    return math.sqrt(dr * dr + dg * dg + db * db);
+  }
+
+  for (final candidate in [rival, _yellow, _blue, const Color(0xFFFFFFFF)]) {
+    if (distance(primary, candidate) >= 0.3) return candidate;
+  }
+  return rival;
+}
+
+class _ComparePage extends StatelessWidget {
+  const _ComparePage({
+    required this.data,
+    required this.driver,
+    required this.rival,
+    required this.time,
+    required this.slowTime,
+    required this.onPickRival,
+  });
+
+  final ReplayData data;
+  final ReplayDriver? driver;
+  final ReplayDriver? rival;
+  final ValueListenable<double> time;
+  final ValueListenable<double> slowTime;
+  final VoidCallback onPickRival;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = driver;
+    final b = rival;
+    if (a == null) {
+      return Center(child: Text('Bir pilot seç.', style: TextStyle(color: AppColors.muted)));
+    }
+    if (!a.hasTelemetry || b == null) {
+      return Center(
+        child: Text('Karşılaştırma için iki pilotun telemetrisi gerekli.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted)),
+      );
+    }
+    final colorA = Color(a.colorValue);
+    final colorB = _rivalColor(colorA, Color(b.colorValue));
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Row(children: [
+        _CompareChip(code: a.code, color: colorA),
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: Text('–', style: TextStyle(color: AppColors.muted))),
+        InkWell(
+          key: const Key('replay-compare-pick'),
+          borderRadius: BorderRadius.circular(6),
+          onTap: onPickRival,
+          child: _CompareChip(code: b.code, color: colorB, dropdown: true),
+        ),
+        const Spacer(),
+        ValueListenableBuilder<double>(
+          valueListenable: slowTime,
+          builder: (context, t, _) {
+            final gap = data.gapBetween(a, b, t);
+            return gap == null
+                ? const SizedBox.shrink()
+                : Text('Δ ${gap.toStringAsFixed(1)} sn', key: const Key('replay-compare-gap'), style: TextStyle(color: AppColors.muted, fontSize: 11, fontWeight: FontWeight.w700));
+          },
+        ),
+      ]),
+      const SizedBox(height: 6),
+      Expanded(
+        child: ValueListenableBuilder<double>(
+          valueListenable: time,
+          builder: (context, t, _) {
+            final from = math.max(0.0, t - 60);
+            return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text('Hız (km/sa) · son 60 sn', style: TextStyle(color: AppColors.muted, fontSize: 10)),
+              const SizedBox(height: 2),
+              Expanded(
+                flex: 3,
+                child: CustomPaint(
+                  size: Size.infinite,
+                  painter: _LinesPainter(
+                    lines: [
+                      _Line(a.speedSeries(from, t, data.hz), colorA),
+                      _Line(b.speedSeries(from, t, data.hz), colorB),
+                    ],
+                    maxValue: 360,
+                    gridColor: AppColors.border,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text('Gaz (%)', style: TextStyle(color: AppColors.muted, fontSize: 10)),
+              const SizedBox(height: 2),
+              Expanded(
+                flex: 2,
+                child: CustomPaint(
+                  size: Size.infinite,
+                  painter: _LinesPainter(
+                    lines: [
+                      _Line(a.throttleSeries(from, t, data.hz), colorA),
+                      _Line(b.throttleSeries(from, t, data.hz), colorB),
+                    ],
+                    maxValue: 100,
+                    gridColor: AppColors.border,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(children: [
+                Expanded(child: _CompareValues(data: data, driver: a, color: colorA, t: t)),
+                Expanded(child: _CompareValues(data: data, driver: b, color: colorB, t: t)),
+              ]),
+            ]);
+          },
+        ),
+      ),
+    ]);
+  }
+}
+
+class _CompareChip extends StatelessWidget {
+  const _CompareChip({required this.code, required this.color, this.dropdown = false});
+
+  final String code;
+  final Color color;
+  final bool dropdown;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 4),
+          Text(code, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+          if (dropdown) Icon(Icons.arrow_drop_down_rounded, size: 18, color: AppColors.muted),
+        ]),
+      );
+}
+
+/// Seçilen anda bir pilotun hızı ve gazı: "VER 287 · %100".
+class _CompareValues extends StatelessWidget {
+  const _CompareValues({required this.data, required this.driver, required this.color, required this.t});
+
+  final ReplayData data;
+  final ReplayDriver driver;
+  final Color color;
+  final double t;
+
+  @override
+  Widget build(BuildContext context) {
+    final speed = driver.speedAt(t, data.hz);
+    final throttle = driver.throttleAt(t, data.hz);
+    return Text(
+      '${driver.code} ${speed == null ? '–' : speed.round()} · %${throttle == null ? '–' : throttle.round()}',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w800),
+    );
+  }
+}
+
+class _Line {
+  const _Line(this.series, this.color);
+
+  final List<double?> series;
+  final Color color;
+}
+
+/// Aynı ölçekte birden çok çizgi: boş (null) örneklerde kalem kalkar.
+class _LinesPainter extends CustomPainter {
+  _LinesPainter({required this.lines, required this.maxValue, required this.gridColor});
+
+  final List<_Line> lines;
+  final double maxValue;
+  final Color gridColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final grid = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+    canvas.drawLine(Offset(0, size.height), Offset(size.width, size.height), grid);
+    canvas.drawLine(Offset.zero, Offset(size.width, 0), grid);
+    for (final line in lines) {
+      final series = line.series;
+      if (series.length < 2) continue;
+      final path = Path();
+      var penDown = false;
+      for (var i = 0; i < series.length; i++) {
+        final value = series[i];
+        if (value == null) {
+          penDown = false;
+          continue;
+        }
+        final dx = size.width * i / (series.length - 1);
+        final dy = size.height * (1 - (value / maxValue).clamp(0.0, 1.0));
+        if (penDown) {
+          path.lineTo(dx, dy);
+        } else {
+          path.moveTo(dx, dy);
+          penDown = true;
+        }
+      }
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = line.color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..strokeJoin = StrokeJoin.round,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LinesPainter old) => true;
 }
 
 // ---------------------------------------------------------------------------- Hava durumu şeridi

@@ -57,8 +57,9 @@ python -m unittest discover -s tool/replay -p "test_*.py" -v     # ağ gerektirm
 | `stints` | Lastik bileşeni, stint tur aralığı, stint başındaki lastik yaşı |
 | `weather` | Hava ve pist sıcaklığı, nem, rüzgâr (hız, yön), yağış |
 | `race_control` | Safety car, VSC, kırmızı bayrak ve ceza mesajları (olay akışı) |
+| `intervals` | Pilotların lidere ve öndekine farkı (saniye ya da tur farkı metni) |
 
-`position`, `stints`, `weather` ve `race_control` **isteğe bağlıdır**: bu uçlardan biri alınamazsa betik uyarı verir ve o alanlar
+`position`, `stints`, `weather`, `race_control` ve `intervals` **isteğe bağlıdır**: bu uçlardan biri alınamazsa betik uyarı verir ve o alanlar
 olmadan devam eder (replay yine üretilir).
 
 Betik her pilot için `location` ve `car_data` uçlarını ayrı çağırır (yaklaşık 40+ istek). İstek
@@ -91,6 +92,7 @@ Flutter karşılığı `lib/core/models/replay_models.dart`. İkisi arasındaki 
   }],
   "pits": [{"driver": "VER", "lap": 12, "in": 1234.5, "out": 1257.0, "pitLane": 22.5}],
   "weather": [[0.0, 24.0, 38.0, 52, 12.0, 135, 0], ...],  # isteğe bağlı: [replay_sn, hava°C, pist°C, nem%, rüzgâr km/sa, rüzgâr yönü°, yağmur 0/1]
+  # pilot nesnesinde (isteğe bağlı): "gaps": [[replay_sn, lidere_fark, öndekine_fark], ...]
   "events": [[1520.0, "SC", 21, "SAFETY CAR DEPLOYED", 1710.0], [812.5, "PENALTY", 12, "5 SECOND TIME PENALTY FOR CAR 4 (NOR) ...", null]]
                                                          # isteğe bağlı: [replay_sn, tür, tur|null, mesaj, bitiş_sn|null]
 }
@@ -121,6 +123,13 @@ edilmesi gerekir.
 - **Hava durumu:** Haritanın üstündeki tek satırlık şerit `weather` kaydından beslenir. OpenF1 rüzgâr
   hızını m/s verir, betik km/sa'ye çevirir (×3,6). Yağış, OpenF1'in `rainfall` alanındaki 0/1 değerinden
   gelir. Rüzgâr yönü dosyada saklanır ama şu an ekranda gösterilmez. Ölçüm yoksa şerit hiç görünmez.
+- **Farklar (`gaps` / `intervals`):** her pilot nesnesinde `[replay_sn, lidere_fark, öndekine_fark]` satırları.
+  Değer saniye (sayı), tur kaybında OpenF1'in metni (`"+1 LAP"`, en çok 12 karakter) ya da `null` olabilir.
+  Örnekler en sık 5 sn'de bir tutulur (`GAP_STEP`); değişmeyen değerler de yazılır, çünkü uygulama son örneğin
+  yaşına bakarak emekli olmuş pilotun farkını gizler (120 sn'den eski örnek gösterilmez). Lider yalnız boş
+  değerler taşıdığı için `gaps` almaz. Sıralama listesinde "LİDERE / ÖNDEKİNE" düğmesiyle seçilir; karşılaştırma
+  sayfasındaki "Δ" iki pilotun lidere farklarının farkıdır. 90 dakikalık bir yarışta 19 pilot × 5 sn ≈ 20 bin satır; sentetik veriyle ölçülen
+  yaklaşık ek boyut 350 KB ham, ~90 KB gzip (gerçek veride değerler daha düzgün olduğundan genelde daha az). OpenF1 bu ucu bir seans için vermiyorsa alan yazılmaz.
 - **Olaylar (`events`):** `race_control` mesajlarından çıkarılır. Tür `SC`, `VSC`, `RED` ise kayıt bir
   *dönemdir* (son alan bitiş saniyesi) ve zaman çubuğunda renkli bant, harita köşesinde rozet olarak görünür;
   `PENALTY` tek bir andır (son alan `null`). Dönemler mesaj metninden türetilir: SC `SAFETY CAR DEPLOYED` ile

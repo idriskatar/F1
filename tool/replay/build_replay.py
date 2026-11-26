@@ -31,6 +31,7 @@ DRS_OPEN_MIN = 10          # F1 DRS kodu: 10/12/14 = açık, 8 = açılabilir, 0
 TRACK_MAX_POINTS = 400
 FALLBACK_COLOR = "#9AA0A6"
 OPENF1_BASE_URL = "https://api.openf1.org/v1"
+GAP_STEP = 5.0              # fark örnekleri en sık bu kadar saniyede bir saklanır (dosya boyutu)
 EVENT_TEXT_MAX = 140         # olay mesajı en fazla bu kadar karakter taşır (dosya boyutu)
 SC_CLOSE_WINDOW = 300.0      # "SAFETY CAR IN THIS LAP" sonrası pist yeşil bayrağı için beklenen azami süre (sn)
 TRACK_INDEX_FILE = "tracks.json"   # replay üretilemeyen, yalnızca pist çizgisi olan seanslar
@@ -68,6 +69,9 @@ class RawSession:
     weather: Optional[list[dict[str, Any]]] = None
     # [{'ts': oturum sn, 'category', 'flag', 'scope', 'message', 'lap'}, ...]  (OpenF1 'race_control' ucu)
     race_control: Optional[list[dict[str, Any]]] = None
+    # pilot no -> [(oturum saniyesi, lidere fark, öndekine fark), ...]  (OpenF1 'intervals' ucu).
+    # Fark: saniye (sayı), tur farkı metni ('+1 LAP') ya da None.
+    intervals: Optional[dict[str, list[tuple[float, Any, Any]]]] = None
 
 
 # --------------------------------------------------------------------------- yardımcılar
@@ -286,6 +290,48 @@ def position_log_for(raw: RawSession, number: str, t0: float) -> list[list[Any]]
     return out
 
 
+def _gap_value(value: Any) -> Any:
+    """Sayı -> 1 ondalıklı saniye; metin -> '+1 LAP' gibi kısa metin (sayı biçimindeyse sayı); yoksa None."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            value = float(text)
+        except ValueError:
+            return text.upper()[:12]
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or math.isnan(value):
+        return None
+    return round(float(value), 1)
+
+
+def gap_rows(raw: RawSession, number: str, t0: float, duration: float) -> list[list[Any]]:
+    """Fark serisi: [[replay_sn, lidere_fark, öndekine_fark], ...].
+
+    En sık GAP_STEP saniyede bir örneklenir. Değişmeyen değerler de yazılır: uygulama son örneği
+    "bayat" saymak için yaşına bakar (emekli pilotun farkı sonsuza dek görünmesin). Başında hiç fark
+    olmayan (lider) satırlar atılır; hiç fark yoksa boş liste döner. Yarış penceresi dışı atılır.
+    """
+    out: list[list[Any]] = []
+    last_time: Optional[float] = None
+    for ts, gap, interval in sorted((raw.intervals or {}).get(number) or [], key=lambda row: row[0]):
+        rel = float(ts) - t0
+        if rel < 0:
+            continue
+        if rel > duration:
+            break
+        values = (_gap_value(gap), _gap_value(interval))
+        if not out and values == (None, None):
+            continue
+        if last_time is not None and rel - last_time < GAP_STEP:
+            continue
+        out.append([round(rel, 1), values[0], values[1]])
+        last_time = rel
+    return out
+
+
 def laps_table(laps: pd.DataFrame, number: str, t0: float) -> list[list[Any]]:
     """[[tur, başlangıç_sn, süre, s1, s2, s3], ...]; bilinmeyenler null. Süreler saniye."""
     g = laps[laps["DriverNumber"].astype(str) == number].sort_values("LapNumber")
@@ -488,6 +534,9 @@ def build_payload(raw: RawSession, hz: int = DEFAULT_HZ) -> dict[str, Any]:
         stint_rows = stints_for(raw, r["number"])
         if stint_rows:
             item["stints"] = stint_rows
+        gaps = gap_rows(raw, r["number"], t0, t1 - t0)
+        if gaps:
+            item["gaps"] = gaps
         drivers.append(item)
 
     drivers.sort(key=lambda d: (d["position"] is None, d["position"] or 0, d["code"]))
@@ -903,6 +952,14 @@ def load_raw(year: int, rnd: int, code: str = "R", cache_dir: str = ".fastf1-cac
             continue
         position_log.setdefault(num, []).append(((when - session_start).total_seconds(), int(place)))
 
+    intervals: dict[str, list[tuple[float, Any, Any]]] = {}
+    for row in _optional_get("intervals", {"session_key": session_key}):
+        num = _clean(row.get("driver_number"))
+        when = _parse_iso(row.get("date"))
+        if num not in codes or when is None:
+            continue
+        intervals.setdefault(num, []).append(((when - session_start).total_seconds(), row.get("gap_to_leader"), row.get("interval")))
+
     stints: dict[str, list[dict[str, Any]]] = {}
     for row in _optional_get("stints", {"session_key": session_key}):
         num = _clean(row.get("driver_number"))
@@ -998,6 +1055,7 @@ def load_raw(year: int, rnd: int, code: str = "R", cache_dir: str = ".fastf1-cac
         stints=stints,
         weather=weather,
         race_control=race_control,
+        intervals=intervals,
     )
 
 
