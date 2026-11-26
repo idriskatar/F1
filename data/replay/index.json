@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "sessions": [
+    {
+      "year": 2026,
+      "round": 21,
+      "session": "R",
+      "name": "United States",
+      "country": "United States",
+      "circuit": "Las Vegas",
+      "file": "2026/r21-R.json.gz",
+      "bytes": 1863555,
+      "duration": 5331.7,
+      "hz": 2,
+      "generatedAt": "2026-11-26T18:33:32Z"
+    },
+    {
+      "year": 2026,
+      "round": 20,
+      "session": "R",
+      "name": "Brazil",
+      "country": "Brazil",
+      "circuit": "Interlagos",
+      "file": "2026/r20-R.json.gz",
+      "bytes": 2167828,
+      "duration": 5810.6,
+      "hz": 2,
+      "generatedAt": "2026-11-26T18:36:01Z"
+    }
+  ]
+}
