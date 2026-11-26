@@ -26,6 +26,32 @@
       "duration": 5810.6,
       "hz": 2,
       "generatedAt": "2026-11-26T18:36:01Z"
+    },
+    {
+      "year": 2026,
+      "round": 19,
+      "session": "R",
+      "name": "Mexico",
+      "country": "Mexico",
+      "circuit": "Mexico City",
+      "file": "2026/r19-R.json.gz",
+      "bytes": 2274165,
+      "duration": 8459.9,
+      "hz": 2,
+      "generatedAt": "2026-11-26T18:58:04Z"
+    },
+    {
+      "year": 2026,
+      "round": 18,
+      "session": "R",
+      "name": "United States",
+      "country": "United States",
+      "circuit": "Austin",
+      "file": "2026/r18-R.json.gz",
+      "bytes": 2238941,
+      "duration": 5812.0,
+      "hz": 2,
+      "generatedAt": "2026-11-26T19:00:34Z"
     }
   ]
 }
