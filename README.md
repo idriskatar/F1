@@ -4,14 +4,16 @@ Kişisel kullanım için hazırlanmış, premium koyu temalı Android/iOS ve Win
 
 ## İndir
 
-**En son sürüm: [v1.6.0](https://github.com/idriskatar/F1/releases/latest)**
+**En son sürüm: [v1.6.1](https://github.com/idriskatar/F1/releases/latest)**
 
-| Platform | Paket |
-| --- | --- |
-| Windows | [F1-Tracker-Windows-v1.6.0.zip](https://github.com/idriskatar/F1/releases/download/v1.6.0/F1-Tracker-Windows-v1.6.0.zip) |
-| Linux | [F1-Tracker-Linux-v1.6.0.tar.gz](https://github.com/idriskatar/F1/releases/download/v1.6.0/F1-Tracker-Linux-v1.6.0.tar.gz) |
-| macOS | [F1-Tracker-macOS-v1.6.0.zip](https://github.com/idriskatar/F1/releases/download/v1.6.0/F1-Tracker-macOS-v1.6.0.zip) |
-| Android | [F1-Tracker-Android-v1.6.0.apk](https://github.com/idriskatar/F1/releases/download/v1.6.0/F1-Tracker-Android-v1.6.0.apk) |
+| Platform | Kurulum | Taşınabilir |
+| --- | --- | --- |
+| Windows | [F1-Tracker-Setup-v1.6.1.exe](https://github.com/idriskatar/F1/releases/download/v1.6.1/F1-Tracker-Setup-v1.6.1.exe) | [zip](https://github.com/idriskatar/F1/releases/download/v1.6.1/F1-Tracker-Windows-v1.6.1.zip) |
+| Linux | [f1-tracker_1.6.1_amd64.deb](https://github.com/idriskatar/F1/releases/download/v1.6.1/f1-tracker_1.6.1_amd64.deb) | [tar.gz](https://github.com/idriskatar/F1/releases/download/v1.6.1/F1-Tracker-Linux-v1.6.1.tar.gz) |
+| macOS | [F1-Tracker-v1.6.1.dmg](https://github.com/idriskatar/F1/releases/download/v1.6.1/F1-Tracker-v1.6.1.dmg) | [zip](https://github.com/idriskatar/F1/releases/download/v1.6.1/F1-Tracker-macOS-v1.6.1.zip) |
+| Android | [F1-Tracker-Android-v1.6.1.apk](https://github.com/idriskatar/F1/releases/download/v1.6.1/F1-Tracker-Android-v1.6.1.apk) | — |
+
+Windows `setup.exe` kullanıcı bazında kurulum yapar; Linux `.deb` için `sudo apt install ./f1-tracker_1.6.1_amd64.deb`; macOS `.dmg` uygulamayı Applications klasörüne sürükleyerek kurulur.
 
 Tüm sürümler ve notlar: [GitHub Releases](https://github.com/idriskatar/F1/releases) · [CHANGELOG](CHANGELOG.md)
 

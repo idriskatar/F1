@@ -2,6 +2,16 @@
 
 Bu dosya kullanıcıya görünen sürüm geçmişini tutar. Sürüm numarası `pubspec.yaml` ve `lib/core/app_info.dart` ile eşleşir.
 
+## [1.6.1] - 2026-11-27
+
+### Eklendi
+- Masaüstü için kurulum paketleri: Windows `setup.exe` (NSIS), Linux `.deb` ve macOS `.dmg`.
+- Kurulum paketleriyle birlikte taşınabilir zip/tar.gz paketleri de Release sayfasında kalır.
+
+### Değiştirildi
+- Güncelleme kontrolü artık v1.6.1 sürümünü bildirir.
+- Masaüstü geri sayım kartındaki render/kısıt hataları giderildi.
+
 ## [1.6.0] - 2026-11-27
 
 ### Eklendi
