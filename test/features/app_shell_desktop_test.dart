@@ -42,7 +42,6 @@ void main() {
     expect(tester.widget<NavigationRail>(find.byType(NavigationRail)).selectedIndex, 1);
     expect(find.text('Sezon programı • saatler cihazının yerel saatinde'), findsOneWidget);
 
-    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets('Ctrl+2 klavye kısayolu Takvim sekmesine geçer', (tester) async {
@@ -56,7 +55,6 @@ void main() {
 
     expect(tester.widget<NavigationRail>(find.byType(NavigationRail)).selectedIndex, 1);
 
-    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets('masaüstü ana sayfası puan durumlarını yan yana, haberleri iki sütunda gösterir', (tester) async {
@@ -67,6 +65,5 @@ void main() {
     expect(find.descendant(of: find.byType(HomeScreen), matching: find.text('Tümünü göster')), findsNWidgets(2));
     expect(find.descendant(of: find.byType(HomeScreen), matching: find.text('SIRA')), findsNWidgets(2));
 
-    await tester.pumpWidget(const SizedBox());
   });
 }
