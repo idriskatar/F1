@@ -407,7 +407,7 @@ class _UpdateCheckerState extends State<_UpdateChecker> {
     if (!mounted) return;
     setState(() => _busy = false);
     if (info == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Güncel sürümdesiniz (v$appVersion)')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Güncel sürümdesiniz (v$appVersion)')));
       return;
     }
     showDialog<void>(
@@ -421,8 +421,9 @@ class _UpdateCheckerState extends State<_UpdateChecker> {
           TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Kapat')),
           FilledButton(
             onPressed: () async {
+              final navigator = Navigator.of(context);
               await openExternalUrl(info.url);
-              if (context.mounted) Navigator.of(context).pop();
+              if (mounted) navigator.pop();
             },
             child: const Text('İndir'),
           ),

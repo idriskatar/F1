@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/theme/app_theme.dart';
 import '../../data/remote/jolpica_repository.dart';
 import '../../data/remote/news_repository.dart';
 import '../../data/remote/replay_repository.dart';

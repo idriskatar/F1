@@ -247,7 +247,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
       const SizedBox(width: 9),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 8.5, fontWeight: FontWeight.w900, letterSpacing: 1)),
+          Text(label, style: TextStyle(color: AppColors.muted, fontSize: 8.5, fontWeight: FontWeight.w900, letterSpacing: 1)),
           const Spacer(),
           Text(time, style: TextStyle(color: color, fontSize: 10.5, fontWeight: FontWeight.w900)),
         ]),
