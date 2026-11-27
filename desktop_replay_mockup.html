@@ -3,112 +3,104 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>F1 Tracker — Masaüstü Replay Önizlemesi</title>
+<title>F1 Tracker — Masaüstü Replay Önizlemesi v2</title>
 <style>
   :root {
     --bg:#090A0D; --surface:#14171D; --surface2:#1C2028; --border:#292E38;
-    --red:#E10600; --muted:#9299A6; --text:#F5F6F8; --green:#39C98A; --amber:#FFC247; --purple:#B36BFF;
+    --red:#E10600; --muted:#9299A6; --text:#F5F6F8; --green:#39C98A; --amber:#FFC247; --purple:#B36BFF; --blue:#2F6BFF;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#050608;color:var(--text);padding:18px;display:flex;flex-direction:column;align-items:center;gap:10px}
   .caption{color:var(--muted);font-size:12px}.caption b{color:var(--text)}
-  .window{width:min(1400px,100%);height:auto;min-height:900px;background:var(--bg);border:1px solid #333844;border-radius:10px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+  .window{width:min(1440px,100%);height:auto;min-height:900px;background:var(--bg);border:1px solid #333844;border-radius:10px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.6)}
   .titlebar{height:34px;flex:none;background:#101217;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 12px;gap:10px}
   .titlebar .dot{width:9px;height:9px;border-radius:50%;background:var(--red)}.titlebar .name{font-size:12px;font-weight:700}.titlebar .buttons{margin-left:auto;display:flex;gap:18px;color:var(--muted);font-size:13px}
   .shell{flex:1;display:flex;min-height:0}
-  .rail{width:256px;flex:none;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:12px 8px}
-  .brand{display:flex;align-items:center;gap:9px;padding:4px 12px 18px}
-  .brand .logo,.appbar .logo{width:30px;height:26px;border-radius:6px;background:var(--red);display:grid;place-items:center;color:#fff;font-size:15px}
-  .brand .text{font-size:14px;font-weight:900;letter-spacing:1.2px}
-  .nav{display:flex;flex-direction:column;gap:4px}
-  .nav-item{display:flex;align-items:center;gap:14px;height:52px;padding:0 16px;border-radius:12px;color:var(--muted);font-size:14px;font-weight:600}
-  .nav-item svg{width:22px;height:22px;flex:none}.nav-item.active{background:rgba(225,6,0,.16);color:#fff;font-weight:800}.nav-item.active svg{color:var(--red)}
-  .rail-spacer{flex:1}.rail-divider{height:1px;background:var(--border);margin-bottom:10px}
-  .settings-nav{display:flex;align-items:center;gap:14px;padding:10px 14px;border-radius:12px}
-  .settings-nav svg{width:22px;height:22px;color:var(--muted)}.settings-nav .t{font-size:14px;font-weight:700}.settings-nav .s{font-size:11px;color:var(--muted);margin-top:2px}
+
+  /* Daraltılmış ray: sadece simgeler */
+  .rail{width:74px;flex:none;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:14px 8px;gap:4px}
+  .brand-logo{width:34px;height:30px;border-radius:7px;background:var(--red);display:grid;place-items:center;color:#fff;font-size:16px;margin-bottom:16px}
+  .nav-item{width:52px;height:48px;display:grid;place-items:center;border-radius:12px;color:var(--muted);border:1px solid transparent}
+  .nav-item svg{width:23px;height:23px}
+  .nav-item.active{background:rgba(225,6,0,.16);color:#fff;border-color:rgba(225,6,0,.35)}
+  .nav-item.active svg{color:var(--red)}
+  .rail-spacer{flex:1}.rail-divider{width:32px;height:1px;background:var(--border);margin:8px 0}
+  .rail-settings{width:52px;height:48px;display:grid;place-items:center;border-radius:12px;color:var(--muted)}
+  .rail-settings svg{width:23px;height:23px}
 
   .main{flex:1;min-width:0;display:flex;flex-direction:column}
-  .appbar{height:56px;flex:none;display:flex;align-items:center;gap:9px;padding:0 20px;border-bottom:1px solid var(--border)}
-  .appbar .title{font-size:15px;font-weight:900;letter-spacing:1.3px}.appbar .hint{margin-left:auto;font-size:11px;color:var(--muted)}
-  .backbar{height:42px;flex:none;display:flex;align-items:center;gap:8px;padding:0 16px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700}
-  .backbar .b{color:var(--red);font-weight:900}
-  .content{flex:1;min-height:0;padding:12px 16px 14px;display:flex;flex-direction:column;gap:10px}
+  .appbar{height:52px;flex:none;display:flex;align-items:center;padding:0 18px;border-bottom:1px solid var(--border)}
+  .appbar .hint{margin-left:auto;font-size:11px;color:var(--muted)}
+  .content{flex:1;min-height:0;padding:12px 16px 16px;display:flex;flex-direction:column;gap:12px}
 
   .topbar{display:flex;align-items:center;gap:12px;flex:none}
-  .topbar h1{font-size:17px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .topbar h1{font-size:18px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .topbar .meta{font-size:11px;color:var(--muted);white-space:nowrap}
   .controls{display:flex;align-items:center;gap:6px;margin-left:auto}
-  .ctrl{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:5px 9px;font-size:11px;color:var(--muted)}
+  .ctrl{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:6px 10px;font-size:11px;color:var(--muted)}
   .ctrl.play{background:var(--red);border-color:var(--red);color:#fff;font-weight:800}
-  .timeline{height:6px;border-radius:99px;background:var(--surface2);position:relative;flex:1;min-width:120px}
+  .timeline{height:6px;border-radius:99px;background:var(--surface2);position:relative;flex:1;min-width:140px}
   .timeline:before{content:'';position:absolute;left:0;top:0;bottom:0;width:62%;background:var(--red);border-radius:99px}
   .timeline:after{content:'';position:absolute;left:62%;top:-3px;width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid var(--red)}
 
-  .cols{flex:none;height:770px;display:flex;gap:12px}
-  .col{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0}
-  .col.left{flex:40%}.col.mid{flex:22%}.col.right{flex:38%}
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+  .cols{flex:none;height:770px;display:flex;gap:14px}
+  .col{display:flex;flex-direction:column;gap:12px;min-width:0;min-height:0}
+  .col.standings{flex:22%}.col.telemetry{flex:40%}.col.mapcol{flex:38%}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:11px 13px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
   .card.map{flex:3}.card.strategy{flex:2}.card.bottom{flex:2}
-  .card.telemetry{flex:3}.card.graph{flex:2}.card.laps{flex:1.4}.card.compare{flex:2}
-  /* Canlı sıralama */
+  .card.telemetry{flex:3}.card.graph{flex:1.6}.card.laps{flex:1.2}.card.compare{flex:1.6}
   .card.standings{flex:1}
-  .live-row{display:flex;align-items:center;gap:7px;padding:6px 0;border-bottom:1px solid var(--border)}
-  .live-row .pos{width:18px;flex:none;font-size:11px;font-weight:900;color:var(--muted)}
-  .live-row.leader .pos{color:var(--red)}
-  .live-row .stripe{width:3px;height:26px;flex:none;border-radius:2px}
-  .live-row .code{width:34px;flex:none;font-size:12px;font-weight:900}
-  .live-row .tyre{width:18px;height:18px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:9px;font-weight:900;color:#07080B;border:2px solid rgba(255,255,255,.25)}
-  .live-row .who{flex:1;min-width:0}
-  .live-row .who b{display:block;font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .live-row .who span{display:block;font-size:9px;color:var(--muted)}
-  .live-row .fast{color:#B36BFF;font-size:11px;flex:none}
   .card h2{font-size:11px;font-weight:900;letter-spacing:1.1px;color:var(--muted);display:flex;align-items:center;gap:7px;margin-bottom:8px}
   .card h2:before{content:'';width:6px;height:6px;border-radius:50%;background:var(--red);flex:none}
   .card .body{flex:1;min-height:0;position:relative}
 
+  /* Sıralama */
+  .live-row{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid var(--border)}
+  .live-row .pos{width:18px;flex:none;font-size:11px;font-weight:900;color:var(--muted)}
+  .live-row.leader .pos{color:var(--red)}
+  .live-row .stripe{width:3px;height:22px;flex:none;border-radius:2px}
+  .live-row .code{width:32px;flex:none;font-size:11px;font-weight:900}
+  .live-row .tyre{width:17px;height:17px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:8px;font-weight:900;color:#07080B;border:2px solid rgba(255,255,255,.25)}
+  .live-row .who{flex:1;min-width:0}
+  .live-row .who b{display:block;font-size:10.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .live-row .who span{display:block;font-size:9px;color:var(--muted)}
+  .live-row .fast{color:var(--purple);font-size:11px;flex:none}
+
   /* Harita */
   .track{position:absolute;inset:0;display:grid;place-items:center}
-  .track svg{width:90%;height:90%}
+  .track svg{width:88%;height:88%}
   .car{position:absolute;width:9px;height:9px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 8px currentColor}
   .car.c1{left:24%;top:38%;background:#27F4D2;color:#27F4D2}.car.c2{left:63%;top:30%;background:#E8002D;color:#E8002D}.car.c3{left:71%;top:66%;background:#FF8000;color:#FF8000}.car.c4{left:38%;top:72%;background:#3671C6;color:#3671C6}
   .map-tag{position:absolute;left:6px;bottom:4px;font-size:9px;color:var(--muted)}
 
-  /* Strategy bars */
-  .stint{display:flex;align-items:center;gap:7px;margin-bottom:6px;font-size:10px}
-  .stint .code{width:32px;font-weight:900}.stint .bar{height:9px;border-radius:99px;background:var(--surface2);flex:1;display:flex;overflow:hidden}
-  .seg{height:100%}.seg.soft{background:#E8002D}.seg.med{background:#FFC247}.seg.hard{background:#D0D4DA}.seg.int{background:#52E252}
-  .stint .lap{width:30px;text-align:right;color:var(--muted)}
+  /* Strateji — tüm pilotlar */
+  .stint{display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:9px}
+  .stint .code{width:30px;font-weight:900}.stint .bar{height:7px;border-radius:99px;background:var(--surface2);flex:1;display:flex;overflow:hidden}
+  .seg{height:100%}
 
-  /* Pit / Olaylar */
   .rows{display:flex;flex-direction:column;gap:5px}
   .row{display:flex;align-items:center;gap:8px;font-size:10.5px;padding:5px 7px;border-radius:8px;background:var(--surface2)}
-  .row .p{color:var(--red);font-weight:900;width:26px}.row .t{margin-left:auto;color:var(--muted);font-size:10px}
+  .row .p{color:var(--red);font-weight:900;width:24px}.row .t{margin-left:auto;color:var(--muted);font-size:10px}
   .row.event .p{color:var(--amber)}
 
-  /* Telemetri — mobildeki _Gauge görünümü */
-  .telemetry-row{display:flex;gap:14px;height:100%;align-items:center}
-  .gauge-big{width:200px;height:200px;flex:none;position:relative;display:grid;place-items:center}
+  /* Telemetri */
+  .telemetry-row{display:flex;gap:12px;height:100%;align-items:center}
+  .gauge-big{width:220px;height:220px;flex:none;position:relative;display:grid;place-items:center}
   .gauge-big svg{width:100%;height:100%;position:absolute;inset:0}
   .gauge-center{position:relative;text-align:center;line-height:1.1}
-  .gauge-center .v{font-size:34px;font-weight:900}
-  .gauge-center .u{font-size:9px;font-weight:800;color:var(--muted);letter-spacing:1px}
-  .gauge-center .rpm{font-size:13px;font-weight:800;margin-top:3px}
-  .gauge-center .gear{font-size:12px;font-weight:900;margin-top:2px}
-  .gauge-center .drs{font-size:9px;font-weight:900;color:var(--green)}
+  .gauge-center .v{font-size:34px;font-weight:900}.gauge-center .u{font-size:9px;font-weight:800;color:var(--muted);letter-spacing:1px}
+  .gauge-center .rpm{font-size:13px;font-weight:800;margin-top:3px}.gauge-center .gear{font-size:12px;font-weight:900;margin-top:2px}.gauge-center .drs{font-size:9px;font-weight:900;color:var(--green)}
   .gauge-edge{position:absolute;bottom:6px;font-size:8px;font-weight:900;letter-spacing:.8px}
   .gauge-edge.gaz{left:8px;color:var(--green)}.gauge-edge.fren{right:8px;color:var(--red)}
   .gauge-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
   .info-row{display:flex;align-items:center;gap:8px;font-size:10.5px;padding:5px 7px;border-radius:8px;background:var(--surface2)}
   .info-row .k{color:var(--muted)}.info-row .v{margin-left:auto;font-weight:900}
   .info-row .v.hl{color:var(--purple)}
-  .info-row .v.drs{color:var(--green)}
   .sectors{display:flex;flex-direction:row;gap:8px;margin-top:7px}
   .sector{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px}
   .sector .bar{width:100%;height:13px;border-radius:4px;position:relative;display:grid;place-items:center;overflow:hidden}
   .sector .bar span{position:relative;z-index:1;font-size:9px;font-weight:900;color:#07080B}
   .sector .k{font-size:9px;font-weight:900;letter-spacing:1px;color:var(--muted)}
-
-  /* Grafikler */
   svg.chart{width:100%;height:100%;display:block}
   .laprow{display:flex;align-items:center;gap:8px;font-size:10px;padding:2px 6px;border-bottom:1px solid var(--border)}
   .laprow .n{width:22px;color:var(--muted)}.laprow .tm{font-weight:800}.laprow .delta{margin-left:auto;color:var(--green);font-size:9px}
@@ -116,96 +108,47 @@
   .cmp .legend{display:flex;gap:12px;font-size:9px;color:var(--muted)}
   .cmp .legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px}
   .mini-gauges{display:flex;gap:10px}
-  .mini{flex:1;height:86px;position:relative;display:grid;place-items:center;border-radius:10px;background:var(--surface2)}
+  .mini{flex:1;height:74px;position:relative;display:grid;place-items:center;border-radius:10px;background:var(--surface2)}
   .mini svg{position:absolute;inset:0;width:100%;height:100%}
   .mini .mc{position:relative;text-align:center;line-height:1.05}
-  .mini .mc b{font-size:17px;font-weight:900}.mini .mc span{display:block;font-size:8px;color:var(--muted)}
+  .mini .mc b{font-size:16px;font-weight:900}.mini .mc span{display:block;font-size:8px;color:var(--muted)}
   .mini .mg{position:absolute;bottom:3px;font-size:8px;font-weight:900}
 </style>
 </head>
 <body>
-  <div class="caption"><b>Masaüstü Replay önizlemesi</b> — sol ray korunur · sol: harita/strateji/pit/olaylar (3:2:2) · sağ: telemetri/i grafik/tur/karşılaştırma · statik maket</div>
+  <div class="caption"><b>Masaüstü Replay önizlemesi v2</b> — sıralama sol · telemetri orta · harita sağ · daraltılmış menü · kart aralıkları belirgin · statik maket</div>
 
   <div class="window">
     <div class="titlebar"><span class="dot"></span><span class="name">F1 Tracker</span><span class="buttons">— &nbsp; ▢ &nbsp; ✕</span></div>
 
     <div class="shell">
+      <!-- Daraltılmış menü: sadece simgeler -->
       <aside class="rail">
-        <div class="brand"><div class="logo">⚑</div><div class="text">F1 TRACKER</div></div>
-        <nav class="nav">
-          <div class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg> Ana sayfa</div>
-          <div class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 12h-5v5h5v-5zm3-10h-1V1h-2v1H8V1H6v1H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm0 17H5V8h14v11z"/></svg> Takvim</div>
-          <div class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2zm-1 14H5V8h14v10zM7 10h6v2H7v-2zm0 4h10v2H7v-2z"/></svg> Haberler</div>
-          <div class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 4V2H6v2H2v3a4 4 0 004 4h.4A6 6 0 0011 14.9V18H8v2h8v-2h-3v-3.1A6 6 0 0017.6 11H18a4 4 0 004-4V4h-4zM6 8H4V6h2v2z"/></svg> Sonuçlar</div>
-          <div class="nav-item active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Replay</div>
-        </nav>
+        <div class="brand-logo">⚑</div>
+        <div class="nav-item" title="Ana sayfa"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></div>
+        <div class="nav-item" title="Takvim"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 12h-5v5h5v-5zm3-10h-1V1h-2v1H8V1H6v1H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm0 17H5V8h14v11z"/></svg></div>
+        <div class="nav-item" title="Haberler"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2zm-1 14H5V8h14v10zM7 10h6v2H7v-2zm0 4h10v2H7v-2z"/></svg></div>
+        <div class="nav-item" title="Sonuçlar"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 4V2H6v2H2v3a4 4 0 004 4h.4A6 6 0 0011 14.9V18H8v2h8v-2h-3v-3.1A6 6 0 0017.6 11H18a4 4 0 004-4V4h-4zM6 8H4V6h2v2z"/></svg></div>
+        <div class="nav-item active" title="Replay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
         <div class="rail-spacer"></div><div class="rail-divider"></div>
-        <div class="settings-nav"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17v2h6v-2H3zm3.5-9a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM17 3v2h4v2h-4v2h-2V3h2z"/></svg><div><div class="t">Ayarlar</div><div class="s">Tema, hakkında, gizlilik</div></div></div>
+        <div class="rail-settings" title="Ayarlar"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17v2h6v-2H3zm3.5-9a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM17 3v2h4v2h-4v2h-2V3h2z"/></svg></div>
       </aside>
 
       <main class="main">
-        <header class="appbar"><div class="logo">⚑</div><div class="title">F1 TRACKER</div><div class="hint">Ctrl/Cmd+1..5 · Ctrl/Cmd+M · Esc</div></header>
-        <div class="backbar"><span class="b">‹ Geri (Esc)</span> &nbsp;·&nbsp; Replay oynatıcı — sol menü görünür kalıyor</div>
-
+        <header class="appbar"><span class="hint">Ctrl/Cmd+1..5 · Ctrl/Cmd+M · Esc</span></header>
         <div class="content">
           <div class="topbar">
             <h1>2026 Azerbaijan Grand Prix</h1>
             <span class="meta">TUR 31/51 · 1:32:18</span>
             <div class="controls">
-              <span class="ctrl">−10sn</span><span class="ctrl play">▶ Oynat</span><span class="ctrl">+10sn</span>
-              <span class="ctrl">10×</span><span class="ctrl">⏱</span>
+              <span class="ctrl">−10sn</span><span class="ctrl play">▶ Oynat</span><span class="ctrl">+10sn</span><span class="ctrl">10×</span>
             </div>
             <div class="timeline"></div>
           </div>
 
           <div class="cols">
-            <!-- SOL -->
-            <div class="col left">
-              <div class="card map">
-                <h2>PİST HARİTASI</h2>
-                <div class="body">
-                  <div class="track">
-                    <svg viewBox="0 0 400 220" fill="none" stroke="#3A414E" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M70 160 L70 70 Q70 50 90 50 L320 50 Q345 50 345 75 L345 150 Q345 170 325 170 L180 170 Q160 170 160 150 L160 110 Q160 95 175 95 L260 95"/>
-                    </svg>
-                  </div>
-                  <span class="car c1"></span><span class="car c2"></span><span class="car c3"></span><span class="car c4"></span>
-                  <span class="map-tag">20 araç · canlı konum · tur sınırları</span>
-                </div>
-              </div>
-
-              <div class="card strategy">
-                <h2>LASTİK STRATEJİSİ</h2>
-                <div class="body">
-                  <div class="stint"><span class="code">ANT</span><span class="bar"><i class="seg soft" style="width:38%"></i><i class="seg med" style="width:34%"></i><i class="seg hard" style="width:28%"></i></span><span class="lap">51</span></div>
-                  <div class="stint"><span class="code">VER</span><span class="bar"><i class="seg med" style="width:44%"></i><i class="seg hard" style="width:56%"></i></span><span class="lap">51</span></div>
-                  <div class="stint"><span class="code">HAM</span><span class="bar"><i class="seg hard" style="width:52%"></i><i class="seg soft" style="width:48%"></i></span><span class="lap">50</span></div>
-                  <div class="stint"><span class="code">NOR</span><span class="bar"><i class="seg int" style="width:18%"></i><i class="seg med" style="width:42%"></i><i class="seg hard" style="width:40%"></i></span><span class="lap">50</span></div>
-                </div>
-              </div>
-
-              <div style="display:flex;gap:10px;flex:2;min-height:0">
-                <div class="card bottom" style="flex:1">
-                  <h2>PİT STOPLAR</h2>
-                  <div class="body rows">
-                    <div class="row"><span class="p">P1</span><span>ANT · 2.41 sn</span><span class="t">TUR 18</span></div>
-                    <div class="row"><span class="p">P2</span><span>VER · 2.58 sn</span><span class="t">TUR 22</span></div>
-                    <div class="row"><span class="p">P3</span><span>HAM · 3.02 sn</span><span class="t">TUR 25</span></div>
-                  </div>
-                </div>
-                <div class="card bottom" style="flex:1">
-                  <h2>OLAYLAR</h2>
-                  <div class="body rows">
-                    <div class="row event"><span class="p">SC</span><span>Safety car</span><span class="t">TUR 12</span></div>
-                    <div class="row event"><span class="p">!</span><span>Ceza · 5 sn</span><span class="t">TUR 27</span></div>
-                    <div class="row event"><span class="p">⚑</span><span>Kırmızı bayrak</span><span class="t">TUR 33</span></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- ORTA: CANLI SIRALAMA -->
-            <div class="col mid">
+            <!-- SOL: SIRALAMA -->
+            <div class="col standings">
               <div class="card standings">
                 <h2>CANLI SIRALAMA · TUR 31</h2>
                 <div class="body">
@@ -223,8 +166,8 @@
               </div>
             </div>
 
-            <!-- SAĞ -->
-            <div class="col right">
+            <!-- ORTA: TELEMETRİ VS -->
+            <div class="col telemetry">
               <div class="card telemetry">
                 <h2>TELEMETRİ · SEÇİLİ PİLOT <span style="margin-left:auto;color:#27F4D2">ANT</span></h2>
                 <div class="body telemetry-row">
@@ -237,11 +180,7 @@
                       <path d="M65.6 65.6 A22 22 0 0 0 65.6 34.4" fill="none" stroke="#1F242C" stroke-width="4" stroke-linecap="round"/>
                       <path d="M65.6 65.6 A22 22 0 0 0 65.6 34.4" fill="none" stroke="#E10600" stroke-width="4" stroke-linecap="round"/>
                     </svg>
-                    <div class="gauge-center">
-                      <div class="v">318</div><div class="u">KM/SA</div>
-                      <div class="rpm">12 480 <span style="font-size:8px;color:var(--muted)">RPM</span></div>
-                      <div class="gear">V7 <span class="drs">DRS</span></div>
-                    </div>
+                    <div class="gauge-center"><div class="v">318</div><div class="u">KM/SA</div><div class="rpm">12 480 <span style="font-size:8px;color:var(--muted)">RPM</span></div><div class="gear">V7 <span class="drs">DRS</span></div></div>
                     <span class="gauge-edge gaz">GAZ</span><span class="gauge-edge fren">FREN</span>
                   </div>
                   <div class="gauge-info">
@@ -258,57 +197,60 @@
                   </div>
                 </div>
               </div>
-
               <div class="card graph">
                 <h2>HIZ GRAFİĞİ · SON 60 SN</h2>
-                <div class="body">
-                  <svg class="chart" viewBox="0 0 400 100" preserveAspectRatio="none">
-                    <path d="M0 78 L30 62 L55 55 L80 68 L105 44 L130 52 L160 35 L190 48 L220 28 L250 40 L280 22 L310 36 L340 18 L370 30 L400 25" fill="none" stroke="#E10600" stroke-width="2"/>
-                    <path d="M0 88 L30 72 L55 70 L80 80 L105 60 L130 66 L160 55 L190 64 L220 48 L250 58 L280 44 L310 54 L340 40 L370 50 L400 46" fill="none" stroke="#9299A6" stroke-width="1.5" stroke-dasharray="4 3"/>
-                  </svg>
-                </div>
+                <div class="body"><svg class="chart" viewBox="0 0 400 100" preserveAspectRatio="none">
+                  <path d="M0 78 L30 62 L55 55 L80 68 L105 44 L130 52 L160 35 L190 48 L220 28 L250 40 L280 22 L310 36 L340 18 L370 30 L400 25" fill="none" stroke="#E10600" stroke-width="2"/>
+                  <path d="M0 88 L30 72 L55 70 L80 80 L105 60 L130 66 L160 55 L190 64 L220 48 L250 58 L280 44 L310 54 L340 40 L370 50 L400 46" fill="none" stroke="#9299A6" stroke-width="1.5" stroke-dasharray="4 3"/>
+                </svg></div>
               </div>
-
               <div class="card laps">
                 <h2>TUR SÜRELERİ</h2>
                 <div class="body">
                   <div class="laprow"><span class="n">29</span><span class="tm">1:43.902</span><span class="delta">⚡ en hızlı</span></div>
                   <div class="laprow"><span class="n">30</span><span class="tm">1:44.118</span><span class="delta">+0.216</span></div>
-                  <div class="laprow"><span class="n">31</span><span class="tm">1:43.977</span><span class="delta">+0.075</span></div>
                 </div>
               </div>
-
               <div class="card compare">
                 <h2>POİLOT KARŞILAŞTIRMASI</h2>
                 <div class="body cmp">
                   <div class="mini-gauges">
-                    <div class="mini">
-                      <svg viewBox="0 0 100 100">
-                        <path d="M20.3 79.7 A42 42 0 1 1 79.7 79.7" fill="none" stroke="#292E38" stroke-width="7" stroke-linecap="round"/>
-                        <path d="M20.3 79.7 A42 42 0 1 1 84.0 25.3" fill="none" stroke="#2F6BFF" stroke-width="7" stroke-linecap="round"/>
-                        <path d="M28.8 71.2 A30 30 0 0 1 71.2 28.8" fill="none" stroke="#1E3A2B" stroke-width="3" stroke-linecap="round"/>
-                        <path d="M28.8 71.2 A30 30 0 0 1 61.0 22.1" fill="none" stroke="#39C98A" stroke-width="3" stroke-linecap="round"/>
-                        <path d="M65.6 65.6 A22 22 0 0 0 65.6 34.4" fill="none" stroke="#E10600" stroke-width="3" stroke-linecap="round"/>
-                      </svg>
-                      <div class="mc"><b>318</b><span>12 480 RPM</span></div><span class="mg" style="color:#27F4D2">ANT · V7</span>
-                    </div>
-                    <div class="mini">
-                      <svg viewBox="0 0 100 100">
-                        <path d="M20.3 79.7 A42 42 0 1 1 79.7 79.7" fill="none" stroke="#292E38" stroke-width="7" stroke-linecap="round"/>
-                        <path d="M20.3 79.7 A42 42 0 1 1 77.3 18.1" fill="none" stroke="#2F6BFF" stroke-width="7" stroke-linecap="round"/>
-                        <path d="M28.8 71.2 A30 30 0 0 1 71.2 28.8" fill="none" stroke="#1E3A2B" stroke-width="3" stroke-linecap="round"/>
-                        <path d="M28.8 71.2 A30 30 0 0 1 57.5 25.0" fill="none" stroke="#39C98A" stroke-width="3" stroke-linecap="round"/>
-                        <path d="M65.6 65.6 A22 22 0 0 0 65.6 42.0" fill="none" stroke="#E10600" stroke-width="3" stroke-linecap="round"/>
-                      </svg>
-                      <div class="mc"><b>305</b><span>11 900 RPM</span></div><span class="mg" style="color:#5B9BFF">VER · V7</span>
-                    </div>
+                    <div class="mini"><svg viewBox="0 0 100 100"><path d="M20.3 79.7 A42 42 0 1 1 84.0 25.3" fill="none" stroke="#2F6BFF" stroke-width="7" stroke-linecap="round"/><path d="M28.8 71.2 A30 30 0 0 1 61.0 22.1" fill="none" stroke="#39C98A" stroke-width="3" stroke-linecap="round"/><path d="M65.6 65.6 A22 22 0 0 0 65.6 34.4" fill="none" stroke="#E10600" stroke-width="3" stroke-linecap="round"/></svg><div class="mc"><b>318</b><span>12 480 RPM</span></div><span class="mg" style="color:#27F4D2">ANT · V7</span></div>
+                    <div class="mini"><svg viewBox="0 0 100 100"><path d="M20.3 79.7 A42 42 0 1 1 77.3 18.1" fill="none" stroke="#2F6BFF" stroke-width="7" stroke-linecap="round"/><path d="M28.8 71.2 A30 30 0 0 1 57.5 25.0" fill="none" stroke="#39C98A" stroke-width="3" stroke-linecap="round"/><path d="M65.6 65.6 A22 22 0 0 0 65.6 42.0" fill="none" stroke="#E10600" stroke-width="3" stroke-linecap="round"/></svg><div class="mc"><b>305</b><span>11 900 RPM</span></div><span class="mg" style="color:#5B9BFF">VER · V7</span></div>
                   </div>
                   <div class="legend"><span><i style="background:#27F4D2"></i>ANT</span><span><i style="background:#5B9BFF"></i>VER</span></div>
-                  <svg class="chart" viewBox="0 0 400 70" preserveAspectRatio="none">
-                    <path d="M0 55 L40 40 L80 45 L120 28 L160 36 L200 20 L240 32 L280 15 L320 26 L360 12 L400 22" fill="none" stroke="#27F4D2" stroke-width="2"/>
-                    <path d="M0 60 L40 48 L80 52 L120 38 L160 44 L200 34 L240 42 L280 28 L320 38 L360 26 L400 32" fill="none" stroke="#5B9BFF" stroke-width="1.5" stroke-dasharray="4 3"/>
-                  </svg>
+                  <svg class="chart" viewBox="0 0 400 60" preserveAspectRatio="none"><path d="M0 48 L40 36 L80 40 L120 26 L160 32 L200 18 L240 28 L280 12 L320 22 L360 10 L400 18" fill="none" stroke="#27F4D2" stroke-width="2"/><path d="M0 52 L40 42 L80 46 L120 34 L160 38 L200 30 L240 38 L280 24 L320 32 L360 22 L400 28" fill="none" stroke="#5B9BFF" stroke-width="1.5" stroke-dasharray="4 3"/></svg>
                 </div>
+              </div>
+            </div>
+
+            <!-- SAĞ: HARİTA VS -->
+            <div class="col mapcol">
+              <div class="card map">
+                <h2>PİST HARİTASI</h2>
+                <div class="body"><div class="track"><svg viewBox="0 0 400 220" fill="none" stroke="#3A414E" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"><path d="M70 160 L70 70 Q70 50 90 50 L320 50 Q345 50 345 75 L345 150 Q345 170 325 170 L180 170 Q160 170 160 150 L160 110 Q160 95 175 95 L260 95"/></svg></div>
+                  <span class="car c1"></span><span class="car c2"></span><span class="car c3"></span><span class="car c4"></span>
+                  <span class="map-tag">20 araç · canlı konum · tur sınırları</span>
+                </div>
+              </div>
+              <div class="card strategy">
+                <h2>LASTİK STRATEJİSİ · TÜM PİLOTLAR</h2>
+                <div class="body">
+                  <div class="stint"><span class="code">ANT</span><span class="bar"><i class="seg" style="width:38%;background:#E8002D"></i><i class="seg" style="width:34%;background:#FFC247"></i><i class="seg" style="width:28%;background:#D0D4DA"></i></span></div>
+                  <div class="stint"><span class="code">VER</span><span class="bar"><i class="seg" style="width:44%;background:#FFC247"></i><i class="seg" style="width:56%;background:#D0D4DA"></i></span></div>
+                  <div class="stint"><span class="code">HAM</span><span class="bar"><i class="seg" style="width:52%;background:#D0D4DA"></i><i class="seg" style="width:48%;background:#E8002D"></i></span></div>
+                  <div class="stint"><span class="code">RUS</span><span class="bar"><i class="seg" style="width:40%;background:#FFC247"></i><i class="seg" style="width:60%;background:#D0D4DA"></i></span></div>
+                  <div class="stint"><span class="code">NOR</span><span class="bar"><i class="seg" style="width:18%;background:#52E252"></i><i class="seg" style="width:42%;background:#E8002D"></i><i class="seg" style="width:40%;background:#D0D4DA"></i></span></div>
+                  <div class="stint"><span class="code">LEC</span><span class="bar"><i class="seg" style="width:46%;background:#D0D4DA"></i><i class="seg" style="width:54%;background:#FFC247"></i></span></div>
+                  <div class="stint"><span class="code">PIA</span><span class="bar"><i class="seg" style="width:35%;background:#E8002D"></i><i class="seg" style="width:65%;background:#FFC247"></i></span></div>
+                  <div class="stint"><span class="code">HAD</span><span class="bar"><i class="seg" style="width:50%;background:#52E252"></i><i class="seg" style="width:50%;background:#D0D4DA"></i></span></div>
+                  <div class="stint"><span class="code">LAW</span><span class="bar"><i class="seg" style="width:55%;background:#52E252"></i><i class="seg" style="width:45%;background:#D0D4DA"></i></span></div>
+                  <div class="stint"><span class="code">GAS</span><span class="bar"><i class="seg" style="width:60%;background:#D0D4DA"></i><i class="seg" style="width:40%;background:#E8002D"></i></span></div>
+                </div>
+              </div>
+              <div style="display:flex;gap:12px;flex:2;min-height:0">
+                <div class="card bottom" style="flex:1"><h2>PİT STOPLAR</h2><div class="body rows"><div class="row"><span class="p">P1</span><span>ANT · 2.41 sn</span><span class="t">TUR 18</span></div><div class="row"><span class="p">P2</span><span>VER · 2.58 sn</span><span class="t">TUR 22</span></div><div class="row"><span class="p">P3</span><span>HAM · 3.02 sn</span><span class="t">TUR 25</span></div></div></div>
+                <div class="card bottom" style="flex:1"><h2>OLAYLAR</h2><div class="body rows"><div class="row event"><span class="p">SC</span><span>Safety car</span><span class="t">TUR 12</span></div><div class="row event"><span class="p">!</span><span>Ceza · 5 sn</span><span class="t">TUR 27</span></div><div class="row event"><span class="p">⚑</span><span>Kırmızı bayrak</span><span class="t">TUR 33</span></div></div></div>
               </div>
             </div>
           </div>

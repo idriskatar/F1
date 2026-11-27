@@ -217,7 +217,7 @@ class _DesktopStrategy extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final drivers = data.drivers.where((d) => d.stints.isNotEmpty).take(4).toList();
+    final drivers = data.drivers.where((d) => d.stints.isNotEmpty).toList();
     if (drivers.isEmpty) {
       return Center(child: Text('Strateji verisi yok.', style: TextStyle(color: AppColors.muted, fontSize: 11)));
     }
@@ -537,26 +537,6 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
       _desktopTopBar(data),
       const SizedBox(height: 10),
       Expanded(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Expanded(flex: 40, child: Column(children: [
-          _desktopCard(title: 'PİST HARİTASI', flex: 3, child: _buildMap(data, EdgeInsets.zero)),
-          _desktopCard(title: 'LASTİK STRATEJİSİ', flex: 2, child: _DesktopStrategy(data: data)),
-          Expanded(flex: 2, child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Expanded(child: _desktopCard(title: 'PİT STOPLAR', flex: 1, child: ReplayPitStopsCard(
-              data: data,
-              time: _slowTime,
-              onOpen: (pit) => ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${pit.driver} · tur ${pit.lap} · pit şeridi ${pit.pitLaneSeconds?.toStringAsFixed(1) ?? '—'} sn')),
-              ),
-            ))),
-            const SizedBox(width: 8),
-            Expanded(child: _desktopCard(title: 'OLAYLAR', flex: 1, child: ReplayEventsCard(
-              data: data,
-              time: _slowTime,
-              onOpen: (event) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(event.badge))),
-            ))),
-          ])),
-        ])),
-        const SizedBox(width: 10),
         Expanded(flex: 22, child: _desktopCard(
           title: 'CANLI SIRALAMA',
           flex: 1,
@@ -564,11 +544,11 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
             data: data,
             time: _slowTime,
             selected: _selected,
-            onSelect: (code) => setState(() => _selected = code),
+            onSelect: _select,
           ),
         )),
-        const SizedBox(width: 10),
-        Expanded(flex: 38, child: Column(children: [
+        const SizedBox(width: 14),
+        Expanded(flex: 40, child: Column(children: [
           _desktopCard(
             title: 'TELEMETRİ · SEÇİLİ PİLOT',
             flex: 3,
@@ -576,23 +556,26 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
                 ? Center(child: Text('Soldan bir pilot seçin.', style: TextStyle(color: AppColors.muted, fontSize: 11)))
                 : ReplayTelemetryDesktop(data: data, driver: selectedDriver, time: _time, slowTime: _slowTime),
           ),
+          const SizedBox(height: 12),
           _desktopCard(
             title: 'HIZ GRAFİĞİ · SON 60 SN',
-            flex: 2,
+            flex: 1.6,
             child: selectedDriver == null
                 ? const SizedBox.shrink()
                 : ReplaySpeedGraphCard(data: data, driver: selectedDriver, time: _time),
           ),
+          const SizedBox(height: 12),
           _desktopCard(
             title: 'TUR SÜRELERİ',
-            flex: 1.4,
+            flex: 1.2,
             child: selectedDriver == null
                 ? const SizedBox.shrink()
                 : ReplayLapTimesCard(data: data, driver: selectedDriver, time: _time),
           ),
+          const SizedBox(height: 12),
           _desktopCard(
             title: 'PİLOT KARŞILAŞTIRMASI',
-            flex: 2,
+            flex: 1.6,
             child: ReplayCompareCard(
               data: data,
               driver: selectedDriver,
@@ -607,18 +590,33 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
             ),
           ),
         ])),
+        const SizedBox(width: 14),
+        Expanded(flex: 38, child: Column(children: [
+          _desktopCard(title: 'PİST HARİTASI', flex: 3, child: _buildMap(data, EdgeInsets.zero)),
+          const SizedBox(height: 12),
+          _desktopCard(title: 'LASTİK STRATEJİSİ · TÜM PİLOTLAR', flex: 2, child: _DesktopStrategy(data: data)),
+          const SizedBox(height: 12),
+          Expanded(flex: 2, child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Expanded(child: _desktopCard(title: 'PİT STOPLAR', flex: 1, child: ReplayPitStopsCard(
+              data: data,
+              time: _slowTime,
+              onOpen: (pit) => ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('${pit.driver} · tur ${pit.lap} · pit şeridi ${pit.pitLaneSeconds?.toStringAsFixed(1) ?? '—'} sn')),
+              ),
+            ))),
+            const SizedBox(width: 12),
+            Expanded(child: _desktopCard(title: 'OLAYLAR', flex: 1, child: ReplayEventsCard(
+              data: data,
+              time: _slowTime,
+              onOpen: (event) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(event.badge))),
+            ))),
+          ])),
+        ])),
       ])),
     ]);
   }
 
   Widget _desktopTopBar(ReplayData data) => Row(children: [
-    IconButton(
-      tooltip: 'Geri',
-      visualDensity: VisualDensity.compact,
-      onPressed: () => Navigator.of(context).maybePop(),
-      icon: const Icon(Icons.arrow_back_rounded),
-    ),
-    const SizedBox(width: 4),
     Flexible(child: Text(widget.title, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900))),
     const SizedBox(width: 10),
     ValueListenableBuilder<double>(

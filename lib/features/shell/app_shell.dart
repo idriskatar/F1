@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../core/theme/app_theme.dart';
 import '../../data/remote/jolpica_repository.dart';
 import '../../data/remote/news_repository.dart';
 import '../../data/remote/replay_repository.dart';
@@ -162,16 +161,18 @@ class _AppShellState extends State<AppShell> {
                   onPressed: _openMore,
                 )
               : null,
-          title: Row(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-              width: 30,
-              height: 26,
-              decoration: BoxDecoration(color: const Color(0xFFE10600), borderRadius: BorderRadius.circular(6)),
-              child: const Icon(Icons.flag_rounded, color: Colors.white, size: 17),
-            ),
-            const SizedBox(width: 9),
-            const Text('F1 TRACKER', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.3)),
-          ]),
+          title: isMobile
+              ? Row(mainAxisSize: MainAxisSize.min, children: [
+                  Container(
+                    width: 30,
+                    height: 26,
+                    decoration: BoxDecoration(color: const Color(0xFFE10600), borderRadius: BorderRadius.circular(6)),
+                    child: const Icon(Icons.flag_rounded, color: Colors.white, size: 17),
+                  ),
+                  const SizedBox(width: 9),
+                  const Text('F1 TRACKER', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.3)),
+                ])
+              : null,
         ),
         body: isMobile
             ? IndexedStack(index: _index, children: _screens())
@@ -181,16 +182,12 @@ class _AppShellState extends State<AppShell> {
                     index: _index,
                     onSelected: _selectTab,
                     onOpenMore: _openMore,
+                    compact: _subPage is ReplayPlayerScreen,
                   ),
                   const VerticalDivider(width: 1, thickness: 1),
                   Expanded(child: ShellPageOpener(
                     open: _openPage,
-                    child: _subPage != null
-                        ? Column(children: [
-                            _SubPageBar(onBack: () => setState(() => _subPage = null)),
-                            Expanded(child: _subPage!),
-                          ])
-                        : IndexedStack(index: _index, children: _screens()),
+                    child: _subPage != null ? _subPage! : IndexedStack(index: _index, children: _screens()),
                   )),
                 ],
               ),
@@ -216,22 +213,41 @@ class _AppShellState extends State<AppShell> {
 /// Masaüstünde sol tarafta duran genişletilmiş gezinme rayı.
 /// Mobildeki alt gezinme çubuğuyla aynı beş sekmeyi ve Ayarlar/Hakkında erişimini sunar.
 class _DesktopNavigationRail extends StatelessWidget {
-  const _DesktopNavigationRail({required this.index, required this.onSelected, required this.onOpenMore});
+  const _DesktopNavigationRail({required this.index, required this.onSelected, required this.onOpenMore, this.compact = false});
 
   final int index;
   final ValueChanged<int> onSelected;
   final VoidCallback onOpenMore;
 
+  /// Replay oynatıcı açıkken yalnızca simgeler görünür, içerik genişler.
+  final bool compact;
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 256,
+      width: compact ? 74 : 256,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (compact)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Center(
+                child: Container(width: 34, height: 30, decoration: BoxDecoration(color: const Color(0xFFE10600), borderRadius: BorderRadius.circular(7)), child: const Icon(Icons.flag_rounded, color: Colors.white, size: 16)),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 18),
+              child: Row(children: [
+                Container(width: 30, height: 26, decoration: BoxDecoration(color: const Color(0xFFE10600), borderRadius: BorderRadius.circular(6)), child: const Icon(Icons.flag_rounded, color: Colors.white, size: 17)),
+                const SizedBox(width: 9),
+                const Text('F1 TRACKER', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+              ]),
+            ),
           Expanded(
             child: NavigationRail(
-              extended: true,
+              extended: !compact,
               minExtendedWidth: 256,
               selectedIndex: index,
               onDestinationSelected: onSelected,
@@ -247,36 +263,26 @@ class _DesktopNavigationRail extends StatelessWidget {
             ),
           ),
           const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              leading: const Icon(Icons.tune_rounded),
-              title: const Text('Ayarlar'),
-              subtitle: const Text('Tema, hakkında, gizlilik'),
-              onTap: onOpenMore,
+          if (compact)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+              child: Center(child: IconButton(tooltip: 'Ayarlar', onPressed: onOpenMore, icon: const Icon(Icons.tune_rounded))),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                leading: const Icon(Icons.tune_rounded),
+                title: const Text('Ayarlar'),
+                subtitle: const Text('Tema, hakkında, gizlilik'),
+                onTap: onOpenMore,
+              ),
             ),
-          ),
         ],
       ),
     );
   }
 }
 
-/// Alt sayfanın üstündeki geri çubuğu (sol ray görünür kalır).
-class _SubPageBar extends StatelessWidget {
-  const _SubPageBar({required this.onBack});
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    height: 46,
-    padding: const EdgeInsets.symmetric(horizontal: 12),
-    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
-    child: Row(children: [
-      IconButton(onPressed: onBack, tooltip: 'Geri (Esc)', icon: const Icon(Icons.arrow_back_rounded, size: 20)),
-      const Text('Geri', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-    ]),
-  );
-}

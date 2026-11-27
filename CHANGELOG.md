@@ -2,6 +2,14 @@
 
 Bu dosya kullanıcıya görünen sürüm geçmişini tutar. Sürüm numarası `pubspec.yaml` ve `lib/core/app_info.dart` ile eşleşir.
 
+## [1.6.3] - 2026-11-27
+
+### Değiştirildi
+- Masaüstü Replay: sıralama solda, telemetri ortada, harita sağda; kart aralıkları ve telemetri göstergesi büyütüldü.
+- Replay oynatıcı açıkken sol menü yalnızca simgelere daralır; geri butonu satırı kaldırıldı.
+- AppBar marka yazısı kaldırıldı; F1 TRACKER yalnızca sol menüde durur.
+- Lastik stratejisi kartı tüm pilotları gösterir.
+
 ## [1.6.2] - 2026-11-27
 
 ### Eklendi

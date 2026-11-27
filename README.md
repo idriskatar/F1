@@ -4,16 +4,16 @@ Kişisel kullanım için hazırlanmış, premium koyu temalı Android/iOS ve Win
 
 ## İndir
 
-**En son sürüm: [v1.6.2](https://github.com/idriskatar/F1/releases/latest)**
+**En son sürüm: [v1.6.3](https://github.com/idriskatar/F1/releases/latest)**
 
 | Platform | Kurulum | Taşınabilir |
 | --- | --- | --- |
-| Windows | [F1-Tracker-Setup-v1.6.2.exe](https://github.com/idriskatar/F1/releases/download/v1.6.2/F1-Tracker-Setup-v1.6.2.exe) | [zip](https://github.com/idriskatar/F1/releases/download/v1.6.2/F1-Tracker-Windows-v1.6.2.zip) |
-| Linux | [f1-tracker_1.6.2_amd64.deb](https://github.com/idriskatar/F1/releases/download/v1.6.2/f1-tracker_1.6.2_amd64.deb) | [tar.gz](https://github.com/idriskatar/F1/releases/download/v1.6.2/F1-Tracker-Linux-v1.6.2.tar.gz) |
-| macOS | [F1-Tracker-v1.6.2.dmg](https://github.com/idriskatar/F1/releases/download/v1.6.2/F1-Tracker-v1.6.2.dmg) | [zip](https://github.com/idriskatar/F1/releases/download/v1.6.2/F1-Tracker-macOS-v1.6.2.zip) |
-| Android | [F1-Tracker-Android-v1.6.2.apk](https://github.com/idriskatar/F1/releases/download/v1.6.2/F1-Tracker-Android-v1.6.2.apk) | — |
+| Windows | [F1-Tracker-Setup-v1.6.3.exe](https://github.com/idriskatar/F1/releases/download/v1.6.3/F1-Tracker-Setup-v1.6.3.exe) | [zip](https://github.com/idriskatar/F1/releases/download/v1.6.3/F1-Tracker-Windows-v1.6.3.zip) |
+| Linux | [f1-tracker_1.6.3_amd64.deb](https://github.com/idriskatar/F1/releases/download/v1.6.3/f1-tracker_1.6.3_amd64.deb) | [tar.gz](https://github.com/idriskatar/F1/releases/download/v1.6.3/F1-Tracker-Linux-v1.6.3.tar.gz) |
+| macOS | [F1-Tracker-v1.6.3.dmg](https://github.com/idriskatar/F1/releases/download/v1.6.3/F1-Tracker-v1.6.3.dmg) | [zip](https://github.com/idriskatar/F1/releases/download/v1.6.3/F1-Tracker-macOS-v1.6.3.zip) |
+| Android | [F1-Tracker-Android-v1.6.3.apk](https://github.com/idriskatar/F1/releases/download/v1.6.3/F1-Tracker-Android-v1.6.3.apk) | — |
 
-Windows `setup.exe` kullanıcı bazında kurulum yapar; Linux `.deb` için `sudo apt install ./f1-tracker_1.6.2_amd64.deb`; macOS `.dmg` uygulamayı Applications klasörüne sürükleyerek kurulur.
+Windows `setup.exe` kullanıcı bazında kurulum yapar; Linux `.deb` için `sudo apt install ./f1-tracker_1.6.3_amd64.deb`; macOS `.dmg` uygulamayı Applications klasörüne sürükleyerek kurulur.
 
 Tüm sürümler ve notlar: [GitHub Releases](https://github.com/idriskatar/F1/releases) · [CHANGELOG](CHANGELOG.md)
 

@@ -1415,7 +1415,7 @@ class ReplayTelemetryDesktop extends StatelessWidget {
       return Center(child: Text('Bu pilot için telemetri verisi yok.', style: TextStyle(color: AppColors.muted, fontSize: 11)));
     }
     return Row(children: [
-      SizedBox(width: 176, height: 176, child: _Gauge(data: data, driver: driver, time: time)),
+      SizedBox(width: 200, height: 200, child: _Gauge(data: data, driver: driver, time: time)),
       const SizedBox(width: 8),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(driver.surname.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
