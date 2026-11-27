@@ -40,6 +40,8 @@ class ReplayRepository {
   })  : _client = client ?? http.Client(),
         _baseUrl = baseUrl ?? defaultBaseUrl,
         _cacheDirectory = cacheDirectory ?? _defaultCacheDirectory,
+        // Adlandırılmış parametreler alt çizgiyle başlayamadığı için `this._useIsolate` yazılamaz.
+        // ignore: prefer_initializing_formals
         _useIsolate = useIsolate;
 
   static const defaultBaseUrl = 'https://raw.githubusercontent.com/idriskatar/F1/main/data/replay';

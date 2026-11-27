@@ -34,6 +34,8 @@ class NewsRepository {
   })  : _client = client ?? http.Client(),
         _store = store ?? LocalStore(),
         sources = sources ?? newsSources,
+        // Adlandırılmış parametreler alt çizgiyle başlayamadığı için `this._freshFor` yazılamaz.
+        // ignore: prefer_initializing_formals
         _freshFor = freshFor;
 
   final http.Client _client;

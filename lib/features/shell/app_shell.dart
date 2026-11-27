@@ -94,12 +94,19 @@ class _AppShellState extends State<AppShell> {
 
     if (shortcut) {
       if (hasSubRoute) return false;
-      if (event.logicalKey == LogicalKeyboardKey.digit1) _selectTab(0);
-      else if (event.logicalKey == LogicalKeyboardKey.digit2) _selectTab(1);
-      else if (event.logicalKey == LogicalKeyboardKey.digit3) _selectTab(2);
-      else if (event.logicalKey == LogicalKeyboardKey.digit4) _selectTab(3);
-      else if (event.logicalKey == LogicalKeyboardKey.digit5) _selectTab(4);
-      else if (event.logicalKey == LogicalKeyboardKey.keyM) _openMore();
+      if (event.logicalKey == LogicalKeyboardKey.digit1) {
+        _selectTab(0);
+      } else if (event.logicalKey == LogicalKeyboardKey.digit2) {
+        _selectTab(1);
+      } else if (event.logicalKey == LogicalKeyboardKey.digit3) {
+        _selectTab(2);
+      } else if (event.logicalKey == LogicalKeyboardKey.digit4) {
+        _selectTab(3);
+      } else if (event.logicalKey == LogicalKeyboardKey.digit5) {
+        _selectTab(4);
+      } else if (event.logicalKey == LogicalKeyboardKey.keyM) {
+        _openMore();
+      }
     } else if (event.logicalKey == LogicalKeyboardKey.escape) {
       if (hasSubRoute) {
         Navigator.of(context).maybePop();
