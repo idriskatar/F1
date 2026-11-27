@@ -152,17 +152,16 @@ class _AppShellState extends State<AppShell> {
         if (!didPop && _index != 0) setState(() => _index = 0);
       },
       child: Scaffold(
-        appBar: AppBar(
-          // Ayarlar masaüstünde zaten sol rayın altında; hamburger yalnızca mobilde görünür.
-          leading: isMobile
-              ? IconButton(
+        // Masaüstünde üstte boş bir AppBar şeridi kalmasın; marka sol rayda zaten var.
+        appBar: !isMobile
+            ? null
+            : AppBar(
+                leading: IconButton(
                   tooltip: 'Menü',
                   icon: const Icon(Icons.menu_rounded),
                   onPressed: _openMore,
-                )
-              : null,
-          title: isMobile
-              ? Row(mainAxisSize: MainAxisSize.min, children: [
+                ),
+                title: Row(mainAxisSize: MainAxisSize.min, children: [
                   Container(
                     width: 30,
                     height: 26,
@@ -171,9 +170,8 @@ class _AppShellState extends State<AppShell> {
                   ),
                   const SizedBox(width: 9),
                   const Text('F1 TRACKER', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.3)),
-                ])
-              : null,
-        ),
+                ]),
+              ),
         body: isMobile
             ? IndexedStack(index: _index, children: _screens())
             : Row(

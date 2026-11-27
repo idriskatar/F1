@@ -1,6 +1,6 @@
 ; F1 Tracker — NSIS kurulum betiği (kullanıcı bazında, yönetici izni gerekmez)
 !define APPNAME "F1 Tracker"
-!define VERSION "1.6.6"
+!define VERSION "1.6.7"
 !define EXE "f1_tracker.exe"
 
 Name "${APPNAME} v${VERSION}"

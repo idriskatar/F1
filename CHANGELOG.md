@@ -2,6 +2,13 @@
 
 Bu dosya kullanıcıya görünen sürüm geçmişini tutar. Sürüm numarası `pubspec.yaml` ve `lib/core/app_info.dart` ile eşleşir.
 
+## [1.6.7] - 2026-11-27
+
+### Değiştirildi
+- Masaüstünde üstteki boş AppBar şeridi kaldırıldı; içerik pencerenin tepesine kadar uzanıyor.
+- Lastik stratejisi kartı ilk 5 pilotu gösterecek şekilde kısaltıldı.
+- Harita kartına daha fazla yükseklik ayrıldı.
+
 ## [1.6.6] - 2026-11-27
 
 ### Değiştirildi

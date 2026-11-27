@@ -231,7 +231,7 @@ class _DesktopStrategyState extends State<_DesktopStrategy> {
 
   @override
   Widget build(BuildContext context) {
-    final drivers = widget.data.drivers.where((d) => d.stints.isNotEmpty).toList();
+    final drivers = widget.data.drivers.where((d) => d.stints.isNotEmpty).take(5).toList();
     if (drivers.isEmpty) {
       return Center(child: Text('Strateji verisi yok.', style: TextStyle(color: AppColors.muted, fontSize: 11)));
     }
@@ -631,7 +631,7 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
         ])),
         const SizedBox(width: 14),
         Expanded(flex: 38, child: Column(children: [
-          _desktopCard(title: 'PİST HARİTASI', flex: 4, child: Column(children: [
+          _desktopCard(title: 'PİST HARİTASI', flex: 6, child: Column(children: [
             ValueListenableBuilder<double>(
               valueListenable: _slowTime,
               builder: (context, t, _) => Row(children: [
