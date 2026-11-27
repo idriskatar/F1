@@ -1489,7 +1489,7 @@ class ReplayTelemetryDesktop extends StatelessWidget {
               ? Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.bolt_rounded, size: 13, color: AppColors.green),
+                    Icon(Icons.bolt_rounded, size: 13, color: AppColors.green),
                     const SizedBox(width: 2),
                     Text('DRS', style: TextStyle(color: AppColors.green, fontSize: 10, fontWeight: FontWeight.w900)),
                   ]),
