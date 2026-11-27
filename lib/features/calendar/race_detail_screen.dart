@@ -2,10 +2,11 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/models/race_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/remote/jolpica_repository.dart';
+import '../../shared/widgets/responsive.dart';
 
 /// Takvimden seçilen yarış hafta sonunun sonuçları ve puan durumu.
 class RaceDetailScreen extends StatelessWidget {
-  const RaceDetailScreen({super.key, required this.weekend, required this.repository, this.clock});
+  const RaceDetailScreen({super.key, required this.weekend, required this.repository, this.clock, this.embedded = false});
 
   final RaceWeekend weekend;
   final JolpicaRepository repository;
@@ -13,12 +14,32 @@ class RaceDetailScreen extends StatelessWidget {
   /// Testlerde sabit saat vermek için; boşsa `DateTime.now`.
   final DateTime Function()? clock;
 
+  /// Masaüstünde kabuğun içinde, sol ray korunarak gösterilir.
+  final bool embedded;
+
   DateTime _now() => (clock ?? DateTime.now)();
+
+  /// Masaüstünde sekme satırlarını iki sütuna böler (sıra soldan sağa, üstten alta).
+  List<Widget> _twoColumns(List<Widget> items) {
+    final left = <Widget>[];
+    final right = <Widget>[];
+    for (var i = 0; i < items.length; i++) {
+      (i.isEven ? left : right).add(items[i]);
+    }
+    return [
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: left)),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: right)),
+      ]),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
     final season = weekend.season;
     final round = weekend.round;
+    final desktop = isDesktopLayout(context);
     final tabs = <(String, Widget)>[
       (
         'Yarış',
@@ -37,7 +58,7 @@ class RaceDetailScreen extends StatelessWidget {
               _SessionsCard(weekend: weekend, now: _now()),
             ] else ...[
               const _Heading('YARIŞ SINIFLANDIRMASI'),
-              _Panel(children: [for (final r in data.items) _ResultRow(r)]),
+              _Panel(children: desktop ? _twoColumns([for (final r in data.items) _ResultRow(r)]) : [for (final r in data.items) _ResultRow(r)]),
             ],
           ],
         ),
@@ -57,7 +78,7 @@ class RaceDetailScreen extends StatelessWidget {
               )
             else ...[
               const _Heading('SIRALAMA TURLARI'),
-              _Panel(children: [for (final r in data.items) _QualifyingRow(r)]),
+              _Panel(children: desktop ? _twoColumns([for (final r in data.items) _QualifyingRow(r)]) : [for (final r in data.items) _QualifyingRow(r)]),
             ],
           ],
         ),
@@ -78,7 +99,7 @@ class RaceDetailScreen extends StatelessWidget {
                 )
               else ...[
                 const _Heading('SPRINT SINIFLANDIRMASI'),
-                _Panel(children: [for (final r in data.items) _ResultRow(r)]),
+                _Panel(children: desktop ? _twoColumns([for (final r in data.items) _ResultRow(r)]) : [for (final r in data.items) _ResultRow(r)]),
               ],
             ],
           ),
@@ -105,15 +126,29 @@ class RaceDetailScreen extends StatelessWidget {
                   subtitle: 'Yarış sonuçlandıktan sonra şampiyona sıralaması burada görünür.',
                 )
               else ...[
-                const _Heading('PİLOTLAR — BU YARIŞTAN SONRA'),
-                _Panel(children: [
-                  for (final d in drivers.items) _StandingRow(d.position, d.name, d.team, '${d.wins} gal.', d.points),
-                ]),
-                const SizedBox(height: 20),
-                const _Heading('TAKIMLAR — BU YARIŞTAN SONRA'),
-                _Panel(children: [
-                  for (final t in teams.items) _StandingRow(t.position, t.name, '', '${t.wins} gal.', t.points),
-                ]),
+                if (desktop)
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const _Heading('PİLOTLAR — BU YARIŞTAN SONRA'),
+                      _Panel(children: [for (final d in drivers.items) _StandingRow(d.position, d.name, d.team, '${d.wins} gal.', d.points)]),
+                    ])),
+                    const SizedBox(width: 14),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const _Heading('TAKIMLAR — BU YARIŞTAN SONRA'),
+                      _Panel(children: [for (final t in teams.items) _StandingRow(t.position, t.name, '', '${t.wins} gal.', t.points)]),
+                    ])),
+                  ])
+                else ...[
+                  const _Heading('PİLOTLAR — BU YARIŞTAN SONRA'),
+                  _Panel(children: [
+                    for (final d in drivers.items) _StandingRow(d.position, d.name, d.team, '${d.wins} gal.', d.points),
+                  ]),
+                  const SizedBox(height: 20),
+                  const _Heading('TAKIMLAR — BU YARIŞTAN SONRA'),
+                  _Panel(children: [
+                    for (final t in teams.items) _StandingRow(t.position, t.name, '', '${t.wins} gal.', t.points),
+                  ]),
+                ],
               ],
             ];
           },
@@ -121,22 +156,29 @@ class RaceDetailScreen extends StatelessWidget {
       ),
     ];
 
+    final tabBar = TabBar(
+      isScrollable: true,
+      tabAlignment: TabAlignment.start,
+      tabs: [for (final t in tabs) Tab(text: t.$1)],
+    );
+    final body = Column(children: [
+      _Header(weekend: weekend, now: _now()),
+      Expanded(child: TabBarView(children: [for (final t in tabs) t.$2])),
+    ]);
     return DefaultTabController(
       length: tabs.length,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(weekend.name, overflow: TextOverflow.ellipsis),
-          bottom: TabBar(
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            tabs: [for (final t in tabs) Tab(text: t.$1)],
-          ),
-        ),
-        body: Column(children: [
-          _Header(weekend: weekend, now: _now()),
-          Expanded(child: TabBarView(children: [for (final t in tabs) t.$2])),
-        ]),
-      ),
+      child: embedded
+          ? Column(children: [
+              Material(child: tabBar),
+              Expanded(child: body),
+            ])
+          : Scaffold(
+              appBar: AppBar(
+                title: Text(weekend.name, overflow: TextOverflow.ellipsis),
+                bottom: tabBar,
+              ),
+              body: body,
+            ),
     );
   }
 }

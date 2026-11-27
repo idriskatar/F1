@@ -2,6 +2,19 @@
 
 Kişisel kullanım için hazırlanmış, premium koyu temalı Android/iOS ve Windows/Linux/macOS Formula 1 takip uygulaması. Bu proje resmî Formula 1/FIA uygulaması değildir.
 
+## İndir
+
+**En son sürüm: [v1.6.0](https://github.com/idriskatar/F1/releases/latest)**
+
+| Platform | Paket |
+| --- | --- |
+| Windows | [F1-Tracker-Windows-v1.6.0.zip](https://github.com/idriskatar/F1/releases/download/v1.6.0/F1-Tracker-Windows-v1.6.0.zip) |
+| Linux | [F1-Tracker-Linux-v1.6.0.tar.gz](https://github.com/idriskatar/F1/releases/download/v1.6.0/F1-Tracker-Linux-v1.6.0.tar.gz) |
+| macOS | [F1-Tracker-macOS-v1.6.0.zip](https://github.com/idriskatar/F1/releases/download/v1.6.0/F1-Tracker-macOS-v1.6.0.zip) |
+| Android | [F1-Tracker-Android-v1.6.0.apk](https://github.com/idriskatar/F1/releases/download/v1.6.0/F1-Tracker-Android-v1.6.0.apk) |
+
+Tüm sürümler ve notlar: [GitHub Releases](https://github.com/idriskatar/F1/releases) · [CHANGELOG](CHANGELOG.md)
+
 ## Bu pakette
 
 - Jolpica ile sezon takvimi, son yarış sınıflandırması ve pilot/takım puan durumu.

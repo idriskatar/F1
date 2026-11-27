@@ -12,6 +12,7 @@ import '../news/news_screen.dart';
 import '../replay/replay_screen.dart';
 import '../results/results_screen.dart';
 import '../../shared/widgets/responsive.dart';
+import 'shell_page_opener.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key, this.repository, this.newsRepository, this.replayRepository, this.clock, this.themeId = 'dark', this.onThemeChanged});
@@ -35,6 +36,9 @@ class _AppShellState extends State<AppShell> {
   late final bool _ownsNews;
   late final ReplayRepository _replayRepository;
   late final bool _ownsReplayRepository;
+
+  /// Masaüstünde alt sayfalar (yarış detayı, Ayarlar) sol rayın sağında açılır.
+  Widget? _subPage;
 
   @override
   void initState() {
@@ -69,15 +73,28 @@ class _AppShellState extends State<AppShell> {
       ReplayScreen(repository: _replayRepository, embedded: true, active: _index == 4),
     ];
 
+  void _openPage(Widget page) {
+    if (!_isMobile(context)) {
+      setState(() => _subPage = page);
+    } else {
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+    }
+  }
+
   void _openMore() {
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => MoreScreen(themeId: widget.themeId, onThemeChanged: widget.onThemeChanged ?? (_) {}),
+    _openPage(MoreScreen(
+      themeId: widget.themeId,
+      onThemeChanged: widget.onThemeChanged ?? (_) {},
+      embedded: !_isMobile(context),
     ));
   }
 
   void _selectTab(int index) {
-    if (index >= 0 && index < 5 && _index != index) {
-      setState(() => _index = index);
+    if (index >= 0 && index < 5) {
+      setState(() {
+        _subPage = null;
+        _index = index;
+      });
     }
   }
 
@@ -87,7 +104,7 @@ class _AppShellState extends State<AppShell> {
   bool _handleKeyEvent(KeyEvent event) {
     if (event is! KeyDownEvent || !mounted) return false;
     // Açık bir alt sayfa (yarış detayı, replay, Ayarlar vb.) varsa sekme kısayolları devre dışı kalır.
-    final hasSubRoute = Navigator.maybeOf(context)?.canPop() ?? false;
+    final hasSubRoute = _subPage != null || (Navigator.maybeOf(context)?.canPop() ?? false);
     final shortcut = HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed;
 
     if (shortcut) {
@@ -106,7 +123,9 @@ class _AppShellState extends State<AppShell> {
         _openMore();
       }
     } else if (event.logicalKey == LogicalKeyboardKey.escape) {
-      if (hasSubRoute) {
+      if (_subPage != null) {
+        setState(() => _subPage = null);
+      } else if (hasSubRoute) {
         Navigator.of(context).maybePop();
       } else if (_index != 0) {
         _selectTab(0);
@@ -163,7 +182,15 @@ class _AppShellState extends State<AppShell> {
                     onOpenMore: _openMore,
                   ),
                   const VerticalDivider(width: 1, thickness: 1),
-                  Expanded(child: IndexedStack(index: _index, children: _screens())),
+                  Expanded(child: ShellPageOpener(
+                    open: _openPage,
+                    child: _subPage != null
+                        ? Column(children: [
+                            _SubPageBar(onBack: () => setState(() => _subPage = null)),
+                            Expanded(child: _subPage!),
+                          ])
+                        : IndexedStack(index: _index, children: _screens()),
+                  )),
                 ],
               ),
         bottomNavigationBar: isMobile
@@ -234,4 +261,21 @@ class _DesktopNavigationRail extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Alt sayfanın üstündeki geri çubuğu (sol ray görünür kalır).
+class _SubPageBar extends StatelessWidget {
+  const _SubPageBar({required this.onBack});
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 46,
+    padding: const EdgeInsets.symmetric(horizontal: 12),
+    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
+    child: Row(children: [
+      IconButton(onPressed: onBack, tooltip: 'Geri (Esc)', icon: const Icon(Icons.arrow_back_rounded, size: 20)),
+      const Text('Geri', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+    ]),
+  );
 }

@@ -13,6 +13,7 @@ import re
 
 ROOT = Path(__file__).resolve().parents[1]
 DISPLAY_NAME = "F1 Tracker"
+WIN_VERSION = "1.6.0.0"
 
 changed = []
 missing = []
@@ -84,6 +85,15 @@ if text is not None:
     )
     if updated != text:
         write(runner_rc, updated)
+    text = read(runner_rc)
+    if text is not None:
+        updated = re.sub(
+            r'(VALUE\s+"(?:FileVersion|ProductVersion)",\s*")[^"]*(")',
+            rf"\g<1>{WIN_VERSION}\g<2>",
+            text,
+        )
+        if updated != text:
+            write(runner_rc, updated)
 
 # Linux: pencere ve başlık çubuğu başlığı
 linux_app = ROOT / "linux/runner/my_application.cc"

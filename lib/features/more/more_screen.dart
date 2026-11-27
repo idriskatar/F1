@@ -1,14 +1,20 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/app_info.dart';
+import '../../core/services/update_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../shared/open_url.dart';
 import '../../shared/widgets/responsive.dart';
 import '../settings/settings_screen.dart';
 
 class MoreScreen extends StatelessWidget {
-  const MoreScreen({super.key, required this.themeId, required this.onThemeChanged});
+  const MoreScreen({super.key, required this.themeId, required this.onThemeChanged, this.embedded = false});
 
   final String themeId;
   final ValueChanged<String> onThemeChanged;
+
+  /// Masaüstünde kabuğun içinde, ikinci bir Scaffold/AppBar olmadan gösterilir.
+  final bool embedded;
 
   void _open(BuildContext context, Widget page) {
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
@@ -16,6 +22,7 @@ class MoreScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (embedded) return _desktopContent();
     if (isDesktopLayout(context)) return _desktop(context);
     return _mobile(context);
   }
@@ -53,6 +60,7 @@ class MoreScreen extends StatelessWidget {
             subtitle: 'Açık kaynak kullanım koşulları',
             onTap: () => _open(context, const _MitLicensePage()),
           ),
+          const _UpdateChecker(compact: true),
         ],
       ),
     ),
@@ -64,8 +72,12 @@ class MoreScreen extends StatelessWidget {
     body: SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
-        children: [
-          Center(
+        children: [_desktopContent()],
+      ),
+    ),
+  );
+
+  Widget _desktopContent() => Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 900),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -81,7 +93,7 @@ class MoreScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
                     decoration: BoxDecoration(color: AppColors.green.withValues(alpha: .08), borderRadius: BorderRadius.circular(999), border: Border.all(color: AppColors.green.withValues(alpha: .3))),
-                    child: Text('v0.1.0', style: TextStyle(color: AppColors.green, fontSize: 11, fontWeight: FontWeight.w800)),
+                    child: Text('v$appVersion', style: TextStyle(color: AppColors.green, fontSize: 11, fontWeight: FontWeight.w800)),
                   ),
                 ]),
                 const SizedBox(height: 14),
@@ -89,13 +101,10 @@ class MoreScreen extends StatelessWidget {
                 _aboutCard(),
                 _privacyCard(),
                 _licenseCard(),
+                const _UpdateChecker(compact: false),
               ]),
             ),
-          ),
-        ],
-      ),
-    ),
-  );
+          );
 
   Widget _cardShell({required IconData icon, required String title, required String subtitle, required String tag, required List<Widget> children}) => Container(
     margin: const EdgeInsets.only(bottom: 14),
@@ -299,7 +308,7 @@ class _AboutPage extends StatelessWidget {
         const SizedBox(height: 16),
         Text('F1 Tracker', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
         const SizedBox(height: 6),
-        Text('Sürüm 0.1.0', textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted)),
+        Text('Sürüm $appVersion', textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted)),
         const SizedBox(height: 24),
         const _InfoSection(title: 'Geliştirici', body: 'İdris KATAR'),
         const _InfoSection(
@@ -377,4 +386,90 @@ class _InfoSection extends StatelessWidget {
       Text(body, style: TextStyle(color: AppColors.muted, height: 1.5, fontSize: 12)),
     ]),
   );
+}
+
+/// GitHub Releases üzerinden güncelleme kontrolü (mobil liste / masaüstü kart).
+class _UpdateChecker extends StatefulWidget {
+  const _UpdateChecker({required this.compact});
+  final bool compact;
+
+  @override
+  State<_UpdateChecker> createState() => _UpdateCheckerState();
+}
+
+class _UpdateCheckerState extends State<_UpdateChecker> {
+  bool _busy = false;
+
+  Future<void> _check() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final info = await checkForUpdate();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (info == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Güncel sürümdesiniz (v$appVersion)')));
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('Yeni sürüm: v${info.version}'),
+        content: SingleChildScrollView(
+          child: Text(info.notes.isEmpty ? 'Yeni sürüm yayımlandı.' : info.notes, style: const TextStyle(fontSize: 12)),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Kapat')),
+          FilledButton(
+            onPressed: () async {
+              await openExternalUrl(info.url);
+              if (context.mounted) Navigator.of(context).pop();
+            },
+            child: const Text('İndir'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final trailing = _busy
+        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5))
+        : const Icon(Icons.chevron_right_rounded);
+    if (widget.compact) {
+      return Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        child: ListTile(
+          leading: Icon(Icons.system_update_rounded, color: AppColors.red),
+          title: const Text('Güncellemeyi kontrol et', style: TextStyle(fontWeight: FontWeight.w800)),
+          subtitle: const Text('En son sürümü GitHub Releases üzerinden kontrol eder', style: TextStyle(fontSize: 11)),
+          trailing: trailing,
+          onTap: _check,
+        ),
+      );
+    }
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.border)),
+      child: InkWell(
+        onTap: _check,
+        child: Row(children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(color: AppColors.red.withValues(alpha: .14), borderRadius: BorderRadius.circular(12)),
+            child: Icon(Icons.system_update_rounded, color: AppColors.red, size: 19),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Güncellemeyi kontrol et', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 2),
+            Text('En son sürümü GitHub Releases üzerinden kontrol eder', style: TextStyle(color: AppColors.muted, fontSize: 11)),
+          ])),
+          trailing,
+        ]),
+      ),
+    );
+  }
 }

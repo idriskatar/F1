@@ -6,6 +6,7 @@ import '../../core/models/race_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/remote/jolpica_repository.dart';
 import '../../data/remote/news_repository.dart';
+import '../../shared/open_url.dart';
 import '../../shared/widgets/section_title.dart';
 import '../../shared/widgets/responsive.dart';
 
@@ -66,6 +67,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _open(int tab) => widget.onOpenTab?.call(tab);
 
+  /// Ana sayfadaki haber doğrudan kaynağında açılır; Haberler sekmesine gidilmez.
+  Future<void> _openNews(NewsItem item) async {
+    var opened = false;
+    try {
+      opened = await openExternalUrl(item.url);
+    } catch (_) {}
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bağlantı açılamadı')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final desktop = isDesktopLayout(context);
@@ -125,7 +137,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _section<NewsFeedResult>(
           future: _news,
           errorTitle: 'Haberler yüklenemedi',
-          builder: (data) => _NewsPreview(data: data, onTap: () => _open(_newsTab)),
+          builder: (data) => _NewsPreview(data: data, onTap: _openNews),
         ),
       ];
 
@@ -191,7 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _section<NewsFeedResult>(
         future: _news,
         errorTitle: 'Haberler yüklenemedi',
-        builder: (data) => _NewsPreviewGrid(data: data, onTap: () => _open(_newsTab)),
+        builder: (data) => _NewsPreviewGrid(data: data, onTap: _openNews),
       ),
     ];
   }
@@ -354,7 +366,12 @@ class _CompactNextRaceCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
+            border: Border(
+              left: BorderSide(color: AppColors.red, width: 3),
+              top: BorderSide(color: AppColors.border),
+              right: BorderSide(color: AppColors.border),
+              bottom: BorderSide(color: AppColors.border),
+            ),
           ),
           child: race == null || start == null
               ? Row(children: [
@@ -373,17 +390,20 @@ class _CompactNextRaceCard extends StatelessWidget {
                     Text(race.dateLabel, style: TextStyle(color: AppColors.muted, fontSize: 11)),
                   ]),
                   const SizedBox(height: 6),
+                  Text(race.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 5),
                   Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(race.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${[race.location, race.country].where((s) => s.isNotEmpty).join(', ')} • Tur ${race.round}',
-                        style: TextStyle(color: AppColors.muted, fontSize: 11),
-                      ),
-                    ])),
-                    const SizedBox(width: 12),
-                    _Countdown(target: start, clock: clock, compact: true),
+                    Expanded(child: Text(
+                      '${[race.location, race.country].where((s) => s.isNotEmpty).join(', ')} • Tur ${race.round}',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: AppColors.muted, fontSize: 11),
+                    )),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                      decoration: BoxDecoration(color: AppColors.surface2, borderRadius: BorderRadius.circular(10)),
+                      child: _Countdown(target: start, clock: clock, compact: true),
+                    ),
                   ]),
                   const SizedBox(height: 8),
                   Row(children: [
@@ -443,6 +463,7 @@ class _CountdownState extends State<_Countdown> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             _CountdownUnit(value: two(left.inDays), label: 'GÜN', compact: widget.compact),
@@ -468,7 +489,7 @@ class _CountdownUnit extends StatelessWidget {
   final bool compact;
   @override
   Widget build(BuildContext context) => Column(children: [
-    Text(value, style: TextStyle(fontSize: compact ? 18 : 26, fontWeight: FontWeight.w900)),
+    Text(value, style: TextStyle(fontSize: compact ? 15 : 26, fontWeight: FontWeight.w900)),
     Text(label, style: TextStyle(fontSize: compact ? 8 : 9, color: AppColors.muted, letterSpacing: compact ? 0.8 : 1.2)),
   ]);
 }
@@ -688,7 +709,7 @@ class _StandingsPanel extends StatelessWidget {
 class _NewsPreview extends StatelessWidget {
   const _NewsPreview({required this.data, required this.onTap});
   final NewsFeedResult data;
-  final VoidCallback onTap;
+  final void Function(NewsItem) onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -711,11 +732,11 @@ class _NewsPreview extends StatelessWidget {
 class _NewsPreviewItem extends StatelessWidget {
   const _NewsPreviewItem({required this.item, required this.onTap});
   final NewsItem item;
-  final VoidCallback onTap;
+  final void Function(NewsItem) onTap;
 
   @override
   Widget build(BuildContext context) => InkWell(
-        onTap: onTap,
+        onTap: () => onTap(item),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 9),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -736,7 +757,7 @@ class _NewsPreviewItem extends StatelessWidget {
 class _NewsPreviewGrid extends StatelessWidget {
   const _NewsPreviewGrid({required this.data, required this.onTap});
   final NewsFeedResult data;
-  final VoidCallback onTap;
+  final void Function(NewsItem) onTap;
 
   @override
   Widget build(BuildContext context) {

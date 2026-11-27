@@ -4,6 +4,7 @@ import '../../core/theme/app_theme.dart';
 import '../../data/remote/jolpica_repository.dart';
 import '../../shared/widgets/demo_notice.dart';
 import '../../shared/widgets/responsive.dart';
+import '../shell/shell_page_opener.dart';
 import 'race_detail_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -29,9 +30,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _open(RaceWeekend weekend) {
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => RaceDetailScreen(weekend: weekend, repository: _repository, clock: widget.clock),
-    ));
+    final opener = ShellPageOpener.maybeOf(context);
+    if (opener != null) {
+      opener.open(RaceDetailScreen(
+        weekend: weekend,
+        repository: _repository,
+        clock: widget.clock,
+        embedded: true,
+      ));
+    } else {
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => RaceDetailScreen(weekend: weekend, repository: _repository, clock: widget.clock),
+      ));
+    }
   }
 
   Future<void> _refresh() async {

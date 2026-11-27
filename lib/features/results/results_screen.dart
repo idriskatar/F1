@@ -165,17 +165,33 @@ class _ResultsScreenState extends State<ResultsScreen> {
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
             decoration: BoxDecoration(border: Border(right: BorderSide(color: AppColors.border)), color: AppColors.surface2.withValues(alpha: .35)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('SON YARIŞ', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.4)),
+              Row(children: [
+                Text('SON YARIŞ', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.4)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(999), border: Border.all(color: AppColors.border)),
+                  child: Text('${rows.isNotEmpty ? rows.first.laps : 0} TUR', style: TextStyle(color: AppColors.muted, fontSize: 9, fontWeight: FontWeight.w800)),
+                ),
+              ]),
               const SizedBox(height: 7),
               Text(label ?? 'Son yarış', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
               const SizedBox(height: 12),
-              Row(children: [
-                _stat('TUR', '${rows.isNotEmpty ? rows.first.laps : 0}'),
-                const SizedBox(width: 6),
-                _stat('POLE', pole.isEmpty ? '—' : pole.first.code),
-                const SizedBox(width: 6),
-                _stat('EN HIZLI TUR', fastest.isEmpty ? '—' : (fastest.first.fastestLapTime ?? '—')),
-              ]),
+              _highlight(
+                icon: Icons.flag_rounded,
+                label: 'POLE POZİSYONU',
+                name: pole.isEmpty ? '—' : (pole.first.name.isEmpty ? pole.first.code : pole.first.name),
+                time: pole.isEmpty ? '—' : 'Grid 1',
+                color: AppColors.red,
+              ),
+              const SizedBox(height: 8),
+              _highlight(
+                icon: Icons.timer_outlined,
+                label: 'EN HIZLI TUR',
+                name: fastest.isEmpty ? '—' : (fastest.first.name.isEmpty ? fastest.first.code : fastest.first.name),
+                time: fastest.isEmpty ? '—' : (fastest.first.fastestLapTime ?? '—'),
+                color: const Color(0xFFB36BFF),
+              ),
               const SizedBox(height: 12),
               const Divider(height: 1),
               for (final r in podium) _podiumRow(r),
@@ -203,16 +219,42 @@ class _ResultsScreenState extends State<ResultsScreen> {
     );
   }
 
-  Widget _stat(String key, String value) => Expanded(
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-      decoration: BoxDecoration(color: AppColors.surface2, borderRadius: BorderRadius.circular(10)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(key, style: TextStyle(color: AppColors.muted, fontSize: 9)),
-        const SizedBox(height: 2),
-        Text(value, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11)),
-      ]),
+  Widget _highlight({
+    required IconData icon,
+    required String label,
+    required String name,
+    required String time,
+    required Color color,
+  }) => Container(
+    padding: const EdgeInsets.fromLTRB(11, 9, 11, 9),
+    decoration: BoxDecoration(
+      color: AppColors.surface2,
+      borderRadius: BorderRadius.circular(12),
+      border: Border(
+        left: BorderSide(color: color, width: 3),
+        top: BorderSide(color: AppColors.border),
+        right: BorderSide(color: AppColors.border),
+        bottom: BorderSide(color: AppColors.border),
+      ),
     ),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(color: color.withValues(alpha: .16), borderRadius: BorderRadius.circular(8)),
+        child: Icon(icon, size: 15, color: color),
+      ),
+      const SizedBox(width: 9),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 8.5, fontWeight: FontWeight.w900, letterSpacing: 1)),
+          const Spacer(),
+          Text(time, style: TextStyle(color: color, fontSize: 10.5, fontWeight: FontWeight.w900)),
+        ]),
+        const SizedBox(height: 3),
+        Text(name, style: TextStyle(color: color, fontSize: 12.5, fontWeight: FontWeight.w800)),
+      ])),
+    ]),
   );
 
   Widget _podiumRow(DriverResult r) => Padding(
@@ -221,8 +263,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
       SizedBox(width: 26, child: Text('${r.position}', style: TextStyle(color: r.position == 1 ? AppColors.red : AppColors.muted, fontWeight: FontWeight.w900, fontSize: 12))),
       Container(width: 3, height: 16, color: Color(r.color)),
       const SizedBox(width: 7),
-      SizedBox(width: 40, child: Text(r.code, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12))),
-      Expanded(child: Text(r.team, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.muted, fontSize: 11))),
+      Expanded(child: Text(r.name.isEmpty ? r.code : r.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12))),
+      const SizedBox(width: 6),
       Text(r.time, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11)),
     ]),
   );
@@ -242,7 +284,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
     decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border.withValues(alpha: .55)))),
     child: Row(children: [
       SizedBox(width: 22, child: Text('${r.position}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: AppColors.muted))),
-      SizedBox(width: 42, child: Text(r.code, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800))),
+      SizedBox(width: 42, child: Row(children: [
+        Flexible(child: Text(r.code, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800))),
+        if (r.fastestLapRank == 1 && r.fastestLapTime != null)
+          const Icon(Icons.timer_outlined, size: 10, color: Color(0xFFB36BFF)),
+      ])),
       Expanded(child: Text(r.team, overflow: TextOverflow.ellipsis, style: TextStyle(color: teamColorFromName(r.team), fontSize: 10.5))),
       SizedBox(width: 68, child: Text(r.time, textAlign: TextAlign.right, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800))),
     ]),
@@ -297,7 +343,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
   Widget _resultsTable(List<DriverResult> rows) => _table([
     const _HeaderRow(cells: ['SIRA', 'PİLOT', 'TAKIM', 'SONUÇ']),
-    ...rows.map((row) => _DataRow(cells: [row.position.toString().padLeft(2, '0'), row.code, row.team, row.time], color: row.color)),
+    ...rows.map((row) => _DataRow(cells: [row.position.toString().padLeft(2, '0'), row.code, row.team, row.time], color: row.color, fastest: row.fastestLapRank == 1 && row.fastestLapTime != null)),
   ]);
 
   Widget _driversTable(List<DriverStanding> rows) => _table([
@@ -336,23 +382,30 @@ class _HeaderRow extends StatelessWidget {
 }
 
 class _DataRow extends StatelessWidget {
-  const _DataRow({required this.cells, this.color});
+  const _DataRow({required this.cells, this.color, this.fastest = false});
   final List<String> cells;
   final int? color;
+  final bool fastest;
   @override
-  Widget build(BuildContext context) => _cells(cells, color: color);
+  Widget build(BuildContext context) => _cells(cells, color: color, fastest: fastest);
 }
 
-Widget _cells(List<String> cells, {bool header = false, int? color}) => Padding(
+Widget _cells(List<String> cells, {bool header = false, int? color, bool fastest = false}) => Padding(
   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
   child: Row(children: [
     for (var i = 0; i < cells.length; i++) Expanded(
       flex: i == 0 ? 1 : (i == cells.length - 1 ? 1 : 2),
       child: Padding(
         padding: const EdgeInsets.only(right: 4),
-        child: i == 2 && color != null && !header
-            ? Row(children: [Container(width: 3, height: 16, color: Color(color)), const SizedBox(width: 5), Expanded(child: Text(cells[i], overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.muted, fontSize: 10)))] )
-            : Text(cells[i], maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: header ? 8 : 10, color: header ? AppColors.muted : (i == 0 ? AppColors.red : (i == cells.length - 1 ? (AppColors.themeId == 'light' ? Colors.black : Colors.white) : AppColors.muted)), fontWeight: header || i == 0 || i == cells.length - 1 ? FontWeight.w800 : FontWeight.w600)),
+        child: i == 1 && fastest && !header
+            ? Row(children: [
+                Flexible(child: Text(cells[i], maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: AppColors.muted, fontWeight: FontWeight.w600))),
+                const SizedBox(width: 2),
+                const Icon(Icons.timer_outlined, size: 11, color: Color(0xFFB36BFF)),
+              ])
+            : i == 2 && color != null && !header
+                ? Row(children: [Container(width: 3, height: 16, color: Color(color)), const SizedBox(width: 5), Expanded(child: Text(cells[i], overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.muted, fontSize: 10)))] )
+                : Text(cells[i], maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: header ? 8 : 10, color: header ? AppColors.muted : (i == 0 ? AppColors.red : (i == cells.length - 1 ? (AppColors.themeId == 'light' ? Colors.black : Colors.white) : AppColors.muted)), fontWeight: header || i == 0 || i == cells.length - 1 ? FontWeight.w800 : FontWeight.w600)),
       ),
     ),
   ]),
