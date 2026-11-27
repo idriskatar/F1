@@ -134,11 +134,14 @@ class _AppShellState extends State<AppShell> {
       },
       child: Scaffold(
         appBar: AppBar(
-          leading: IconButton(
-            tooltip: isMobile ? 'Menü' : 'Menü (Ctrl+M)',
-            icon: const Icon(Icons.menu_rounded),
-            onPressed: _openMore,
-          ),
+          // Ayarlar masaüstünde zaten sol rayın altında; hamburger yalnızca mobilde görünür.
+          leading: isMobile
+              ? IconButton(
+                  tooltip: 'Menü',
+                  icon: const Icon(Icons.menu_rounded),
+                  onPressed: _openMore,
+                )
+              : null,
           title: Row(mainAxisSize: MainAxisSize.min, children: [
             Container(
               width: 30,

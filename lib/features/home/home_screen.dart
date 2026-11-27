@@ -134,18 +134,23 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Widget> _desktopChildren() {
     final year = _now().year;
     return [
-      _section<NextRaceData>(
-        future: _next,
-        errorTitle: 'Sıradaki yarış yüklenemedi',
-        builder: (data) => _CompactNextRaceCard(data: data, clock: _now),
-      ),
-      const SizedBox(height: 18),
-      SectionTitle('Son yarış', action: 'Sonuçlar', onAction: () => _open(_resultsTab)),
+      SectionTitle('Yarışlar', action: 'Sonuçlar', onAction: () => _open(_resultsTab)),
       const SizedBox(height: 12),
-      _section<JolpicaData<DriverResult>>(
-        future: _results,
-        errorTitle: 'Son yarış sonucu yüklenemedi',
-        builder: (data) => _LatestRaceCard(data: data),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: _section<NextRaceData>(
+            future: _next,
+            errorTitle: 'Sıradaki yarış yüklenemedi',
+            builder: (data) => _CompactNextRaceCard(data: data, clock: _now),
+          )),
+          const SizedBox(width: 14),
+          Expanded(child: _section<JolpicaData<DriverResult>>(
+            future: _results,
+            errorTitle: 'Son yarış sonucu yüklenemedi',
+            builder: (data) => _LatestRaceSideCard(data: data),
+          )),
+        ],
       ),
       const SizedBox(height: 20),
       Row(
@@ -156,9 +161,9 @@ class _HomeScreenState extends State<HomeScreen> {
               future: _drivers,
               errorTitle: 'Pilotlar puan durumu yüklenemedi',
               builder: (data) => _StandingsTable(
-                title: '$year Driver Standings',
-                columnLabel: 'DRIVER',
-                showAllLabel: 'Full $year Driver Standings',
+                title: '$year Pilotlar Şampiyonası',
+                columnLabel: 'PİLOT',
+                showAllLabel: 'Tümünü göster',
                 rows: [for (final r in data.items.take(10)) _StandingRowData(r.position, r.name, r.points, _teamColorForName(r.team))],
                 onShowAll: () => _open(_resultsTab),
               ),
@@ -170,9 +175,9 @@ class _HomeScreenState extends State<HomeScreen> {
               future: _teams,
               errorTitle: 'Takımlar puan durumu yüklenemedi',
               builder: (data) => _StandingsTable(
-                title: '$year Constructor Standings',
-                columnLabel: 'CONSTRUCTOR',
-                showAllLabel: 'Full $year Constructor Standings',
+                title: '$year Takımlar Şampiyonası',
+                columnLabel: 'TAKIM',
+                showAllLabel: 'Tümünü göster',
                 rows: [for (final r in data.items.take(10)) _StandingRowData(r.position, r.name, r.points, _teamColorForName(r.name))],
                 onShowAll: () => _open(_resultsTab),
               ),
@@ -290,6 +295,45 @@ class _NextRaceCard extends StatelessWidget {
   }
 }
 
+/// Masaüstünde son yarış, sıradaki yarışın yanında daha dar bir kartta gösterilir.
+class _LatestRaceSideCard extends StatelessWidget {
+  const _LatestRaceSideCard({required this.data});
+  final JolpicaData<DriverResult> data;
+
+  @override
+  Widget build(BuildContext context) {
+    final podium = data.items.where((r) => r.position > 0).take(3).toList();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
+      child: podium.isEmpty
+          ? const _InfoTile(
+              icon: Icons.timer_outlined,
+              title: 'Henüz yayımlanmış sonuç yok',
+              subtitle: 'Jolpica yarış sonucunu yayımladığında burada görünecek.',
+            )
+          : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('SON YARIŞ', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.4)),
+              const SizedBox(height: 6),
+              Text(data.label ?? 'Son yarış', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+              for (final r in podium)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 7),
+                  child: Row(children: [
+                    SizedBox(width: 28, child: Text('P${r.position}', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w900, fontSize: 11))),
+                    Container(width: 3, height: 17, color: Color(r.color)),
+                    const SizedBox(width: 7),
+                    SizedBox(width: 40, child: Text(r.code, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12))),
+                    Expanded(child: Text(r.team, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.muted, fontSize: 11))),
+                    Text(r.time, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11)),
+                  ]),
+                ),
+            ]),
+    );
+  }
+}
+
 /// Masaüstünde "Sıradaki yarış" kartı: aynı veriyi tek satırda, daha az yerle gösterir.
 class _CompactNextRaceCard extends StatelessWidget {
   const _CompactNextRaceCard({required this.data, required this.clock});
@@ -316,7 +360,7 @@ class _CompactNextRaceCard extends StatelessWidget {
               ? Row(children: [
                   Icon(Icons.flag_rounded, color: AppColors.red, size: 17),
                   const SizedBox(width: 10),
-                  const Text('SIRADAKİ YARIŞ', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1.4)),
+                  Text('SIRADAKİ YARIŞ', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1.4)),
                   const Spacer(),
                   Text('Sezon tamamlandı', style: TextStyle(color: AppColors.muted, fontSize: 12)),
                 ])
@@ -324,7 +368,7 @@ class _CompactNextRaceCard extends StatelessWidget {
                   Row(children: [
                     Icon(Icons.flag_rounded, color: AppColors.red, size: 15),
                     const SizedBox(width: 8),
-                    const Text('SIRADAKİ YARIŞ', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.4)),
+                    Text('SIRADAKİ YARIŞ', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1.4)),
                     const Spacer(),
                     Text(race.dateLabel, style: TextStyle(color: AppColors.muted, fontSize: 11)),
                   ]),
@@ -546,11 +590,11 @@ class _StandingsTable extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             decoration: BoxDecoration(border: Border(top: BorderSide(color: AppColors.border), bottom: BorderSide(color: AppColors.border))),
             child: Row(children: [
-              SizedBox(width: 32, child: Text('POS.', style: _headerStyle)),
+              SizedBox(width: 32, child: Text('SIRA', style: _headerStyle)),
               Expanded(child: Text(columnLabel, style: _headerStyle)),
-              SizedBox(width: 46, child: Text('POINTS', style: _headerStyle, textAlign: TextAlign.right)),
+              SizedBox(width: 46, child: Text('PUAN', style: _headerStyle, textAlign: TextAlign.right)),
               const SizedBox(width: 6),
-              SizedBox(width: 30, child: Text('EVO.', style: _headerStyle, textAlign: TextAlign.right)),
+              SizedBox(width: 48, child: Text('DEĞİŞİM', style: _headerStyle.copyWith(fontSize: 8.5, letterSpacing: 0), textAlign: TextAlign.right)),
             ]),
           ),
           if (rows.isEmpty)
@@ -563,12 +607,17 @@ class _StandingsTable extends StatelessWidget {
           InkWell(
             onTap: onShowAll,
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 13),
+              padding: const EdgeInsets.fromLTRB(16, 11, 16, 11),
               decoration: BoxDecoration(border: Border(top: BorderSide(color: AppColors.border))),
-              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              child: Row(children: [
                 Text(showAllLabel, style: TextStyle(color: onShowAll == null ? AppColors.muted : AppColors.red, fontWeight: FontWeight.w800, fontSize: 12)),
-                const SizedBox(width: 6),
-                Icon(Icons.arrow_forward, size: 14, color: onShowAll == null ? AppColors.muted : AppColors.red),
+                const Spacer(),
+                Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: (onShowAll == null ? AppColors.muted : AppColors.red).withValues(alpha: .45))),
+                  child: Icon(Icons.arrow_forward, size: 12, color: onShowAll == null ? AppColors.muted : AppColors.red),
+                ),
               ]),
             ),
           ),
@@ -592,7 +641,7 @@ class _StandingsRow extends StatelessWidget {
           const SizedBox(width: 6),
           SizedBox(width: 46, child: Text(row.points, textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13))),
           const SizedBox(width: 6),
-          SizedBox(width: 30, child: Text('—', textAlign: TextAlign.right, style: TextStyle(color: AppColors.muted, fontSize: 11))),
+          SizedBox(width: 48, child: Text('—', textAlign: TextAlign.right, style: TextStyle(color: AppColors.muted, fontSize: 11))),
         ]),
       );
 }

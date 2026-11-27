@@ -1,4 +1,5 @@
 import 'package:f1_tracker/app.dart';
+import 'package:f1_tracker/features/home/home_screen.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -30,7 +31,7 @@ void main() {
 
     expect(find.byType(NavigationRail), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
-    expect(find.text('SIRADAKİ YARIŞ'), findsOneWidget);
+    expect(find.descendant(of: find.byType(HomeScreen), matching: find.text('SIRADAKİ YARIŞ')), findsOneWidget);
 
     await tester.tap(find.descendant(
       of: find.byType(NavigationRail),
@@ -61,10 +62,10 @@ void main() {
   testWidgets('masaüstü ana sayfası puan durumlarını yan yana, haberleri iki sütunda gösterir', (tester) async {
     await pumpDesktopApp(tester);
 
-    expect(find.text('2026 Driver Standings'), findsOneWidget);
-    expect(find.text('2026 Constructor Standings'), findsOneWidget);
-    expect(find.text('Full 2026 Driver Standings'), findsOneWidget);
-    expect(find.text('POS.'), findsNWidgets(2));
+    expect(find.descendant(of: find.byType(HomeScreen), matching: find.text('2026 Pilotlar Şampiyonası')), findsOneWidget);
+    expect(find.descendant(of: find.byType(HomeScreen), matching: find.text('2026 Takımlar Şampiyonası')), findsOneWidget);
+    expect(find.descendant(of: find.byType(HomeScreen), matching: find.text('Tümünü göster')), findsNWidgets(2));
+    expect(find.descendant(of: find.byType(HomeScreen), matching: find.text('SIRA')), findsNWidgets(2));
 
     await tester.pumpWidget(const SizedBox());
   });

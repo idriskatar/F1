@@ -1,3 +1,5 @@
+import 'package:material_ui/material_ui.dart' show Color;
+
 class RaceWeekend {
   const RaceWeekend({
     required this.name,
@@ -279,6 +281,22 @@ int teamColor(String id) => switch (id.toLowerCase()) {
   'haas' => 0xFFB6BABD,
   _ => 0xFF9AA0AA,
 };
+
+/// Takım adından marka rengini çıkarır (puan durumlarında takım adını renklendirmek için).
+Color teamColorFromName(String name) {
+  final n = name.toLowerCase();
+  if (n.contains('mercedes')) return const Color(0xFF27F4D2);
+  if (n.contains('ferrari')) return const Color(0xFFFF3B30);
+  if (n.contains('red bull')) return const Color(0xFF5B9BFF);
+  if (n.contains('mclaren')) return const Color(0xFFFFA44D);
+  if (n.contains('aston martin')) return const Color(0xFF3FBF97);
+  if (n.contains('alpine')) return const Color(0xFFFFA8D4);
+  if (n.contains('williams')) return const Color(0xFF7FD0FF);
+  if (n.contains('racing bulls') || n.contains('rb')) return const Color(0xFF8FA8FF);
+  if (n.contains('haas')) return const Color(0xFFD0D4DA);
+  if (n.contains('audi') || n.contains('sauber')) return const Color(0xFF7BE27B);
+  return const Color(0xFF9AA0AA);
+}
 
 Map<String, dynamic> _map(Object? value) => value is Map<String, dynamic> ? value : const {};
 

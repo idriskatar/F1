@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1 Tracker — Masaüstü Haberler Önizlemesi</title>
+<style>
+  :root {
+    --bg: #090A0D; --surface: #14171D; --surface2: #1C2028;
+    --border: #292E38; --red: #E10600; --muted: #9299A6;
+    --text: #F5F6F8; --green: #39C98A; --amber: #FFC247;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #050608; color: var(--text); padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .caption { color: var(--muted); font-size: 12px; }
+  .caption b { color: var(--text); }
+
+  .window { width: min(1400px, 100%); height: auto; min-height: 840px; background: var(--bg); border: 1px solid #333844; border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 24px 70px rgba(0,0,0,.6); }
+  .titlebar { height: 34px; flex: none; background: #101217; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 12px; gap: 10px; }
+  .titlebar .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--red); }
+  .titlebar .name { font-size: 12px; font-weight: 700; }
+  .titlebar .buttons { margin-left: auto; display: flex; gap: 18px; color: var(--muted); font-size: 13px; }
+  .shell { flex: 1; display: flex; min-height: 0; }
+
+  .rail { width: 256px; flex: none; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 12px 8px; }
+  .brand { display: flex; align-items: center; gap: 9px; padding: 4px 12px 18px; }
+  .brand .logo, .appbar .logo { width: 30px; height: 26px; border-radius: 6px; background: var(--red); display: grid; place-items: center; color: #fff; font-size: 15px; }
+  .brand .text { font-size: 14px; font-weight: 900; letter-spacing: 1.2px; }
+  .nav { display: flex; flex-direction: column; gap: 4px; }
+  .nav-item { display: flex; align-items: center; gap: 14px; height: 52px; padding: 0 16px; border-radius: 12px; color: var(--muted); font-size: 14px; font-weight: 600; }
+  .nav-item svg { width: 22px; height: 22px; flex: none; }
+  .nav-item.active { background: rgba(225,6,0,.16); color: #fff; font-weight: 800; }
+  .nav-item.active svg { color: var(--red); }
+  .rail-spacer { flex: 1; }
+  .rail-divider { height: 1px; background: var(--border); margin-bottom: 10px; }
+  .settings { display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-radius: 12px; border: 1px solid transparent; }
+  .settings:hover { border-color: var(--border); background: var(--surface2); }
+  .settings svg { width: 22px; height: 22px; color: var(--muted); }
+  .settings .t { font-size: 14px; font-weight: 700; }
+  .settings .s { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .appbar { height: 56px; flex: none; display: flex; align-items: center; gap: 9px; padding: 0 20px; border-bottom: 1px solid var(--border); }
+  .appbar .title { font-size: 15px; font-weight: 900; letter-spacing: 1.3px; }
+  .appbar .hint { margin-left: auto; font-size: 11px; color: var(--muted); }
+  .content { flex: 1; overflow: visible; padding: 18px 24px 28px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; }
+
+  .page-head { display: flex; align-items: flex-end; }
+  .page-head h1 { font-size: 22px; font-weight: 900; }
+  .page-head h1::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--red); margin-right: 10px; vertical-align: middle; }
+  .page-head .sub { font-size: 12px; color: var(--muted); margin-top: 5px; }
+  .source { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+  .source .ok { color: var(--amber); font-size: 15px; }
+
+  /* Filtre çipleri */
+  .chips { display: flex; gap: 8px; margin: 16px 0 14px; }
+  .chip { display: flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 11.5px; font-weight: 700; }
+  .chip.active { background: rgba(225,6,0,.16); border-color: rgba(225,6,0,.45); color: #fff; }
+  .chip .n { font-size: 10px; opacity: .75; }
+  .chip .sdot { width: 7px; height: 7px; border-radius: 50%; }
+
+  /* Uyarı şeridi */
+  .notice { display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin-bottom: 14px; border-radius: 12px; background: rgba(255,194,71,.08); border: 1px solid rgba(255,194,71,.25); color: var(--amber); font-size: 11.5px; }
+  .notice .retry { margin-left: auto; border: 1px solid rgba(255,194,71,.4); border-radius: 8px; padding: 5px 10px; color: var(--amber); background: none; font-size: 11px; font-weight: 700; }
+
+  /* Manşet: iki sütunluk */
+  .hero { display: flex; position: relative; overflow: hidden; padding: 20px 22px; margin-bottom: 14px; border-left: 3px solid var(--red); }
+  .hero::after { content: ''; position: absolute; right: -40px; top: -70px; width: 260px; height: 260px; background: radial-gradient(circle, rgba(225,6,0,.16), transparent 70%); pointer-events: none; }
+  .hero .body { position: relative; z-index: 1; max-width: 78%; }
+  .hero .tag { display: inline-flex; align-items: center; gap: 6px; font-size: 9px; font-weight: 900; letter-spacing: 1.2px; color: var(--red); }
+  .hero h2 { font-size: 21px; font-weight: 900; line-height: 1.25; margin: 9px 0 7px; }
+  .hero p { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .hero .meta { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 10.5px; }
+  .hero .meta .open { margin-left: auto; color: var(--red); font-weight: 800; }
+  .sd { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+  .srcname { font-weight: 900; letter-spacing: .8px; font-size: 9.5px; }
+  .time { color: var(--muted); }
+  .ago { color: var(--green); font-size: 10px; }
+
+  /* 2 sütun haber kartları */
+  .news-grid { display: flex; flex-wrap: wrap; gap: 14px; align-items: stretch; }
+  .news-card {
+    width: calc(50% - 7px); padding: 15px 16px 13px;
+    border-left: 3px solid var(--source, var(--border));
+    transition: border-color .15s, transform .15s;
+  }
+  .news-card:hover { transform: translateY(-2px); border-color: rgba(225,6,0,.5); border-left-color: var(--source); }
+  .news-card .top { display: flex; align-items: center; }
+  .news-card .cat { font-size: 9px; font-weight: 900; letter-spacing: 1px; color: var(--muted); }
+  .news-card .ago { margin-left: auto; }
+  .news-card h3 { font-size: 14.5px; font-weight: 800; line-height: 1.35; margin: 8px 0 6px; }
+  .news-card p { font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+  .news-card .meta { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 10.5px; }
+  .news-card .meta .open { margin-left: auto; color: var(--muted); }
+  .news-card:hover .meta .open { color: var(--red); font-weight: 800; }
+  .footer-note { margin-top: 16px; font-size: 10.5px; color: var(--muted); }
+</style>
+</head>
+<body>
+  <div class="caption"><b>Masaüstü haberler önizlemesi</b> — 2 sütun + manşet · 1400×900 pencere · statik maket (gerçek uygulama değil)</div>
+
+  <div class="window">
+    <div class="titlebar"><span class="dot"></span><span class="name">F1 Tracker</span><span class="buttons">— &nbsp; ▢ &nbsp; ✕</span></div>
+
+    <div class="shell">
+      <aside class="rail">
+        <div class="brand"><div class="logo">⚑</div><div class="text">F1 TRACKER</div></div>
+        <nav class="nav">
+          <div class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg> Ana sayfa</div>
+          <div class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 12h-5v5h5v-5zm3-10h-1V1h-2v1H8V1H6v1H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm0 17H5V8h14v11z"/></svg> Takvim</div>
+          <div class="nav-item active"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2zm-1 14H5V8h14v10zM7 10h6v2H7v-2zm0 4h10v2H7v-2z"/></svg> Haberler</div>
+          <div class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 4V2H6v2H2v3a4 4 0 004 4h.4A6 6 0 0011 14.9V18H8v2h8v-2h-3v-3.1A6 6 0 0017.6 11H18a4 4 0 004-4V4h-4zM6 8H4V6h2v2z"/></svg> Sonuçlar</div>
+          <div class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Replay</div>
+        </nav>
+        <div class="rail-spacer"></div><div class="rail-divider"></div>
+        <div class="settings"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17v2h6v-2H3zm3.5-9a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM17 3v2h4v2h-4v2h-2V3h2z"/></svg><div><div class="t">Ayarlar</div><div class="s">Tema, hakkında, gizlilik</div></div></div>
+      </aside>
+
+      <main class="main">
+        <header class="appbar"><div class="logo">⚑</div><div class="title">F1 TRACKER</div><div class="hint">Ctrl/Cmd+1..5 · Ctrl/Cmd+M · Esc</div></header>
+
+        <div class="content">
+          <div class="page-head">
+            <div><h1>Haberler</h1><div class="sub">TRF1.net • Motorsport.com Türkiye</div></div>
+            <div class="source"><span class="ok">✔</span> Önbellek • 05.11 14:22</div>
+          </div>
+
+          <div class="chips">
+            <div class="chip active">Tümü <span class="n">8</span></div>
+            <div class="chip"><span class="sdot" style="background:var(--red)"></span> TRF1.net <span class="n">5</span></div>
+            <div class="chip"><span class="sdot" style="background:var(--amber)"></span> Motorsport <span class="n">3</span></div>
+          </div>
+
+          <div class="notice">⚠ &nbsp; Motorsport.com Türkiye güncellenemedi — önbellekteki haberler gösteriliyor. <button class="retry">Yeniden dene</button></div>
+
+          <!-- Manşet -->
+          <div class="card hero">
+            <div class="body">
+              <div class="tag">◆ ÖNE ÇIKAN</div>
+              <h2>Russell: "Bu hafta sonu araç çok daha iyi hissettirdi"</h2>
+              <p>Takım patronu, sezonun son bölümünde gelen geliştirmelerin pilotun yarış temposunu doğrudan etkilediğini söyledi. İngiliz pilot, sıralama turlarında üçüncü sırayı alırken yarışta podyum hedefini koruyor.</p>
+              <div class="meta">
+                <span class="sdot" style="background:var(--amber)"></span><span class="srcname" style="color:var(--amber)">MOTORSPORT TÜRKİYE</span>
+                <span class="time">05.11 13:40</span><span class="ago">2 sa önce</span>
+                <span class="open">Kaynakta aç ↗</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2 sütun -->
+          <div class="news-grid">
+            <div class="card news-card" style="--source:var(--red)">
+              <div class="top"><span class="cat">TRF1.NET</span><span class="ago">3 sa önce</span></div>
+              <h3>FIA, pist sınırlarıyla ilgili yeni yönerge yayımladı</h3>
+              <p>Yeni yönerge, sürücülerin pist sınırlarını aşması durumunda uygulanacak cezaların çerçevesini netleştiriyor.</p>
+              <div class="meta"><span class="time">05.11 11:15</span><span class="open">Kaynakta aç ↗</span></div>
+            </div>
+            <div class="card news-card" style="--source:var(--red)">
+              <div class="top"><span class="cat">TRF1.NET</span><span class="ago">5 sa önce</span></div>
+              <h3>Takımlar şampiyonasında Mercedes farkı açtı</h3>
+              <p>Son yarıştan gelen puanlarla lider takım, ikinci sıradaki rakibi üzerindeki üstünlüğünü 149 puana çıkardı.</p>
+              <div class="meta"><span class="time">04.11 18:02</span><span class="open">Kaynakta aç ↗</span></div>
+            </div>
+            <div class="card news-card" style="--source:var(--amber)">
+              <div class="top"><span class="cat">MOTORSPORT TÜRKİYE</span><span class="ago">7 sa önce</span></div>
+              <h3>Antonelli: "Podyum inanılmaz bir his"</h3>
+              <p>Genç pilot, kariyerinin en iyi sonuçlarından birini elde ettiği yarışın ardından duygularını paylaştı.</p>
+              <div class="meta"><span class="time">04.11 16:28</span><span class="open">Kaynakta aç ↗</span></div>
+            </div>
+            <div class="card news-card" style="--source:var(--red)">
+              <div class="top"><span class="cat">TRF1.NET</span><span class="ago">Dün</span></div>
+              <h3>Sıralama turlarında beklenmedik sonuçlar</h3>
+              <p>Yarış öncesi yapılan sıralama seansında birkaç pilotun zaman turu geçersiz sayıldı.</p>
+              <div class="meta"><span class="time">04.11 12:10</span><span class="open">Kaynakta aç ↗</span></div>
+            </div>
+            <div class="card news-card" style="--source:var(--amber)">
+              <div class="top"><span class="cat">MOTORSPORT TÜRKİYE</span><span class="ago">Dün</span></div>
+              <h3>Yarış takvimi: sezonun kalan ayakları</h3>
+              <p>Şampiyonanın son üç hafta sonu programı ve seans saatleri belli oldu.</p>
+              <div class="meta"><span class="time">03.11 19:45</span><span class="open">Kaynakta aç ↗</span></div>
+            </div>
+            <div class="card news-card" style="--source:var(--red)">
+              <div class="top"><span class="cat">TRF1.NET</span><span class="ago">2 gün önce</span></div>
+              <h3>Pit stop stratejilerinde yeni eğilim</h3>
+              <p>Takımlar, lastik bileşenlerinin dayanıklılığını dikkate alarak pit penceresini erken açmaya başladı.</p>
+              <div class="meta"><span class="time">02.11 15:00</span><span class="open">Kaynakta aç ↗</span></div>
+            </div>
+          </div>
+
+          <div class="footer-note">Haberler kaynak sitelerin herkese açık RSS akışlarından alınır; yalnızca başlık ve kısa özet gösterilir, haber kaynağında açılır.</div>
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1 Tracker — Masaüstü Takvim Önizlemesi</title>
+<style>
+  :root {
+    --bg: #090A0D; --surface: #14171D; --surface2: #1C2028;
+    --border: #292E38; --red: #E10600; --muted: #9299A6;
+    --text: #F5F6F8; --green: #39C98A; --amber: #FFC247;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #050608; color: var(--text); padding: 18px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .caption { color: var(--muted); font-size: 12px; }
+  .caption b { color: var(--text); }
+
+  .window {
+    width: min(1400px, 100%); height: auto; min-height: 840px;
+    background: var(--bg); border: 1px solid #333844; border-radius: 10px;
+    display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 24px 70px rgba(0,0,0,.6);
+  }
+  .titlebar {
+    height: 34px; flex: none; background: #101217; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 12px; gap: 10px;
+  }
+  .titlebar .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--red); }
+  .titlebar .name { font-size: 12px; font-weight: 700; }
+  .titlebar .buttons { margin-left: auto; display: flex; gap: 18px; color: var(--muted); font-size: 13px; }
+  .shell { flex: 1; display: flex; min-height: 0; }
+
+  .rail {
+    width: 256px; flex: none; background: var(--surface);
+    border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 12px 8px;
+  }
+  .brand { display: flex; align-items: center; gap: 9px; padding: 4px 12px 18px; }
+  .brand .logo, .appbar .logo {
+    width: 30px; height: 26px; border-radius: 6px; background: var(--red);
+    display: grid; place-items: center; color: #fff; font-size: 15px;
+  }
+  .brand .text { font-size: 14px; font-weight: 900; letter-spacing: 1.2px; }
+  .nav { display: flex; flex-direction: column; gap: 4px; }
+  .nav-item { display: flex; align-items: center; gap: 14px; height: 52px; padding: 0 16px; border-radius: 12px; color: var(--muted); font-size: 14px; font-weight: 600; }
+  .nav-item svg { width: 22px; height: 22px; flex: none; }
+  .nav-item.active { background: rgba(225,6,0,.16); color: #fff; font-weight: 800; }
+  .nav-item.active svg { color: var(--red); }
+  .rail-spacer { flex: 1; }
+  .rail-divider { height: 1px; background: var(--border); margin-bottom: 10px; }
+  .settings { display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-radius: 12px; border: 1px solid transparent; }
+  .settings:hover { border-color: var(--border); background: var(--surface2); }
+  .settings svg { width: 22px; height: 22px; color: var(--muted); }
+  .settings .t { font-size: 14px; font-weight: 700; }
+  .settings .s { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .appbar { height: 56px; flex: none; display: flex; align-items: center; gap: 9px; padding: 0 20px; border-bottom: 1px solid var(--border); }
+  .appbar .title { font-size: 15px; font-weight: 900; letter-spacing: 1.3px; }
+  .appbar .hint { margin-left: auto; font-size: 11px; color: var(--muted); }
+  .content { flex: 1; overflow: visible; padding: 18px 24px 28px; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; }
+  .page-head { display: flex; align-items: flex-end; }
+  .page-head h1 { font-size: 22px; font-weight: 900; }
+  .page-head h1::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--red); margin-right: 10px; vertical-align: middle; }
+  .page-head .sub { font-size: 12px; color: var(--muted); margin-top: 5px; }
+  .source { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+  .source .ok { color: var(--green); font-size: 15px; }
+  .divider { height: 1px; background: var(--border); margin: 16px 0 18px; }
+
+  /* 2 sütunlu takvim */
+  .calendar-grid { display: flex; flex-wrap: wrap; gap: 14px; align-items: stretch; }
+  .race-card {
+    width: calc(50% - 7px); padding: 16px 18px 14px;
+    transition: border-color .15s, transform .15s;
+  }
+  .race-card:hover { border-color: rgba(225,6,0,.6); transform: translateY(-2px); }
+  .race-card.next { border-left: 3px solid var(--red); background: linear-gradient(100deg, #1b1216 0%, var(--surface) 42%); }
+  .race-top { display: flex; align-items: center; gap: 8px; }
+  .round { font-size: 10px; font-weight: 900; letter-spacing: 1.5px; color: var(--red); white-space: nowrap; }
+  .badge { font-size: 9px; font-weight: 900; letter-spacing: .8px; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+  .badge.next { background: rgba(225,6,0,.18); color: #FF6B66; }
+  .badge.done { background: rgba(57,201,138,.12); color: var(--green); }
+  .badge.sprint { background: rgba(255,194,71,.13); color: var(--amber); }
+  .badge.soon { background: var(--surface2); color: var(--muted); }
+  .countdown-pill {
+    margin-left: auto; display: flex; align-items: center; gap: 5px; white-space: nowrap;
+    background: var(--red); color: #fff; border-radius: 999px; padding: 4px 10px;
+    font-size: 10px; font-weight: 900; letter-spacing: .4px;
+  }
+  .chevron { margin-left: auto; color: var(--muted); font-size: 18px; }
+  .race-card.next .chevron { margin-left: auto; }
+  .race-name { font-size: 18px; font-weight: 900; margin-top: 9px; }
+  .race-meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .race-meta-row { display: flex; align-items: center; gap: 8px; margin-top: 3px; }
+  .race-meta-row .race-meta { margin-top: 0; }
+
+  /* Seanslar: kart içinde 2 sütun */
+  .sessions { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px; }
+  .session { display: flex; align-items: center; gap: 7px; padding: 6px 0; font-size: 11.5px; }
+  .session .mark { width: 14px; height: 14px; border-radius: 50%; display: grid; place-items: center; font-size: 9px; flex: none; }
+  .session.done .mark { background: rgba(57,201,138,.14); color: var(--green); }
+  .session.up .mark { background: rgba(225,6,0,.18); color: #FF6B66; }
+  .session .nm { color: var(--muted); }
+  .session.done .nm { opacity: .65; }
+  .session .tm { margin-left: auto; font-weight: 800; font-size: 11px; }
+  .session.up .tm { color: #FF6B66; }
+  .race-card.next .session.up .nm { color: var(--text); font-weight: 700; }
+</style>
+</head>
+<body>
+  <div class="caption"><b>Masaüstü takvim önizlemesi</b> — 2 sütun · 1400×900 pencere · statik maket (gerçek uygulama değil)</div>
+
+  <div class="window">
+    <div class="titlebar">
+      <span class="dot"></span><span class="name">F1 Tracker</span>
+      <span class="buttons">— &nbsp; ▢ &nbsp; ✕</span>
+    </div>
+
+    <div class="shell">
+      <aside class="rail">
+        <div class="brand"><div class="logo">⚑</div><div class="text">F1 TRACKER</div></div>
+        <nav class="nav">
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg> Ana sayfa
+          </div>
+          <div class="nav-item active">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 12h-5v5h5v-5zm3-10h-1V1h-2v1H8V1H6v1H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm0 17H5V8h14v11z"/></svg> Takvim
+          </div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2zm-1 14H5V8h14v10zM7 10h6v2H7v-2zm0 4h10v2H7v-2z"/></svg> Haberler
+          </div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 4V2H6v2H2v3a4 4 0 004 4h.4A6 6 0 0011 14.9V18H8v2h8v-2h-3v-3.1A6 6 0 0017.6 11H18a4 4 0 004-4V4h-4zM6 8H4V6h2v2z"/></svg> Sonuçlar
+          </div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Replay
+          </div>
+        </nav>
+        <div class="rail-spacer"></div>
+        <div class="rail-divider"></div>
+        <div class="settings">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17v2h6v-2H3zm3.5-9a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM17 3v2h4v2h-4v2h-2V3h2z"/></svg>
+          <div><div class="t">Ayarlar</div><div class="s">Tema, hakkında, gizlilik</div></div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="appbar">
+          <div class="logo">⚑</div>
+          <div class="title">F1 TRACKER</div>
+          <div class="hint">Ctrl/Cmd+1..5 · Ctrl/Cmd+M · Esc</div>
+        </header>
+
+        <div class="content">
+          <div class="page-head">
+            <div>
+              <h1>Takvim</h1>
+              <div class="sub">Sezon programı • saatler cihazının yerel saatinde</div>
+            </div>
+            <div class="source"><span class="ok">✔</span> Jolpica • 05.11 14:22</div>
+          </div>
+          <div class="divider"></div>
+
+          <div class="calendar-grid">
+            <!-- Geçmiş yarış -->
+            <div class="card race-card">
+              <div class="race-top"><span class="round">ROUND 05</span><span class="badge done">TAMAMLANDI</span><span class="chevron">›</span></div>
+              <div class="race-name">2026 Miami Grand Prix</div>
+              <div class="race-meta">Miami, ABD • 03 May 2026</div>
+              <div class="sessions">
+                <div class="session done"><span class="mark">✓</span><span class="nm">Antrenman 1</span><span class="tm">16:30</span></div>
+                <div class="session done"><span class="mark">✓</span><span class="nm">Sıralama Turları</span><span class="tm">19:00</span></div>
+                <div class="session done"><span class="mark">✓</span><span class="nm">Sprint</span><span class="tm">12:30</span></div>
+                <div class="session done"><span class="mark">✓</span><span class="nm">Yarış</span><span class="tm">20:00</span></div>
+              </div>
+            </div>
+
+            <!-- Sıradaki yarış: kırmızı vurgu + geri sayım -->
+            <div class="card race-card next">
+              <div class="race-top">
+                <span class="round">ROUND 06</span><span class="badge next">SIRADAKİ YARIŞ</span><span class="chevron">›</span>
+              </div>
+              <div class="race-name">2026 Azerbaijan Grand Prix</div>
+              <div class="race-meta-row">
+                <div class="race-meta">Baku, Azerbaycan • 07 Haz 2026</div>
+                <span class="countdown-pill">◷ 03 GÜN</span>
+              </div>
+              <div class="sessions">
+                <div class="session done"><span class="mark">✓</span><span class="nm">Antrenman 1</span><span class="tm">11:30</span></div>
+                <div class="session done"><span class="mark">✓</span><span class="nm">Antrenman 2</span><span class="tm">15:00</span></div>
+                <div class="session up"><span class="mark">●</span><span class="nm">Antrenman 3</span><span class="tm">09:30</span></div>
+                <div class="session up"><span class="mark">●</span><span class="nm">Sıralama Turları</span><span class="tm">13:00</span></div>
+                <div class="session up"><span class="mark">●</span><span class="nm">Yarış</span><span class="tm">12:00</span></div>
+              </div>
+            </div>
+
+            <!-- Sprint hafta sonu -->
+            <div class="card race-card">
+              <div class="race-top"><span class="round">ROUND 07</span><span class="badge sprint">SPRINT</span><span class="chevron">›</span></div>
+              <div class="race-name">2026 Emilia Romagna Grand Prix</div>
+              <div class="race-meta">Imola, İtalya • 21 Haz 2026</div>
+              <div class="sessions">
+                <div class="session up"><span class="mark">●</span><span class="nm">Antrenman 1</span><span class="tm">12:30</span></div>
+                <div class="session up"><span class="mark">●</span><span class="nm">Sprint Sıralaması</span><span class="tm">16:30</span></div>
+                <div class="session up"><span class="mark">●</span><span class="nm">Sprint</span><span class="tm">11:00</span></div>
+                <div class="session up"><span class="mark">●</span><span class="nm">Sıralama Turları</span><span class="tm">15:00</span></div>
+                <div class="session up"><span class="mark">●</span><span class="nm">Yarış</span><span class="tm">14:00</span></div>
+              </div>
+            </div>
+
+            <div class="card race-card">
+              <div class="race-top"><span class="round">ROUND 08</span><span class="badge soon">YAKLAŞAN</span><span class="chevron">›</span></div>
+              <div class="race-name">2026 Monaco Grand Prix</div>
+              <div class="race-meta">Monte Carlo, Monako • 05 Tem 2026</div>
+              <div class="sessions">
+                <div class="session up"><span class="mark">●</span><span class="nm">Antrenman 1</span><span class="tm">12:30</span></div>
+                <div class="session up"><span class="mark">●</span><span class="nm">Antrenman 2</span><span class="tm">16:00</span></div>
+                <div class="session up"><span class="mark">●</span><span class="nm">Antrenman 3</span><span class="tm">11:30</span></div>
+                <div class="session up"><span class="mark">●</span><span class="nm">Sıralama Turları</span><span class="tm">15:00</span></div>
+                <div class="session up"><span class="mark">●</span><span class="nm">Yarış</span><span class="tm">14:00</span></div>
+              </div>
+            </div>
+
+            <div class="card race-card">
+              <div class="race-top"><span class="round">ROUND 09</span><span class="badge soon">YAKLAŞAN</span><span class="chevron">›</span></div>
+              <div class="race-name">2026 Spanish Grand Prix</div>
+              <div class="race-meta">Barselona, İspanya • 19 Tem 2026</div>
+              <div class="sessions">
+                <div class="session up"><span class="mark">●</span><span class="nm">Antrenman 1</span><span class="tm">12:30</span></div>
+                <div class="session up"><span class="mark">●</span><span class="nm">Antrenman 2</span><span class="tm">16:00</span></div>
+                <div class="session up"><span class="mark">●</span><span class="nm">Antrenman 3</span><span class="tm">11:30</span></div>
+                <div class="session up"><span class="mark">●</span><span class="nm">Sıralama Turları</span><span class="tm">15:00</span></div>
+                <div class="session up"><span class="mark">●</span><span class="nm">Yarış</span><span class="tm">14:00</span></div>
+              </div>
+            </div>
+
+            <div class="card race-card">
+              <div class="race-top"><span class="round">ROUND 10</span><span class="badge soon">YAKLAŞAN</span><span class="chevron">›</span></div>
+              <div class="race-name">2026 Canadian Grand Prix</div>
+              <div class="race-meta">Montreal, Kanada • 02 Ağu 2026</div>
+              <div class="sessions">
+                <div class="session up"><span class="mark">●</span><span class="nm">Antrenman 1</span><span class="tm">13:30</span></div>
+                <div class="session up"><span class="mark">●</span><span class="nm">Antrenman 2</span><span class="tm">17:00</span></div>
+                <div class="session up"><span class="mark">●</span><span class="nm">Antrenman 3</span><span class="tm">12:30</span></div>
+                <div class="session up"><span class="mark">●</span><span class="nm">Sıralama Turları</span><span class="tm">16:00</span></div>
+                <div class="session up"><span class="mark">●</span><span class="nm">Yarış</span><span class="tm">14:00</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

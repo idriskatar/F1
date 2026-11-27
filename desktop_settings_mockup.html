@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1 Tracker — Masaüstü Ayarlar Önizlemesi</title>
+<style>
+  :root {
+    --bg: #090A0D; --surface: #14171D; --surface2: #1C2028;
+    --border: #292E38; --red: #E10600; --muted: #9299A6;
+    --text: #F5F6F8; --green: #39C98A; --amber: #FFC247;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #050608; color: var(--text); padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .caption { color: var(--muted); font-size: 12px; }
+  .caption b { color: var(--text); }
+
+  .window { width: min(1400px, 100%); height: auto; min-height: 840px; background: var(--bg); border: 1px solid #333844; border-radius: 10px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 24px 70px rgba(0,0,0,.6); }
+  .titlebar { height: 34px; flex: none; background: #101217; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 12px; gap: 10px; }
+  .titlebar .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--red); }
+  .titlebar .name { font-size: 12px; font-weight: 700; }
+  .titlebar .buttons { margin-left: auto; display: flex; gap: 18px; color: var(--muted); font-size: 13px; }
+  .shell { flex: 1; display: flex; min-height: 0; }
+
+  .rail { width: 256px; flex: none; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 12px 8px; }
+  .brand { display: flex; align-items: center; gap: 9px; padding: 4px 12px 18px; }
+  .brand .logo, .appbar .logo { width: 30px; height: 26px; border-radius: 6px; background: var(--red); display: grid; place-items: center; color: #fff; font-size: 15px; }
+  .brand .text { font-size: 14px; font-weight: 900; letter-spacing: 1.2px; }
+  .nav { display: flex; flex-direction: column; gap: 4px; }
+  .nav-item { display: flex; align-items: center; gap: 14px; height: 52px; padding: 0 16px; border-radius: 12px; color: var(--muted); font-size: 14px; font-weight: 600; }
+  .nav-item svg { width: 22px; height: 22px; flex: none; }
+  .rail-spacer { flex: 1; }
+  .rail-divider { height: 1px; background: var(--border); margin-bottom: 10px; }
+  .settings-nav { display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-radius: 12px; background: rgba(225,6,0,.16); border: 1px solid rgba(225,6,0,.35); }
+  .settings-nav svg { width: 22px; height: 22px; color: var(--red); }
+  .settings-nav .t { font-size: 14px; font-weight: 800; color: #fff; }
+  .settings-nav .s { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .appbar { height: 56px; flex: none; display: flex; align-items: center; gap: 9px; padding: 0 20px; border-bottom: 1px solid var(--border); }
+  .appbar .title { font-size: 15px; font-weight: 900; letter-spacing: 1.3px; }
+  .appbar .hint { margin-left: auto; font-size: 11px; color: var(--muted); }
+  .content { flex: 1; overflow: visible; padding: 18px 24px 28px; display: flex; flex-direction: column; align-items: center; }
+  .column { width: min(900px, 100%); }
+
+  .page-head { display: flex; align-items: flex-end; }
+  .page-head h1 { font-size: 22px; font-weight: 900; }
+  .page-head h1::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--red); margin-right: 10px; vertical-align: middle; }
+  .page-head .sub { font-size: 12px; color: var(--muted); margin-top: 5px; }
+  .version { margin-left: auto; font-size: 11px; font-weight: 800; color: var(--green); border: 1px solid rgba(57,201,138,.3); background: rgba(57,201,138,.08); padding: 5px 11px; border-radius: 999px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
+    padding: 18px 20px; margin-top: 14px; transition: border-color .15s, transform .15s;
+  }
+  .card:hover { border-color: rgba(225,6,0,.5); transform: translateY(-2px); }
+  .card-head { display: flex; align-items: center; gap: 12px; }
+  .card-icon {
+    width: 38px; height: 38px; border-radius: 12px; flex: none;
+    background: rgba(225,6,0,.14); color: var(--red);
+    display: grid; place-items: center; font-size: 18px;
+  }
+  .card-head h2 { font-size: 15px; font-weight: 900; }
+  .card-head .subtitle { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .card-head .tag { margin-left: auto; font-size: 10px; font-weight: 800; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 4px 9px; }
+
+  /* Tema seçici */
+  .themes { display: flex; gap: 10px; margin-top: 16px; }
+  .theme {
+    flex: 1; border: 1px solid var(--border); border-radius: 13px; padding: 10px;
+    display: flex; align-items: center; gap: 10px; background: var(--surface2);
+  }
+  .theme.active { border-color: var(--red); background: rgba(225,6,0,.09); }
+  .swatch { width: 34px; height: 34px; border-radius: 9px; flex: none; border: 1px solid rgba(255,255,255,.12); }
+  .swatch.dark { background: linear-gradient(135deg,#292D36,#090A0D); }
+  .swatch.light { background: linear-gradient(135deg,#FFFFFF,#F2F4F7); }
+  .swatch.pitwall { background: linear-gradient(135deg,#18303C,#07131B); }
+  .theme .n { font-size: 12px; font-weight: 800; }
+  .theme .d { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .theme .check { margin-left: auto; color: var(--red); font-size: 14px; }
+  .note { margin-top: 12px; font-size: 10.5px; color: var(--muted); line-height: 1.5; }
+
+  /* Bilgi satırları */
+  .info { margin-top: 14px; display: grid; grid-template-columns: 140px 1fr; gap: 8px 14px; }
+  .info .k { font-size: 11px; color: var(--muted); font-weight: 700; }
+  .info .v { font-size: 12px; line-height: 1.5; }
+  .info .v.muted { color: var(--muted); }
+  .info-row { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; }
+  .brand-hero { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+  .brand-hero .big { width: 52px; height: 52px; border-radius: 14px; background: var(--red); display: grid; place-items: center; font-size: 24px; }
+  .brand-hero .t { font-size: 17px; font-weight: 900; }
+  .brand-hero .d { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .unofficial { margin-left: auto; font-size: 10px; color: var(--amber); border: 1px solid rgba(255,194,71,.3); border-radius: 999px; padding: 5px 10px; }
+
+  /* MIT lisansı */
+  .license {
+    margin-top: 14px; border-radius: 12px; padding: 14px 16px;
+    background: var(--surface2); border: 1px solid var(--border);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px; line-height: 1.65; color: #C9CFD9;
+  }
+  .license .copy { float: right; font-family: inherit; font-size: 10px; color: var(--red); border: 1px solid rgba(225,6,0,.4); border-radius: 7px; padding: 3px 8px; }
+  .license .hl { color: var(--red); }
+  .license .dim { color: var(--muted); }
+</style>
+</head>
+<body>
+  <div class="caption"><b>Masaüstü ayarlar önizlemesi</b> — kartlar alt alta · Lisanslar kaldırıldı, yerine MIT lisans metni · statik maket</div>
+
+  <div class="window">
+    <div class="titlebar"><span class="dot"></span><span class="name">F1 Tracker</span><span class="buttons">— &nbsp; ▢ &nbsp; ✕</span></div>
+
+    <div class="shell">
+      <aside class="rail">
+        <div class="brand"><div class="logo">⚑</div><div class="text">F1 TRACKER</div></div>
+        <nav class="nav">
+          <div class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg> Ana sayfa</div>
+          <div class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 12h-5v5h5v-5zm3-10h-1V1h-2v1H8V1H6v1H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm0 17H5V8h14v11z"/></svg> Takvim</div>
+          <div class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2zm-1 14H5V8h14v10zM7 10h6v2H7v-2zm0 4h10v2H7v-2z"/></svg> Haberler</div>
+          <div class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 4V2H6v2H2v3a4 4 0 004 4h.4A6 6 0 0011 14.9V18H8v2h8v-2h-3v-3.1A6 6 0 0017.6 11H18a4 4 0 004-4V4h-4zM6 8H4V6h2v2z"/></svg> Sonuçlar</div>
+          <div class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Replay</div>
+        </nav>
+        <div class="rail-spacer"></div><div class="rail-divider"></div>
+        <div class="settings-nav"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17v2h6v-2H3zm3.5-9a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM17 3v2h4v2h-4v2h-2V3h2z"/></svg><div><div class="t">Ayarlar</div><div class="s">Tema, hakkında, gizlilik</div></div></div>
+      </aside>
+
+      <main class="main">
+        <header class="appbar"><div class="logo">⚑</div><div class="title">F1 TRACKER</div><div class="hint">Ctrl/Cmd+1..5 · Ctrl/Cmd+M · Esc</div></header>
+
+        <div class="content">
+          <div class="column">
+            <div class="page-head">
+              <div><h1>Ayarlar</h1><div class="sub">Uygulama tercihleri ve bilgiler</div></div>
+              <span class="version">v0.1.0</span>
+            </div>
+
+            <!-- Ayarlar kartı -->
+            <div class="card">
+              <div class="card-head">
+                <div class="card-icon">⚙</div>
+                <div><h2>Ayarlar</h2><div class="subtitle">Tema ve görünüm</div></div>
+                <span class="tag">TERCİHLER</span>
+              </div>
+              <div class="themes">
+                <div class="theme active"><div class="swatch dark"></div><div><div class="n">Koyu</div><div class="d">F1 gece modu</div></div><span class="check">✓</span></div>
+                <div class="theme"><div class="swatch light"></div><div><div class="n">Açık</div><div class="d">Gündüz görünümü</div></div></div>
+                <div class="theme"><div class="swatch pitwall"></div><div><div class="n">Pitwall</div><div class="d">Koyu mavi tema</div></div></div>
+              </div>
+              <div class="note">Yarış replay verisi OpenF1 kaynaklıdır ve GitHub üzerinden indirilir. API anahtarı gerekmez.</div>
+            </div>
+
+            <!-- Hakkında kartı -->
+            <div class="card">
+              <div class="card-head">
+                <div class="card-icon">ⓘ</div>
+                <div><h2>Hakkında</h2><div class="subtitle">Uygulama ve geliştirici bilgileri</div></div>
+                <span class="tag">BİLGİ</span>
+              </div>
+              <div class="brand-hero">
+                <div class="big">⚑</div>
+                <div><div class="t">F1 Tracker</div><div class="d">Sürüm 0.1.0</div></div>
+                <span class="unofficial">Resmî değildir</span>
+              </div>
+              <div class="info">
+                <div class="k">Geliştirici</div><div class="v">İdris KATAR</div>
+                <div class="info-row"></div><div class="info-row"></div>
+                <div class="k">Uygulama</div><div class="v muted">Yarış takvimi, sonuçlar, haberler ve seans bilgilerini tek yerde sunan bağımsız bir kişisel proje. Formula 1, FIA veya takımlarla bağlantısı yoktur.</div>
+                <div class="k">Veri kaynakları</div><div class="v muted">Takvim ve sonuçlar Jolpica; replay OpenF1 (GitHub Actions ile üretilir); haberler RSS yayıncıları.</div>
+              </div>
+            </div>
+
+            <!-- Gizlilik kartı -->
+            <div class="card">
+              <div class="card-head">
+                <div class="card-icon">🛡</div>
+                <div><h2>Gizlilik Politikası</h2><div class="subtitle">Verilerin nasıl kullanıldığı</div></div>
+                <span class="tag">GİZLİLİK</span>
+              </div>
+              <div class="info">
+                <div class="k">Toplanan bilgiler</div><div class="v muted">Hesap oluşturulmaz, analiz/izleme amacıyla kişisel bilgi toplanmaz. Tema tercihi ve son API yanıtları cihazda saklanır.</div>
+                <div class="k info-row">Üçüncü taraflar</div><div class="v muted info-row">İstekler Jolpica, GitHub (raw.githubusercontent.com) ve RSS yayıncılarına gider; bağlantı bilgileri kendi politikalarına göre işlenir.</div>
+                <div class="k info-row">Yerel veriler</div><div class="v muted info-row">Çevrimdışı önbellek cihazda tutulur, işletim sistemi ayarlarından temizlenebilir. İletişim: İdris KATAR.</div>
+              </div>
+            </div>
+
+            <!-- MIT lisans kartı (Lisanslar yerine) -->
+            <div class="card">
+              <div class="card-head">
+                <div class="card-icon">⌘</div>
+                <div><h2>MIT Lisansı</h2><div class="subtitle">Açık kaynak kullanım koşulları</div></div>
+                <span class="tag">LİSANS</span>
+              </div>
+              <div class="license">
+                <span class="copy">Kopyala</span>
+                <span class="hl">MIT License</span><br>
+                <span class="dim">Copyright (c) 2026 İdris KATAR</span><br><br>
+                Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software.<br><br>
+                <span class="dim">THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

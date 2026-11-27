@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1 Tracker — Masaüstü Ana Sayfa Önizlemesi</title>
+<style>
+  :root {
+    --bg: #090A0D;
+    --surface: #14171D;
+    --surface2: #1C2028;
+    --border: #292E38;
+    --red: #E10600;
+    --muted: #9299A6;
+    --text: #F5F6F8;
+    --green: #39C98A;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #050608; color: var(--text); padding: 18px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .caption { color: var(--muted); font-size: 12px; }
+  .caption b { color: var(--text); }
+
+  /* Native window frame */
+  .window {
+    width: min(1400px, 100%); height: auto; min-height: 840px;
+    background: var(--bg); border: 1px solid #333844; border-radius: 10px;
+    display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 24px 70px rgba(0,0,0,.6);
+  }
+  .titlebar {
+    height: 34px; flex: none; background: #101217; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 12px; gap: 10px;
+  }
+  .titlebar .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--red); }
+  .titlebar .name { font-size: 12px; font-weight: 700; letter-spacing: .3px; }
+  .titlebar .buttons { margin-left: auto; display: flex; gap: 18px; color: var(--muted); font-size: 13px; }
+
+  .shell { flex: 1; display: flex; min-height: 0; }
+
+  /* Navigation rail */
+  .rail {
+    width: 256px; flex: none; background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; padding: 12px 8px;
+  }
+  .brand { display: flex; align-items: center; gap: 9px; padding: 4px 12px 18px; }
+  .brand .logo {
+    width: 30px; height: 26px; border-radius: 6px; background: var(--red);
+    display: grid; place-items: center; color: #fff; font-size: 15px;
+  }
+  .brand .text { font-size: 14px; font-weight: 900; letter-spacing: 1.2px; }
+  .nav { display: flex; flex-direction: column; gap: 4px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 14px; height: 52px;
+    padding: 0 16px; border-radius: 12px; color: var(--muted);
+    font-size: 14px; font-weight: 600;
+  }
+  .nav-item svg { width: 22px; height: 22px; flex: none; }
+  .nav-item.active { background: rgba(225,6,0,.16); color: #fff; font-weight: 800; }
+  .nav-item.active svg { color: var(--red); }
+  .rail-spacer { flex: 1; }
+  .rail-divider { height: 1px; background: var(--border); margin-bottom: 10px; }
+  .settings {
+    display: flex; align-items: center; gap: 14px; padding: 10px 14px;
+    border-radius: 12px; border: 1px solid transparent;
+  }
+  .settings:hover { border-color: var(--border); background: var(--surface2); }
+  .settings svg { width: 22px; height: 22px; color: var(--muted); }
+  .settings .t { font-size: 14px; font-weight: 700; }
+  .settings .s { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* Content */
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .appbar {
+    height: 56px; flex: none; display: flex; align-items: center; gap: 9px;
+    padding: 0 20px; border-bottom: 1px solid var(--border); background: var(--bg);
+  }
+  /* Hamburger removed on desktop: no leading button, title starts at the left. */
+  .appbar .logo {
+    width: 30px; height: 26px; border-radius: 6px; background: var(--red);
+    display: grid; place-items: center; color: #fff; font-size: 15px;
+  }
+  .appbar .title { font-size: 15px; font-weight: 900; letter-spacing: 1.3px; }
+  .appbar .hint { margin-left: auto; font-size: 11px; color: var(--muted); }
+
+  .content { flex: 1; overflow: visible; padding: 16px 24px 28px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px;
+  }
+
+  /* Yan yana yarış kartları */
+  .race-row { display: flex; gap: 14px; align-items: stretch; }
+  .race-row > .card { flex: 1; min-width: 0; }
+
+  /* Compact next race */
+  .race-compact { padding: 12px 16px; border-left: 3px solid var(--red); }
+  .eyebrow { display: flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 900; letter-spacing: 1.4px; color: var(--red); }
+  .eyebrow .date { margin-left: auto; color: var(--muted); font-weight: 600; letter-spacing: 0; font-size: 11px; }
+  .race-name { font-size: 18px; font-weight: 900; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .race-info-row { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+  .race-meta { font-size: 11px; color: var(--muted); }
+  .countdown {
+    display: flex; gap: 9px; margin-left: auto;
+    background: var(--surface2); border-radius: 10px; padding: 5px 9px;
+  }
+  .count-unit { text-align: center; min-width: 28px; }
+  .count-unit b { display: block; font-size: 15px; font-weight: 900; }
+  .count-unit span { font-size: 8px; color: var(--muted); letter-spacing: .8px; }
+  .session { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 11px; }
+  .session svg { width: 14px; height: 14px; color: var(--red); }
+  .source { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); margin: 6px 2px 0; }
+  .source .ok { color: var(--green); font-size: 14px; }
+
+  .section { display: flex; align-items: center; margin-top: 20px; margin-bottom: 10px; }
+  .section h2 { font-size: 15px; font-weight: 800; }
+  .section h2::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--red); margin-right: 9px; vertical-align: middle; }
+  .section .action { margin-left: auto; color: var(--red); font-size: 12px; font-weight: 700; }
+
+  /* Latest race */
+  .latest { padding: 14px 16px 8px; }
+  .panel-label { font-size: 11px; font-weight: 900; letter-spacing: 1.2px; color: var(--muted); margin-bottom: 6px; }
+  .podium { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 12px; }
+  .podium .pos { width: 30px; color: var(--red); font-weight: 900; }
+  .podium .stripe { width: 3px; height: 18px; border-radius: 2px; }
+  .podium .code { width: 44px; font-weight: 800; }
+  .podium .team { color: var(--muted); font-size: 11px; }
+  .podium .time { margin-left: auto; font-weight: 800; font-size: 12px; }
+
+  /* Standings */
+  .standings { display: flex; gap: 14px; align-items: flex-start; margin-top: 20px; }
+  .table { flex: 1; min-width: 0; overflow: hidden; }
+  .table h3 { font-size: 16px; font-weight: 900; padding: 14px 16px 12px; }
+  .thead, .trow {
+    display: flex; align-items: center; gap: 6px;
+    padding-left: 16px; padding-right: 16px;
+  }
+  .thead {
+    font-size: 9.5px; font-weight: 900; letter-spacing: 1.1px; color: var(--muted);
+    padding-top: 8px; padding-bottom: 8px;
+    border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  }
+  .trow { font-size: 13px; padding-top: 9px; padding-bottom: 9px; border-bottom: 1px solid rgba(41,46,56,.6); transition: background .15s; }
+  .trow:hover { background: rgba(255,255,255,.035); }
+  .trow.leader .col-pos { color: var(--red); }
+  .col-pos { width: 32px; flex: none; font-weight: 800; font-size: 12px; }
+  .col-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; font-weight: 700; }
+  .col-name .stripe { width: 3px; height: 17px; border-radius: 2px; flex: none; }
+  .col-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .col-pts, .col-evo { width: 46px; flex: none; text-align: right; font-weight: 900; }
+  .col-evo { width: 54px; font-weight: 500; color: var(--muted); font-size: 10px; }
+  .full {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 16px; border-top: 1px solid var(--border);
+    color: var(--red); font-size: 12px; font-weight: 800;
+  }
+  .full .arrow {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 1px solid rgba(225,6,0,.45); display: grid; place-items: center; font-size: 12px;
+  }
+
+  /* News 2 columns */
+  .news-grid { display: flex; gap: 12px; align-items: flex-start; }
+  .news-col { flex: 1; min-width: 0; }
+  .news-card { padding: 4px 14px; margin-bottom: 10px; transition: border-color .15s; }
+  .news-card:hover { border-color: rgba(225,6,0,.55); }
+  .news-card .n-title { font-size: 13px; font-weight: 700; line-height: 1.35; }
+  .news-card .n-meta { font-size: 10.5px; color: var(--muted); margin-top: 3px; }
+</style>
+</head>
+<body>
+  <div class="caption"><b>Masaüstü ana sayfa önizlemesi</b> — hamburger kaldırıldı · 1400×900 pencere · statik maket (gerçek uygulama değil)</div>
+
+  <div class="window">
+    <div class="titlebar">
+      <span class="dot"></span><span class="name">F1 Tracker</span>
+      <span class="buttons">— &nbsp; ▢ &nbsp; ✕</span>
+    </div>
+
+    <div class="shell">
+      <!-- SOL RAY -->
+      <aside class="rail">
+        <div class="brand"><div class="logo">⚑</div><div class="text">F1 TRACKER</div></div>
+        <nav class="nav">
+          <div class="nav-item active">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg> Ana sayfa
+          </div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 12h-5v5h5v-5zm3-10h-1V1h-2v1H8V1H6v1H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm0 17H5V8h14v11z"/></svg> Takvim
+          </div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2zm-1 14H5V8h14v10zM7 10h6v2H7v-2zm0 4h10v2H7v-2z"/></svg> Haberler
+          </div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 4V2H6v2H2v3a4 4 0 004 4h.4A6 6 0 0011 14.9V18H8v2h8v-2h-3v-3.1A6 6 0 0017.6 11H18a4 4 0 004-4V4h-4zM6 8H4V6h2v2z"/></svg> Sonuçlar
+          </div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Replay
+          </div>
+        </nav>
+        <div class="rail-spacer"></div>
+        <div class="rail-divider"></div>
+        <div class="settings">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17v2h6v-2H3zm3.5-9a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM17 3v2h4v2h-4v2h-2V3h2z"/></svg>
+          <div><div class="t">Ayarlar</div><div class="s">Tema, hakkında, gizlilik</div></div>
+        </div>
+      </aside>
+
+      <!-- İÇERİK -->
+      <main class="main">
+        <header class="appbar">
+          <div class="logo">⚑</div>
+          <div class="title">F1 TRACKER</div>
+          <div class="hint">Ctrl/Cmd+1..5 · Ctrl/Cmd+M · Esc</div>
+        </header>
+
+        <div class="content">
+          <div class="section"><h2>Yarışlar</h2><span class="action">Sonuçlar</span></div>
+          <div class="race-row">
+            <!-- Sıradaki yarış (kompakt) -->
+            <div class="card race-compact">
+            <div class="eyebrow">⚑ SIRADAKİ YARIŞ <span class="date">07 HAZ 2026</span></div>
+            <div class="race-name">2026 Azerbaijan Grand Prix</div>
+            <div class="race-info-row">
+              <div class="race-meta">Baku, Azerbaijan • Tur 6</div>
+              <div class="countdown">
+                <div class="count-unit"><b>03</b><span>GÜN</span></div>
+                <div class="count-unit"><b>02</b><span>SAAT</span></div>
+                <div class="count-unit"><b>14</b><span>DK</span></div>
+                <div class="count-unit"><b>09</b><span>SN</span></div>
+              </div>
+            </div>
+            <div class="session">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 11h5v-2h-7V6h-2v7h4z"/></svg>
+              Sıradaki seans: Antrenman 1 • 07.06 11:30
+            </div>
+            </div>
+
+            <!-- Son yarış -->
+            <div class="card latest">
+              <div class="panel-label" style="color:var(--red)">SON YARIŞ</div>
+              <div class="race-name" style="font-size:14px;margin-bottom:2px">2026 Azerbaijan Grand Prix</div>
+            <div class="podium"><span class="pos">P1</span><span class="stripe" style="background:#27F4D2"></span><span class="code">ANT</span><span class="team">Mercedes</span><span class="time">1:32:18.402</span></div>
+            <div class="podium"><span class="pos">P2</span><span class="stripe" style="background:#3671C6"></span><span class="code">VER</span><span class="team">Red Bull Racing</span><span class="time">+2.841</span></div>
+            <div class="podium"><span class="pos">P3</span><span class="stripe" style="background:#E8002D"></span><span class="code">HAM</span><span class="team">Ferrari</span><span class="time">+5.107</span></div>
+            </div>
+          </div>
+          <div class="source"><span class="ok">✔</span> Jolpica • 05.11 14:22</div>
+
+          <!-- Puan durumları: resimdeki gibi yan yana -->
+          <div class="standings">
+            <div class="card table">
+              <h3>2026 Pilotlar Şampiyonası</h3>
+              <div class="thead"><span class="col-pos">SIRA</span><span class="col-name">PİLOT</span><span class="col-pts">PUAN</span><span class="col-evo">DEĞİŞİM</span></div>
+              <!-- rows -->
+              <div class="trow leader"><span class="col-pos">1</span><span class="col-name"><i class="stripe" style="background:#27F4D2"></i><span>Antonelli</span></span><span class="col-pts">402</span><span class="col-evo">—</span></div>
+              <div class="trow"><span class="col-pos">2</span><span class="col-name"><i class="stripe" style="background:#3671C6"></i><span>Verstappen</span></span><span class="col-pts">304</span><span class="col-evo">—</span></div>
+              <div class="trow"><span class="col-pos">3</span><span class="col-name"><i class="stripe" style="background:#E8002D"></i><span>Hamilton</span></span><span class="col-pts">267</span><span class="col-evo">—</span></div>
+              <div class="trow"><span class="col-pos">4</span><span class="col-name"><i class="stripe" style="background:#27F4D2"></i><span>Russell</span></span><span class="col-pts">264</span><span class="col-evo">—</span></div>
+              <div class="trow"><span class="col-pos">5</span><span class="col-name"><i class="stripe" style="background:#FF8000"></i><span>Norris</span></span><span class="col-pts">264</span><span class="col-evo">—</span></div>
+              <div class="trow"><span class="col-pos">6</span><span class="col-name"><i class="stripe" style="background:#E8002D"></i><span>Leclerc</span></span><span class="col-pts">250</span><span class="col-evo">—</span></div>
+              <div class="trow"><span class="col-pos">7</span><span class="col-name"><i class="stripe" style="background:#FF8000"></i><span>Piastri</span></span><span class="col-pts">167</span><span class="col-evo">—</span></div>
+              <div class="trow"><span class="col-pos">8</span><span class="col-name"><i class="stripe" style="background:#6692FF"></i><span>Hadjar</span></span><span class="col-pts">122</span><span class="col-evo">—</span></div>
+              <div class="trow"><span class="col-pos">9</span><span class="col-name"><i class="stripe" style="background:#6692FF"></i><span>Lawson</span></span><span class="col-pts">89</span><span class="col-evo">—</span></div>
+              <div class="trow"><span class="col-pos">10</span><span class="col-name"><i class="stripe" style="background:#FF87BC"></i><span>Gasly</span></span><span class="col-pts">52</span><span class="col-evo">—</span></div>
+              <div class="full"><span>Tümünü göster</span><span class="arrow">→</span></div>
+            </div>
+
+            <div class="card table">
+              <h3>2026 Takımlar Şampiyonası</h3>
+              <div class="thead"><span class="col-pos">SIRA</span><span class="col-name">TAKIM</span><span class="col-pts">PUAN</span><span class="col-evo">DEĞİŞİM</span></div>
+              <div class="trow leader"><span class="col-pos">1</span><span class="col-name"><i class="stripe" style="background:#27F4D2"></i><span>Mercedes</span></span><span class="col-pts">666</span><span class="col-evo">—</span></div>
+              <div class="trow"><span class="col-pos">2</span><span class="col-name"><i class="stripe" style="background:#E8002D"></i><span>Ferrari</span></span><span class="col-pts">517</span><span class="col-evo">—</span></div>
+              <div class="trow"><span class="col-pos">3</span><span class="col-name"><i class="stripe" style="background:#3671C6"></i><span>Red Bull Racing</span></span><span class="col-pts">440</span><span class="col-evo">—</span></div>
+              <div class="trow"><span class="col-pos">4</span><span class="col-name"><i class="stripe" style="background:#FF8000"></i><span>McLaren</span></span><span class="col-pts">431</span><span class="col-evo">—</span></div>
+              <div class="trow"><span class="col-pos">5</span><span class="col-name"><i class="stripe" style="background:#6692FF"></i><span>RB</span></span><span class="col-pts">114</span><span class="col-evo">—</span></div>
+              <div class="trow"><span class="col-pos">6</span><span class="col-name"><i class="stripe" style="background:#FF87BC"></i><span>Alpine</span></span><span class="col-pts">87</span><span class="col-evo">—</span></div>
+              <div class="trow"><span class="col-pos">7</span><span class="col-name"><i class="stripe" style="background:#B6BABD"></i><span>Haas</span></span><span class="col-pts">31</span><span class="col-evo">—</span></div>
+              <div class="trow"><span class="col-pos">8</span><span class="col-name"><i class="stripe" style="background:#52E252"></i><span>Audi</span></span><span class="col-pts">28</span><span class="col-evo">—</span></div>
+              <div class="trow"><span class="col-pos">9</span><span class="col-name"><i class="stripe" style="background:#64C4FF"></i><span>Williams</span></span><span class="col-pts">16</span><span class="col-evo">—</span></div>
+              <div class="trow"><span class="col-pos">10</span><span class="col-name"><i class="stripe" style="background:#229971"></i><span>Aston Martin</span></span><span class="col-pts">7</span><span class="col-evo">—</span></div>
+              <div class="full"><span>Tümünü göster</span><span class="arrow">→</span></div>
+            </div>
+          </div>
+
+          <!-- Haberler: 2 sütun -->
+          <div class="section"><h2>Son haberler</h2><span class="action">Tüm haberler</span></div>
+          <div class="news-grid">
+            <div class="news-col">
+              <div class="card news-card"><div class="n-title">Russell: "Bu hafta sonu araç çok daha iyi hissettirdi"</div><div class="n-meta">MOTORSPORT TÜRKİYE • 05.11 13:40</div></div>
+              <div class="card news-card"><div class="n-title">FIA, pist sınırlarıyla ilgili yeni yönerge yayımladı</div><div class="n-meta">TRF1.NET • 05.11 11:15</div></div>
+            </div>
+            <div class="news-col">
+              <div class="card news-card"><div class="n-title">Takımlar şampiyonasında Mercedes farkı açtı</div><div class="n-meta">TRF1.NET • 04.11 18:02</div></div>
+              <div class="card news-card"><div class="n-title">Antonelli: "Podyum inanılmaz bir his"</div><div class="n-meta">MOTORSPORT TÜRKİYE • 04.11 16:28</div></div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

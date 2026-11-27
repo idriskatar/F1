@@ -18,6 +18,7 @@ Kişisel kullanım için hazırlanmış, premium koyu temalı Android/iOS ve Win
 - Android sistem geri tuşu; açık yarış detayını kapatır, ana sekmeye döner ve Ana sayfadayken uygulamadan çıkar.
 - Beş sekmeli gezinme: telefonlarda alt gezinme çubuğu, masaüstünde (≥900 px) solda genişletilmiş gezinme rayı. Ayarlar, Hakkında, Gizlilik ve lisanslar menüden açılır.
 - Masaüstü klavye kısayolları: `Ctrl/Cmd+1..5` sekmeler, `Ctrl/Cmd+M` menü, `Esc` açık sayfayı kapatır ya da ana sayfaya döner. Pencere 1400×900 açılır, en az 1000×650 boyuta küçültülebilir.
+- Geniş ekran düzeni: ana sayfada yarış kartları ve puan durumları yan yana; takvim, haberler ve sonuçlarda iki sütunlu listeler; Ayarlar ekranında alt alta kartlar (MIT lisans metniyle, ayrı lisans ekranı yok). Mobil düzen aynen korunur.
 - Ücretsiz GitHub Actions Android APK, imzasız iOS simülatör ve Windows/Linux/macOS masaüstü derlemeleri.
 
 ## Gerçek veri ve örnek alanlar
