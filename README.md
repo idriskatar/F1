@@ -63,7 +63,7 @@ flutter build macos --release     # build/macos/Build/Products/Release/
 ```
 
 - Windows derlemesi Visual Studio 2022'de “Desktop development with C++” iş yükünü gerektirir.
-- Linux derlemesi `clang`, `cmake`, `ninja-build`, `pkg-config` ve GTK/X11 geliştirme dosyalarını gerektirir: `sudo apt-get install clang cmake ninja-build pkg-config libgtk-3-dev libx11-dev libxi-dev liblzma-dev`.
+- Linux derlemesi ve testleri `clang`, `cmake`, `ninja-build`, `pkg-config` ve GTK/X11 geliştirme dosyalarını gerektirir: `sudo apt-get install clang cmake ninja-build pkg-config libgtk-3-dev libx11-dev libxi-dev liblzma-dev`.
 - macOS derlemesi yalnızca macOS + Xcode ile yapılabilir; yerel/ad-hoc imzalı derleme çalışır, dağıtım için Apple imzası gerekir. Yapılandırma betiği macOS sandbox için giden ağ iznini (`com.apple.security.network.client`) ekler.
 - Windows'ta betiği `python tool/configure_app_name.py` ile çalıştırın.
 - Masaüstünde SQLite `sqflite_common_ffi` ile, önbellek ve replay dosyaları işletim sisteminin uygulama destek dizininde tutulur.
