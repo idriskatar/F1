@@ -57,4 +57,15 @@ void main() {
 
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('masaüstü ana sayfası puan durumlarını yan yana, haberleri iki sütunda gösterir', (tester) async {
+    await pumpDesktopApp(tester);
+
+    expect(find.text('2026 Driver Standings'), findsOneWidget);
+    expect(find.text('2026 Constructor Standings'), findsOneWidget);
+    expect(find.text('Full 2026 Driver Standings'), findsOneWidget);
+    expect(find.text('POS.'), findsNWidgets(2));
+
+    await tester.pumpWidget(const SizedBox());
+  });
 }

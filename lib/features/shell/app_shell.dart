@@ -11,6 +11,7 @@ import '../more/more_screen.dart';
 import '../news/news_screen.dart';
 import '../replay/replay_screen.dart';
 import '../results/results_screen.dart';
+import '../../shared/widgets/responsive.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key, this.repository, this.newsRepository, this.replayRepository, this.clock, this.themeId = 'dark', this.onThemeChanged});
@@ -35,9 +36,6 @@ class _AppShellState extends State<AppShell> {
   late final ReplayRepository _replayRepository;
   late final bool _ownsReplayRepository;
 
-  /// Bu genişliğin üzerinde alt gezinme çubuğu yerine yan gezinme rayı kullanılır.
-  static const double _desktopBreakpoint = 900;
-
   @override
   void initState() {
     super.initState();
@@ -55,7 +53,7 @@ class _AppShellState extends State<AppShell> {
   /// Dar pencerelerde (telefon) alt gezinme çubuğu, geniş pencerelerde yan ray kullanılır.
   bool _isMobile(BuildContext context) {
     if (kIsWeb) return false;
-    return MediaQuery.sizeOf(context).width < _desktopBreakpoint;
+    return !isDesktopLayout(context);
   }
 
   List<Widget> _screens() => [
