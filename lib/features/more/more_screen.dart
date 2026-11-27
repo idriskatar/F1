@@ -22,7 +22,12 @@ class MoreScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (embedded) return _desktopContent();
+    if (embedded) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+        child: _desktopContent(),
+      );
+    }
     if (isDesktopLayout(context)) return _desktop(context);
     return _mobile(context);
   }
@@ -198,7 +203,7 @@ class MoreScreen extends StatelessWidget {
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('F1 Tracker', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
           const SizedBox(height: 2),
-          Text('Sürüm 0.1.0', style: TextStyle(color: AppColors.muted, fontSize: 11)),
+          Text('Sürüm $appVersion', style: TextStyle(color: AppColors.muted, fontSize: 11)),
         ]),
         const Spacer(),
         Container(

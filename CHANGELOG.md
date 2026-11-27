@@ -2,6 +2,13 @@
 
 Bu dosya kullanıcıya görünen sürüm geçmişini tutar. Sürüm numarası `pubspec.yaml` ve `lib/core/app_info.dart` ile eşleşir.
 
+## [1.6.2] - 2026-11-27
+
+### Eklendi
+- Geri sayım sayacı mobil ve masaüstünde ayrı hücreler, okunabilir gün/saat/dakika/saniye etiketleri ve canlı saniye noktası.
+- Masaüstü Replay oynatıcıda sol gezinme rayı korunur; pist haritası, lastik stratejisi, pit stoplar, olaylar, canlı sıralama, telemetri, hız grafiği, tur süreleri ve pilot karşılaştırması ayrı kartlarda.
+- Masaüstü Ayarlar alt sayfası içerik taştığında kaydırılabilir; Hakkında kartındaki sürüm bilgisi gerçek sürümü gösterir.
+
 ## [1.6.1] - 2026-11-27
 
 ### Eklendi

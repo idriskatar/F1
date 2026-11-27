@@ -1385,3 +1385,105 @@ class _WeatherValue extends StatelessWidget {
         Text(value, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800)),
       ]);
 }
+
+// ---------------------------------------------------------------------------- Masaüstü kartları için açık sarmalayıcılar
+// Mobil PageView akışı değişmeden kalır; yalnızca masaüstü düzeni bu parçaları yeniden kullanır.
+
+class ReplayPositionListCard extends StatelessWidget {
+  const ReplayPositionListCard({super.key, required this.data, required this.time, required this.selected, required this.onSelect});
+
+  final ReplayData data;
+  final ValueListenable<double> time;
+  final String? selected;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) => _PositionList(data: data, time: time, selected: selected, onSelect: onSelect);
+}
+
+class ReplayTelemetryDesktop extends StatelessWidget {
+  const ReplayTelemetryDesktop({super.key, required this.data, required this.driver, required this.time, required this.slowTime});
+
+  final ReplayData data;
+  final ReplayDriver driver;
+  final ValueListenable<double> time;
+  final ValueListenable<double> slowTime;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!driver.hasTelemetry) {
+      return Center(child: Text('Bu pilot için telemetri verisi yok.', style: TextStyle(color: AppColors.muted, fontSize: 11)));
+    }
+    return Row(children: [
+      SizedBox(width: 176, height: 176, child: _Gauge(data: data, driver: driver, time: time)),
+      const SizedBox(width: 8),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(driver.surname.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+        if (driver.team.isNotEmpty)
+          Text(driver.team, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.muted, fontSize: 10)),
+        ValueListenableBuilder<double>(
+          valueListenable: slowTime,
+          builder: (context, t, _) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _LapTyreRow(data: data, driver: driver, t: t),
+            _SectorBars(states: data.sectorStatesAt(driver, t)),
+          ]),
+        ),
+      ])),
+    ]);
+  }
+}
+
+class ReplaySpeedGraphCard extends StatelessWidget {
+  const ReplaySpeedGraphCard({super.key, required this.data, required this.driver, required this.time});
+  final ReplayData data;
+  final ReplayDriver driver;
+  final ValueListenable<double> time;
+  @override
+  Widget build(BuildContext context) => _SpeedPage(data: data, driver: driver, time: time);
+}
+
+class ReplayLapTimesCard extends StatelessWidget {
+  const ReplayLapTimesCard({super.key, required this.data, required this.driver, required this.time});
+  final ReplayData data;
+  final ReplayDriver driver;
+  final ValueListenable<double> time;
+  @override
+  Widget build(BuildContext context) => _LapTimesPage(data: data, driver: driver, time: time);
+}
+
+class ReplayPitStopsCard extends StatelessWidget {
+  const ReplayPitStopsCard({super.key, required this.data, required this.time, required this.onOpen});
+  final ReplayData data;
+  final ValueListenable<double> time;
+  final ValueChanged<ReplayPit> onOpen;
+  @override
+  Widget build(BuildContext context) => _PitTab(data: data, time: time, onOpen: onOpen);
+}
+
+class ReplayEventsCard extends StatelessWidget {
+  const ReplayEventsCard({super.key, required this.data, required this.time, required this.onOpen});
+  final ReplayData data;
+  final ValueListenable<double> time;
+  final ValueChanged<ReplayEvent> onOpen;
+  @override
+  Widget build(BuildContext context) => _EventsPage(data: data, time: time, onOpen: onOpen);
+}
+
+class ReplayCompareCard extends StatelessWidget {
+  const ReplayCompareCard({super.key, required this.data, required this.driver, required this.rival, required this.time, required this.slowTime, required this.onPickRival});
+  final ReplayData data;
+  final ReplayDriver? driver;
+  final ReplayDriver? rival;
+  final ValueListenable<double> time;
+  final ValueListenable<double> slowTime;
+  final VoidCallback onPickRival;
+  @override
+  Widget build(BuildContext context) => _ComparePage(
+        data: data,
+        driver: driver,
+        rival: rival,
+        time: time,
+        slowTime: slowTime,
+        onPickRival: onPickRival,
+      );
+}

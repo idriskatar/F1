@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1 Tracker — Geri Sayım Okunurluğu Önizlemesi</title>
+<style>
+  :root {
+    --bg: #090A0D; --surface: #14171D; --surface2: #1C2028;
+    --border: #292E38; --red: #E10600; --muted: #9299A6;
+    --text: #F5F6F8; --amber: #FFC247; --green: #39C98A;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #050608; color: var(--text); padding: 24px; }
+  h1 { font-size: 20px; margin-bottom: 6px; }
+  .caption { color: var(--muted); font-size: 12px; margin-bottom: 22px; }
+  .grid { display: flex; gap: 22px; flex-wrap: wrap; }
+  .panel { flex: 1; min-width: 420px; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 20px; }
+  .panel h2 { font-size: 15px; margin-bottom: 4px; }
+  .panel .sub { font-size: 11px; color: var(--muted); margin-bottom: 18px; }
+  .label { font-size: 10px; font-weight: 900; letter-spacing: 1.3px; color: var(--muted); margin: 14px 0 8px; }
+
+  .card-mock { background: var(--bg); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+  .race-title { font-size: 17px; font-weight: 900; margin-bottom: 4px; }
+  .race-meta { font-size: 11px; color: var(--muted); margin-bottom: 14px; }
+
+  /* ÖNCE: tek uzun sayı gibi */
+  .old { display: flex; align-items: baseline; gap: 10px; }
+  .old b { font-size: 26px; font-weight: 900; letter-spacing: -1px; }
+  .old span { font-size: 9px; color: var(--muted); letter-spacing: 1px; }
+
+  /* SONRA: ayrı hücreler */
+  .units { display: flex; align-items: stretch; gap: 6px; }
+  .unit {
+    flex: 1; min-width: 0; text-align: center; padding: 9px 4px 8px;
+    border-radius: 11px; background: var(--surface2);
+    border: 1px solid var(--border); border-top: 2px solid var(--accent, var(--border));
+  }
+  .unit .n { font-size: 24px; font-weight: 900; line-height: 1; }
+  .unit .l { font-size: 8.5px; font-weight: 900; letter-spacing: 1.2px; color: var(--muted); margin-top: 6px; }
+  .unit.sec .l { color: var(--red); }
+  .dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--red); margin-left: 4px; vertical-align: middle; }
+
+  .compact .unit { padding: 6px 3px 5px; border-radius: 9px; }
+  .compact .unit .n { font-size: 17px; }
+  .compact .unit .l { font-size: 7.5px; letter-spacing: .8px; margin-top: 4px; }
+  .strip { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 8px; }
+  .note { font-size: 11px; color: var(--muted); line-height: 1.6; margin-top: 16px; }
+  .note b { color: var(--text); }
+  .pill { display: inline-block; font-size: 9px; font-weight: 900; letter-spacing: .8px; padding: 3px 8px; border-radius: 999px; background: rgba(225,6,0,.15); color: #FF6B66; margin-left: 8px; }
+</style>
+</head>
+<body>
+  <h1>Geri sayım: önce / sonra</h1>
+  <div class="caption">Amaç: gün–saat–dakika–saniye tek bir uzun sayı gibi değil, ayrı okunabilir bir "pist zaman tablosu" gibi görünsün. Statik maket.</div>
+
+  <div class="grid">
+    <!-- MOBİL -->
+    <div class="panel">
+      <h2>Mobil <span class="pill">ANA SAYFA</span></h2>
+      <div class="sub">Dar kartta 4 eşit hücre, üstte ince renk vurgusu</div>
+
+      <div class="label">ÖNCE</div>
+      <div class="card-mock">
+        <div class="race-title">2026 Azerbaijan Grand Prix</div>
+        <div class="race-meta">Baku, Azerbaijan • Tur 6</div>
+        <div class="old"><b>03 02 14 09</b><span>GÜN SAAT DK SN</span></div>
+      </div>
+
+      <div class="label">SONRA</div>
+      <div class="card-mock">
+        <div class="race-title">2026 Azerbaijan Grand Prix</div>
+        <div class="race-meta">Baku, Azerbaijan • Tur 6</div>
+        <div class="units">
+          <div class="unit" style="--accent:#E10600"><div class="n">03</div><div class="l">GÜN</div></div>
+          <div class="unit" style="--accent:#FFC247"><div class="n">02</div><div class="l">SAAT</div></div>
+          <div class="unit" style="--accent:#39C98A"><div class="n">14</div><div class="l">DAKİKA</div></div>
+          <div class="unit sec" style="--accent:#E10600"><div class="n">09<span class="dot"></span></div><div class="l">SANİYE</div></div>
+        </div>
+      </div>
+      <div class="note"><b>Neden okunur:</b> eşit genişlikli kutular, üstteki ince renk çizgileri ve tam yazılan <b>DAKİKA / SANİYE</b> etiketleri; saniyedeki küçük kırmızı nokta canlılığı hissettirir.</div>
+    </div>
+
+    <!-- MASAÜSTÜ -->
+    <div class="panel">
+      <h2>Masaüstü <span class="pill">KOMPAKT KART</span></h2>
+      <div class="sub">Koyu zaman şeridi içinde küçük hücreler</div>
+
+      <div class="label">ÖNCE</div>
+      <div class="card-mock">
+        <div class="race-title">2026 Azerbaijan Grand Prix</div>
+        <div class="race-meta">Baku, Azerbaycan • Tur 6</div>
+        <div class="strip"><div class="old" style="font-size:14px"><b style="font-size:15px">03 02 14 09</b><span>GÜN SAAT DK SN</span></div></div>
+      </div>
+
+      <div class="label">SONRA</div>
+      <div class="card-mock">
+        <div class="race-title">2026 Azerbaijan Grand Prix</div>
+        <div class="race-meta">Baku, Azerbaycan • Tur 6</div>
+        <div class="strip compact">
+          <div class="units">
+            <div class="unit" style="--accent:#E10600"><div class="n">03</div><div class="l">GÜN</div></div>
+            <div class="unit" style="--accent:#FFC247"><div class="n">02</div><div class="l">SAAT</div></div>
+            <div class="unit" style="--accent:#39C98A"><div class="n">14</div><div class="l">DAK.</div></div>
+            <div class="unit sec" style="--accent:#E10600"><div class="n">09<span class="dot"></span></div><div class="l">SN.</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="note"><b>Neden okunur:</b> masaüstünde yer dar olduğu için etiketler kısaltılır (<b>DAK.</b>, <b>SN.</b>) ama hücre ayrımı ve renk vurgusu korunur; rakamlar 17 px'e iner, tek satırda sığar.</div>
+    </div>
+  </div>
+</body>
+</html>

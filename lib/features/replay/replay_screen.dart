@@ -7,9 +7,11 @@ import 'package:flutter/scheduler.dart' show Ticker;
 import '../../core/models/replay_models.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/remote/replay_repository.dart';
+import '../shell/shell_page_opener.dart';
 import 'replay_panel.dart';
 import 'replay_strategy.dart';
 import '../../shared/widgets/section_title.dart';
+import '../../shared/widgets/responsive.dart';
 
 String _clock(double seconds) => formatReplayClock(seconds);
 
@@ -194,13 +196,65 @@ class _SessionCard extends StatelessWidget {
           ),
         ]),
         trailing: const Icon(Icons.chevron_right_rounded),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => ReplayPlayerScreen(repository: repository, entry: entry)),
-        ),
+        onTap: () {
+          final player = ReplayPlayerScreen(repository: repository, entry: entry, embedded: true);
+          final opener = ShellPageOpener.maybeOf(context);
+          if (opener != null) {
+            opener.open(player);
+          } else {
+            Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ReplayPlayerScreen(repository: repository, entry: entry)));
+          }
+        },
       ),
     );
   }
 }
+
+/// Masaüstü lastik stratejisi kartı: ilk 4 pilotun stint şeritleri.
+class _DesktopStrategy extends StatelessWidget {
+  const _DesktopStrategy({required this.data});
+  final ReplayData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final drivers = data.drivers.where((d) => d.stints.isNotEmpty).take(4).toList();
+    if (drivers.isEmpty) {
+      return Center(child: Text('Strateji verisi yok.', style: TextStyle(color: AppColors.muted, fontSize: 11)));
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      for (final d in drivers)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Row(children: [
+            SizedBox(width: 34, child: Text(d.code, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11))),
+            const SizedBox(width: 4),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: Row(children: [
+                  for (final s in d.stints) ...[
+                    Expanded(
+                      flex: ((s.lapEnd ?? (s.lapStart + 1)) - s.lapStart + 1) < 1 ? 1 : ((s.lapEnd ?? (s.lapStart + 1)) - s.lapStart + 1),
+                      child: Container(height: 10, color: _stintColor(s.letter)),
+                    ),
+                  ],
+                ]),
+              ),
+            ),
+          ]),
+        ),
+    ]);
+  }
+}
+
+Color _stintColor(String letter) => switch (letter) {
+  'S' => const Color(0xFFFF3B30),
+  'M' => const Color(0xFFFFC247),
+  'H' => const Color(0xFFD0D4DA),
+  'I' => const Color(0xFF52E252),
+  'W' => const Color(0xFF2F6BFF),
+  _ => const Color(0xFF9299A6),
+};
 
 class _Message extends StatelessWidget {
   const _Message({required this.icon, required this.text, this.action});
@@ -225,10 +279,13 @@ class _Message extends StatelessWidget {
 
 /// Tek bir seansı indirir ve oynatıcıyı gösterir.
 class ReplayPlayerScreen extends StatefulWidget {
-  const ReplayPlayerScreen({super.key, required this.repository, required this.entry});
+  const ReplayPlayerScreen({super.key, required this.repository, required this.entry, this.embedded = false});
 
   final ReplayRepository repository;
   final ReplayIndexEntry entry;
+
+  /// Masaüstünde kabuğun içinde, sol gezinme rayı korunarak gösterilir.
+  final bool embedded;
 
   @override
   State<ReplayPlayerScreen> createState() => _ReplayPlayerScreenState();
@@ -260,9 +317,15 @@ class _ReplayPlayerScreenState extends State<ReplayPlayerScreen> {
           final landscape = ready && _useLandscape(MediaQuery.sizeOf(context));
           VoidCallback? openStrategy;
           if (data != null && data.drivers.any((d) => d.stints.isNotEmpty)) {
-            openStrategy = () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => ReplayStrategyScreen(data: data)),
-                );
+            openStrategy = () {
+              final page = ReplayStrategyScreen(data: data);
+              final opener = ShellPageOpener.maybeOf(context);
+              if (opener != null) {
+                opener.open(page);
+              } else {
+                Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+              }
+            };
           }
           final Widget body;
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -276,6 +339,7 @@ class _ReplayPlayerScreenState extends State<ReplayPlayerScreen> {
           } else {
             body = _ReplayView(data: data, landscape: landscape, title: widget.entry.name, onOpenStrategy: openStrategy);
           }
+          if (widget.embedded) return body;
           return Scaffold(
             appBar: landscape
                 ? null
@@ -329,6 +393,7 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
   bool _showNames = true;
   double _speed = 10;
   String? _selected;
+  String? _rivalCode;
 
   @override
   void initState() {
@@ -414,6 +479,7 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
+    if (isDesktopLayout(context)) return _buildDesktop(data);
     if (!widget.landscape) {
       return Column(children: [
         _buildHeader(data, const EdgeInsets.fromLTRB(16, 0, 20, 4)),
@@ -459,6 +525,138 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
       ),
     ]);
   }
+
+  /// Masaüstü: sol ray korunur, üç kolonlu kart düzeni.
+  Widget _buildDesktop(ReplayData data) {
+    final selectedDriver = data.driverByCode(_selected);
+    final rivals = [for (final d in data.drivers) if (d.hasTelemetry && d.code != _selected) d];
+    final rival = _rivalCode == null
+        ? (rivals.isEmpty ? null : rivals.first)
+        : data.driverByCode(_rivalCode);
+    return Column(children: [
+      _desktopTopBar(data),
+      const SizedBox(height: 10),
+      Expanded(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Expanded(flex: 40, child: Column(children: [
+          _desktopCard(title: 'PİST HARİTASI', flex: 3, child: _buildMap(data, EdgeInsets.zero)),
+          _desktopCard(title: 'LASTİK STRATEJİSİ', flex: 2, child: _DesktopStrategy(data: data)),
+          Expanded(flex: 2, child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Expanded(child: _desktopCard(title: 'PİT STOPLAR', flex: 1, child: ReplayPitStopsCard(
+              data: data,
+              time: _slowTime,
+              onOpen: (pit) => ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('${pit.driver} · tur ${pit.lap} · pit şeridi ${pit.pitLaneSeconds?.toStringAsFixed(1) ?? '—'} sn')),
+              ),
+            ))),
+            const SizedBox(width: 8),
+            Expanded(child: _desktopCard(title: 'OLAYLAR', flex: 1, child: ReplayEventsCard(
+              data: data,
+              time: _slowTime,
+              onOpen: (event) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(event.badge))),
+            ))),
+          ])),
+        ])),
+        const SizedBox(width: 10),
+        Expanded(flex: 22, child: _desktopCard(
+          title: 'CANLI SIRALAMA',
+          flex: 1,
+          child: ReplayPositionListCard(
+            data: data,
+            time: _slowTime,
+            selected: _selected,
+            onSelect: (code) => setState(() => _selected = code),
+          ),
+        )),
+        const SizedBox(width: 10),
+        Expanded(flex: 38, child: Column(children: [
+          _desktopCard(
+            title: 'TELEMETRİ · SEÇİLİ PİLOT',
+            flex: 3,
+            child: selectedDriver == null
+                ? Center(child: Text('Soldan bir pilot seçin.', style: TextStyle(color: AppColors.muted, fontSize: 11)))
+                : ReplayTelemetryDesktop(data: data, driver: selectedDriver, time: _time, slowTime: _slowTime),
+          ),
+          _desktopCard(
+            title: 'HIZ GRAFİĞİ · SON 60 SN',
+            flex: 2,
+            child: selectedDriver == null
+                ? const SizedBox.shrink()
+                : ReplaySpeedGraphCard(data: data, driver: selectedDriver, time: _time),
+          ),
+          _desktopCard(
+            title: 'TUR SÜRELERİ',
+            flex: 1.4,
+            child: selectedDriver == null
+                ? const SizedBox.shrink()
+                : ReplayLapTimesCard(data: data, driver: selectedDriver, time: _time),
+          ),
+          _desktopCard(
+            title: 'PİLOT KARŞILAŞTIRMASI',
+            flex: 2,
+            child: ReplayCompareCard(
+              data: data,
+              driver: selectedDriver,
+              rival: rival,
+              time: _time,
+              slowTime: _slowTime,
+              onPickRival: () {
+                if (rivals.isEmpty) return;
+                final i = rivals.indexWhere((d) => d.code == rival?.code);
+                setState(() => _rivalCode = rivals[(i + 1) % rivals.length].code);
+              },
+            ),
+          ),
+        ])),
+      ])),
+    ]);
+  }
+
+  Widget _desktopTopBar(ReplayData data) => Row(children: [
+    IconButton(
+      tooltip: 'Geri',
+      visualDensity: VisualDensity.compact,
+      onPressed: () => Navigator.of(context).maybePop(),
+      icon: const Icon(Icons.arrow_back_rounded),
+    ),
+    const SizedBox(width: 4),
+    Flexible(child: Text(widget.title, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900))),
+    const SizedBox(width: 10),
+    ValueListenableBuilder<double>(
+      valueListenable: _slowTime,
+      builder: (context, t, _) => Text('TUR ${data.lapAt(t)}/${data.totalLaps} · ${_clock(t)}', style: TextStyle(color: AppColors.muted, fontSize: 11)),
+    ),
+    const SizedBox(width: 12),
+    IconButton(
+      tooltip: _playing ? 'Duraklat' : 'Oynat',
+      visualDensity: VisualDensity.compact,
+      color: AppColors.red,
+      onPressed: () => _playing ? _pause() : _play(),
+      icon: Icon(_playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
+    ),
+    TextButton(onPressed: () => _seek(_time.value - 10), child: const Text('-10sn', style: TextStyle(fontSize: 11))),
+    TextButton(onPressed: () => _seek(_time.value + 10), child: const Text('+10sn', style: TextStyle(fontSize: 11))),
+    TextButton(
+      onPressed: () => setState(() {
+        final i = _speeds.indexOf(_speed);
+        _speed = _speeds[(i + 1) % _speeds.length];
+      }),
+      child: Text('${_speed.toInt()}×', style: const TextStyle(fontSize: 11)),
+    ),
+    Expanded(child: _ReplayTimeline(data: data, time: _time, selected: _selected, onSeek: _seek)),
+  ]);
+
+  Widget _desktopCard({required String title, required double flex, required Widget child}) => Expanded(
+    flex: flex.round(),
+    child: Container(
+      padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title, style: TextStyle(color: AppColors.muted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.1)),
+        const SizedBox(height: 6),
+        Expanded(child: child),
+      ]),
+    ),
+  );
 
   /// Tur etiketi, saat ve pitteki pilotlar.
   Widget _buildHeader(ReplayData data, EdgeInsets padding) => ValueListenableBuilder<double>(

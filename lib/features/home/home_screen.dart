@@ -459,12 +459,17 @@ class _CountdownState extends State<_Countdown> {
       children: [
         Row(
           mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _CountdownUnit(value: two(left.inDays), label: 'GÜN', compact: widget.compact),
-            _CountdownUnit(value: two(left.inHours % 24), label: 'SAAT', compact: widget.compact),
-            _CountdownUnit(value: two(left.inMinutes % 60), label: 'DK', compact: widget.compact),
-            _CountdownUnit(value: two(left.inSeconds % 60), label: 'SN', compact: widget.compact),
+            for (var i = 0; i < 4; i++) ...[
+              if (i > 0) SizedBox(width: widget.compact ? 5 : 7),
+              _CountdownUnit(
+                value: [two(left.inDays), two(left.inHours % 24), two(left.inMinutes % 60), two(left.inSeconds % 60)][i],
+                label: [widget.compact ? 'GÜN' : 'GÜN', widget.compact ? 'SAAT' : 'SAAT', widget.compact ? 'DAK.' : 'DAKİKA', widget.compact ? 'SN.' : 'SANİYE'][i],
+                color: [AppColors.red, AppColors.amber, AppColors.green, AppColors.red][i],
+                pulse: i == 3,
+                compact: widget.compact,
+              ),
+            ],
           ],
         ),
         if (remaining.isNegative)
@@ -478,15 +483,41 @@ class _CountdownState extends State<_Countdown> {
 }
 
 class _CountdownUnit extends StatelessWidget {
-  const _CountdownUnit({required this.value, required this.label, this.compact = false});
+  const _CountdownUnit({
+    required this.value,
+    required this.label,
+    required this.color,
+    this.compact = false,
+    this.pulse = false,
+  });
+
   final String value;
   final String label;
+  final Color color;
   final bool compact;
+  final bool pulse;
+
   @override
-  Widget build(BuildContext context) => Column(children: [
-    Text(value, style: TextStyle(fontSize: compact ? 15 : 26, fontWeight: FontWeight.w900)),
-    Text(label, style: TextStyle(fontSize: compact ? 8 : 9, color: AppColors.muted, letterSpacing: compact ? 0.8 : 1.2)),
-  ]);
+  Widget build(BuildContext context) => Container(
+    width: compact ? 40 : 60,
+    padding: EdgeInsets.symmetric(vertical: compact ? 5 : 9, horizontal: 2),
+    decoration: BoxDecoration(
+      color: AppColors.surface2,
+      borderRadius: BorderRadius.circular(compact ? 9 : 11),
+      border: Border(top: BorderSide(color: color, width: 2)),
+    ),
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(value, style: TextStyle(fontSize: compact ? 17 : 24, fontWeight: FontWeight.w900, height: 1)),
+        if (pulse) ...[
+          const SizedBox(width: 2),
+          Container(width: compact ? 3 : 4, height: compact ? 3 : 4, decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.red)),
+        ],
+      ]),
+      SizedBox(height: compact ? 4 : 6),
+      Text(label, style: TextStyle(fontSize: compact ? 7.5 : 8.5, fontWeight: FontWeight.w900, letterSpacing: compact ? 0.8 : 1, color: AppColors.muted)),
+    ]),
+  );
 }
 
 class _SourceLine extends StatelessWidget {
