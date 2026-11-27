@@ -330,15 +330,15 @@ void main() {
 
     expect(find.text('Lider'), findsOneWidget);
     expect(find.text('LİDERE'), findsOneWidget);
-    expect(find.text('+2.0'), findsOneWidget); // BBB
-    expect(find.text('+5.0'), findsOneWidget); // CCC
-    expect(find.text('+7.0'), findsOneWidget); // DDD
+    expect(find.text('+2,000'), findsOneWidget); // BBB
+    expect(find.text('+5,000'), findsOneWidget); // CCC
+    expect(find.text('+7,000'), findsOneWidget); // DDD
 
     await tester.tap(find.byKey(const Key('replay-gap-mode')));
     await tester.pumpAndSettle();
     expect(find.text('ÖNDEKİNE'), findsOneWidget);
-    expect(find.text('+2.0'), findsNWidgets(3)); // üç pilotun da öndekine farkı 2.0
-    expect(find.text('+5.0'), findsNothing);
+    expect(find.text('+2,000'), findsNWidgets(3)); // üç pilotun da öndekine farkı 2.0
+    expect(find.text('+5,000'), findsNothing);
   });
 
   testWidgets('karşılaştır sayfası: varsayılan rakip öndeki pilot; rakip seçilebilir; aradaki fark görünür', (tester) async {
@@ -348,7 +348,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Hız (km/sa) · son 60 sn'), findsOneWidget);
     expect(find.descendant(of: find.byKey(const Key('replay-compare-pick')), matching: find.text('BBB')), findsOneWidget);
-    expect(find.text('Δ 2.0 sn'), findsOneWidget);
+    expect(find.text('Δ 2,000 sn'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('replay-compare-pick')));
     await tester.pumpAndSettle();
@@ -358,7 +358,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.descendant(of: find.byKey(const Key('replay-compare-pick')), matching: find.text('CCC')), findsOneWidget);
-    expect(find.text('Δ 5.0 sn'), findsOneWidget);
+    expect(find.text('Δ 5,000 sn'), findsOneWidget);
     // Sayfanın sonunda her iki pilotun mini göstergesi
     expect(find.byKey(const Key('replay-compare-gauge-AAA'), skipOffstage: false), findsOneWidget);
     expect(find.byKey(const Key('replay-compare-gauge-CCC'), skipOffstage: false), findsOneWidget);

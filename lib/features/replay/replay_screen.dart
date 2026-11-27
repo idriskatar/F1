@@ -246,7 +246,7 @@ class _DesktopStrategyState extends State<_DesktopStrategy> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           for (final d in drivers)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 5),
+              padding: const EdgeInsets.symmetric(vertical: 3),
               child: Row(children: [
                 SizedBox(width: 34, child: Text(d.code, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11))),
                 const SizedBox(width: 4),
@@ -257,7 +257,16 @@ class _DesktopStrategyState extends State<_DesktopStrategy> {
                       for (final s in d.stints) ...[
                         Expanded(
                           flex: ((s.lapEnd ?? (s.lapStart + 1)) - s.lapStart + 1) < 1 ? 1 : ((s.lapEnd ?? (s.lapStart + 1)) - s.lapStart + 1),
-                          child: Container(height: 10, color: _stintColor(s.letter)),
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 1),
+                            height: 14,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(color: _stintColor(s.letter), borderRadius: BorderRadius.circular(3)),
+                            child: Text(
+                              s.letter,
+                              style: TextStyle(color: _stintTextColor(s.letter), fontSize: 9, fontWeight: FontWeight.w900),
+                            ),
+                          ),
                         ),
                       ],
                     ]),
@@ -278,6 +287,11 @@ Color _stintColor(String letter) => switch (letter) {
   'I' => const Color(0xFF52E252),
   'W' => const Color(0xFF2F6BFF),
   _ => const Color(0xFF9299A6),
+};
+
+Color _stintTextColor(String letter) => switch (letter) {
+  'M' || 'H' => const Color(0xFF1A1D22),
+  _ => Colors.white,
 };
 
 class _Message extends StatelessWidget {
@@ -606,6 +620,7 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
               rival: rival,
               time: _time,
               slowTime: _slowTime,
+              showGauges: false,
               onPickRival: () {
                 if (rivals.isEmpty) return;
                 final i = rivals.indexWhere((d) => d.code == rival?.code);
@@ -616,7 +631,7 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
         ])),
         const SizedBox(width: 14),
         Expanded(flex: 38, child: Column(children: [
-          _desktopCard(title: 'PİST HARİTASI', flex: 3, child: Column(children: [
+          _desktopCard(title: 'PİST HARİTASI', flex: 4, child: Column(children: [
             ValueListenableBuilder<double>(
               valueListenable: _slowTime,
               builder: (context, t, _) => Row(children: [

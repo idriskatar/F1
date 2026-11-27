@@ -2,6 +2,17 @@
 
 Bu dosya kullanıcıya görünen sürüm geçmişini tutar. Sürüm numarası `pubspec.yaml` ve `lib/core/app_info.dart` ile eşleşir.
 
+## [1.6.6] - 2026-11-27
+
+### Değiştirildi
+- Masaüstü ana sayfada haber kartlarının genişliği üstteki kutularla aynı hizaya getirildi.
+- Masaüstü pilot karşılaştırmasındaki iki mini gösterge kaldırıldı.
+- Lastik stratejisinde stintler arasına 1 px boşluk ve stint içine lastik harfi eklendi; 5 pilot sığacak yükseklikte.
+- Harita kartına daha fazla yükseklik ayrıldı.
+- Gap/interval süreleri virgülden sonra 3 basamakla gösteriliyor.
+- Telemetri göstergesi kartın yaklaşık üçte ikisini kaplıyor; sektör alanı daraldı ve DRS simgesi eklendi.
+- S1/S2/S3 daraltıldı; sektör zamanları duruma göre mor, yeşil veya sarı renkte gösteriliyor.
+
 ## [1.6.5] - 2026-11-27
 
 ### Düzeltildi

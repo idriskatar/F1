@@ -268,10 +268,10 @@ class ReplayGap {
   /// Fark saniye olarak ifade edilemiyorsa tur farkı metni ("+1 LAP").
   final String? lapped;
 
-  /// Listede gösterilen metin: "+12.3" ya da "+1 LAP"; veri yoksa null.
+  /// Listede gösterilen metin: "+12,345" ya da "+1 LAP"; veri yoksa null.
   String? text({required bool toLeader}) {
     final seconds = toLeader ? this.toLeader : toAhead;
-    if (seconds != null) return '+${seconds.toStringAsFixed(1)}';
+    if (seconds != null) return '+${seconds.toStringAsFixed(3).replaceAll('.', ',')}';
     return lapped;
   }
 }

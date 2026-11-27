@@ -2,7 +2,7 @@
 # F1 Tracker — .deb kurulum paketi oluşturur.
 set -euo pipefail
 
-VERSION="1.6.5"
+VERSION="1.6.6"
 SRC="${1:-build/linux/x64/release/bundle}"
 OUT="f1-tracker_${VERSION}_amd64.deb"
 

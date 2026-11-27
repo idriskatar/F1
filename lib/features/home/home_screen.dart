@@ -810,7 +810,7 @@ class _NewsPreviewGrid extends StatelessWidget {
     }
     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: left)),
-      const SizedBox(width: 12),
+      const SizedBox(width: 14),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: right)),
     ]);
   }

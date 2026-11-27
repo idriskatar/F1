@@ -517,7 +517,10 @@ class _DriverCard extends StatelessWidget {
       ),
       ValueListenableBuilder<double>(
         valueListenable: slowTime,
-        builder: (context, t, _) => _SectorBars(states: data.sectorStatesAt(d, t)),
+        builder: (context, t, _) => _SectorBars(
+              states: data.sectorStatesAt(d, t),
+              times: [for (var i = 0; i < 3; i++) d.currentLapAt(t)?.sector(i)],
+            ),
       ),
     ]);
   }
@@ -744,25 +747,34 @@ class _GaugePainter extends CustomPainter {
 }
 
 class _SectorBars extends StatelessWidget {
-  const _SectorBars({required this.states});
+  const _SectorBars({required this.states, this.times = const [null, null, null]});
 
   final List<SectorStatus> states;
+  final List<double?> times;
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: 4),
+        padding: const EdgeInsets.only(top: 3),
         child: Row(children: [
           for (var i = 0; i < states.length; i++)
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 2),
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
                   Container(
-                    height: 5,
-                    decoration: BoxDecoration(color: _sectorColor(states[i]), borderRadius: BorderRadius.circular(3)),
+                    height: 4,
+                    decoration: BoxDecoration(color: _sectorColor(states[i]), borderRadius: BorderRadius.circular(2)),
                   ),
-                  const SizedBox(height: 3),
-                  Text('S${i + 1}', style: TextStyle(color: AppColors.muted, fontSize: 11, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text('S${i + 1}', style: TextStyle(color: AppColors.muted, fontSize: 9, fontWeight: FontWeight.w800)),
+                  if (i < times.length && times[i] != null)
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        times[i]!.toStringAsFixed(3).replaceAll('.', ','),
+                        style: TextStyle(color: _sectorColor(states[i]), fontSize: 9, fontWeight: FontWeight.w800),
+                      ),
+                    ),
                 ]),
               ),
             ),
@@ -1152,6 +1164,7 @@ class _ComparePage extends StatelessWidget {
     required this.time,
     required this.slowTime,
     required this.onPickRival,
+    this.showGauges = true,
   });
 
   final ReplayData data;
@@ -1160,6 +1173,9 @@ class _ComparePage extends StatelessWidget {
   final ValueListenable<double> time;
   final ValueListenable<double> slowTime;
   final VoidCallback onPickRival;
+
+  /// Masaüstünde telemetri kartında zaten gösterge olduğu için mini göstergeler gizlenir.
+  final bool showGauges;
 
   @override
   Widget build(BuildContext context) {
@@ -1192,7 +1208,7 @@ class _ComparePage extends StatelessWidget {
             final gap = data.gapBetween(a, b, t);
             return gap == null
                 ? const SizedBox.shrink()
-                : Text('Δ ${gap.toStringAsFixed(1)} sn', key: const Key('replay-compare-gap'), style: TextStyle(color: AppColors.muted, fontSize: 11, fontWeight: FontWeight.w700));
+                : Text('Δ ${gap.toStringAsFixed(3).replaceAll('.', ',')} sn', key: const Key('replay-compare-gap'), style: TextStyle(color: AppColors.muted, fontSize: 11, fontWeight: FontWeight.w700));
           },
         ),
       ]),
@@ -1238,12 +1254,14 @@ class _ComparePage extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Expanded(child: _CompareGauge(data: data, driver: a, color: colorA, time: time)),
-                  const SizedBox(width: 8),
-                  Expanded(child: _CompareGauge(data: data, driver: b, color: colorB, time: time)),
-                ]),
+                if (showGauges) ...[
+                  const SizedBox(height: 12),
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(child: _CompareGauge(data: data, driver: a, color: colorA, time: time)),
+                    const SizedBox(width: 8),
+                    Expanded(child: _CompareGauge(data: data, driver: b, color: colorB, time: time)),
+                  ]),
+                ],
                 const SizedBox(height: 8),
               ]);
             },
@@ -1448,19 +1466,35 @@ class ReplayTelemetryDesktop extends StatelessWidget {
     if (!driver.hasTelemetry) {
       return Center(child: Text('Bu pilot için telemetri verisi yok.', style: TextStyle(color: AppColors.muted, fontSize: 11)));
     }
-    return Row(children: [
-      SizedBox(width: 200, height: 200, child: _Gauge(data: data, driver: driver, time: time)),
-      const SizedBox(width: 8),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Expanded(flex: 2, child: _Gauge(data: data, driver: driver, time: time)),
+      const SizedBox(width: 6),
+      Expanded(flex: 1, child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
         Text(driver.surname.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
         if (driver.team.isNotEmpty)
           Text(driver.team, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.muted, fontSize: 10)),
         ValueListenableBuilder<double>(
           valueListenable: slowTime,
-          builder: (context, t, _) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          builder: (context, t, _) => Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
             _LapTyreRow(data: data, driver: driver, t: t),
-            _SectorBars(states: data.sectorStatesAt(driver, t)),
+            _SectorBars(
+              states: data.sectorStatesAt(driver, t),
+              times: [for (var i = 0; i < 3; i++) driver.currentLapAt(t)?.sector(i)],
+            ),
           ]),
+        ),
+        ValueListenableBuilder<double>(
+          valueListenable: time,
+          builder: (context, t, _) => (driver.drsAt(t, data.hz) ?? false)
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.bolt_rounded, size: 13, color: AppColors.green),
+                    const SizedBox(width: 2),
+                    Text('DRS', style: TextStyle(color: AppColors.green, fontSize: 10, fontWeight: FontWeight.w900)),
+                  ]),
+                )
+              : const SizedBox.shrink(),
         ),
       ])),
     ]);
@@ -1504,13 +1538,14 @@ class ReplayEventsCard extends StatelessWidget {
 }
 
 class ReplayCompareCard extends StatelessWidget {
-  const ReplayCompareCard({super.key, required this.data, required this.driver, required this.rival, required this.time, required this.slowTime, required this.onPickRival});
+  const ReplayCompareCard({super.key, required this.data, required this.driver, required this.rival, required this.time, required this.slowTime, required this.onPickRival, this.showGauges = true});
   final ReplayData data;
   final ReplayDriver? driver;
   final ReplayDriver? rival;
   final ValueListenable<double> time;
   final ValueListenable<double> slowTime;
   final VoidCallback onPickRival;
+  final bool showGauges;
   @override
   Widget build(BuildContext context) => _ComparePage(
         data: data,
@@ -1519,5 +1554,6 @@ class ReplayCompareCard extends StatelessWidget {
         time: time,
         slowTime: slowTime,
         onPickRival: onPickRival,
+        showGauges: showGauges,
       );
 }

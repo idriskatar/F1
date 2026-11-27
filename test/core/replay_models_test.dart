@@ -276,8 +276,8 @@ void main() {
     expect(bbb.gaps.length, 5);
     expect(bbb.gapAt(-1), isNull); // henüz örnek yok
     expect(bbb.gapAt(7)!.toLeader, 2.3); // 6. sn örneği
-    expect(bbb.gapAt(7)!.text(toLeader: true), '+2.3');
-    expect(bbb.gapAt(30)!.text(toLeader: false), '+3.2');
+    expect(bbb.gapAt(7)!.text(toLeader: true), '+2,300');
+    expect(bbb.gapAt(30)!.text(toLeader: false), '+3,200');
     expect(bbb.gapAt(24 + 121), isNull); // 120 sn'den eski örnek bayat sayılır
     expect(bbb.gapAt(24 + 121, maxAge: 200), isNotNull);
 
