@@ -186,9 +186,9 @@ class MoreScreen extends StatelessWidget {
       Row(children: [
         Container(width: 52, height: 52, decoration: BoxDecoration(color: AppColors.red, borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.flag_rounded, color: Colors.white, size: 24)),
         const SizedBox(width: 14),
-        const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('F1 Tracker', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-          SizedBox(height: 2),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('F1 Tracker', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 2),
           Text('Sürüm 0.1.0', style: TextStyle(color: AppColors.muted, fontSize: 11)),
         ]),
         const Spacer(),
