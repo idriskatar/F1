@@ -507,8 +507,10 @@ class _CountdownUnit extends StatelessWidget {
       border: Border(top: BorderSide(color: color, width: 2)),
     ),
     child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Row(mainAxisSize: MainAxisSize.min, children: [
-        Text(value, style: TextStyle(fontSize: compact ? 17 : 24, fontWeight: FontWeight.w900, height: 1)),
+      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Flexible(
+          child: Text(value, maxLines: 1, overflow: TextOverflow.clip, style: TextStyle(fontSize: compact ? 17 : 24, fontWeight: FontWeight.w900, height: 1)),
+        ),
         if (pulse) ...[
           const SizedBox(width: 2),
           Container(width: compact ? 3 : 4, height: compact ? 3 : 4, decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.red)),

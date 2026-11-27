@@ -13,7 +13,7 @@ import re
 
 ROOT = Path(__file__).resolve().parents[1]
 DISPLAY_NAME = "F1 Tracker"
-WIN_VERSION = "1.6.4.0"
+WIN_VERSION = "1.6.5.0"
 
 changed = []
 missing = []

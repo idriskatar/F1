@@ -557,7 +557,7 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
     final rival = _rivalCode == null
         ? (rivals.isEmpty ? null : rivals.first)
         : data.driverByCode(_rivalCode);
-    return Column(children: [
+    return Column(key: const Key('replay-desktop'), children: [
       Expanded(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         SizedBox(width: 250, child: Column(children: [
           _desktopCard(
@@ -617,6 +617,14 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
         const SizedBox(width: 14),
         Expanded(flex: 38, child: Column(children: [
           _desktopCard(title: 'PİST HARİTASI', flex: 3, child: Column(children: [
+            ValueListenableBuilder<double>(
+              valueListenable: _slowTime,
+              builder: (context, t, _) => Text(
+                'Tur ${data.lapAt(t)}/${data.totalLaps} · ${_clock(t)}',
+                style: TextStyle(color: AppColors.muted, fontSize: 11, fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(height: 4),
             _desktopControls(data),
             const SizedBox(height: 6),
             Expanded(child: _buildMap(data, EdgeInsets.zero)),
@@ -625,19 +633,19 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
           _desktopCard(title: 'LASTİK STRATEJİSİ · TÜM PİLOTLAR', flex: 2, child: _DesktopStrategy(data: data)),
           const SizedBox(height: 12),
           Expanded(flex: 2, child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Expanded(child: _desktopCard(title: 'PİT STOPLAR', flex: 1, child: ReplayPitStopsCard(
+            _desktopCard(title: 'PİT STOPLAR', flex: 1, child: ReplayPitStopsCard(
               data: data,
               time: _slowTime,
               onOpen: (pit) => ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('${pit.driver} · tur ${pit.lap} · pit şeridi ${pit.pitLaneSeconds?.toStringAsFixed(1) ?? '—'} sn')),
               ),
-            ))),
+            )),
             const SizedBox(width: 12),
-            Expanded(child: _desktopCard(title: 'OLAYLAR', flex: 1, child: ReplayEventsCard(
+            _desktopCard(title: 'OLAYLAR', flex: 1, child: ReplayEventsCard(
               data: data,
               time: _slowTime,
               onOpen: (event) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(event.badge))),
-            ))),
+            )),
           ])),
         ])),
       ])),

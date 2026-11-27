@@ -364,7 +364,7 @@ void main() {
     expect(find.byKey(const Key('replay-compare-gauge-CCC'), skipOffstage: false), findsOneWidget);
   });
 
-  testWidgets('yatay düzen: ekran ikiye bölünür; solda ad/tur/harita, sağda kontroller ve panel', (tester) async {
+  testWidgets('masaüstü düzeni: sıralama sol, telemetri orta, harita ve kontroller sağ', (tester) async {
     tester.view.physicalSize = const Size(1200, 600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -373,21 +373,26 @@ void main() {
     await tester.tap(find.text('Test Grand Prix'));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('replay-landscape')), findsOneWidget);
-    expect(find.byType(AppBar), findsNothing); // ad, geri ve strateji düğmesi sol üst satırda
-    expect(find.text('Test Grand Prix'), findsOneWidget);
-    expect(find.byTooltip('Geri'), findsOneWidget);
-    expect(find.byTooltip('Lastik stratejisi'), findsOneWidget);
+    expect(find.byKey(const Key('replay-desktop')), findsOneWidget);
+    expect(find.byType(AppBar), findsNothing); // üstte koyu şerit yok
+    for (final title in ['CANLI SIRALAMA', 'TELEMETRİ · SEÇİLİ PİLOT', 'PİST HARİTASI', 'LASTİK STRATEJİSİ · TÜM PİLOTLAR']) {
+      expect(find.text(title), findsOneWidget);
+    }
+    expect(find.text('Tur 1/3'), findsOneWidget);
 
-    // Sol yarı: tur bilgisi ve harita. Sağ yarı: kontroller, zaman çubuğu, pilot paneli.
     final half = tester.getSize(find.byType(Scaffold).last).width / 2;
-    expect(tester.getCenter(find.text('Tur 1/3')).dx, lessThan(half));
-    expect(tester.getCenter(find.byIcon(Icons.skip_next_rounded)).dx, greaterThan(half));
+    final rankX = tester.getCenter(find.text('CANLI SIRALAMA')).dx;
+    final telemetryX = tester.getCenter(find.text('TELEMETRİ · SEÇİLİ PİLOT')).dx;
+    final mapX = tester.getCenter(find.text('PİST HARİTASI')).dx;
+    expect(rankX, lessThan(telemetryX)); // sıralama solda
+    expect(telemetryX, lessThan(mapX)); // telemetri ortada, harita sağda
+    expect(mapX, greaterThan(half));
+    // Kontroller ve zaman çubuğu harita kartının içinde, sağ kolonda.
+    expect(tester.getCenter(find.byIcon(Icons.rotate_right)).dx, greaterThan(half));
     expect(tester.getCenter(find.byKey(const Key('replay-timeline'))).dx, greaterThan(half));
-    expect(tester.getCenter(find.text('SIRALAMA')).dx, greaterThan(half));
   });
 
-  testWidgets('ekranı yatay-dikey çevirmek oynatma konumunu korur', (tester) async {
+  testWidgets('ekranı masaüstü-dikey çevirmek oynatma konumunu korur', (tester) async {
     await openPlayer(tester);
     await tester.tap(find.byIcon(Icons.skip_next_rounded));
     await tester.pumpAndSettle();
@@ -395,12 +400,12 @@ void main() {
 
     tester.view.physicalSize = const Size(1200, 600);
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('replay-landscape')), findsOneWidget);
+    expect(find.byKey(const Key('replay-desktop')), findsOneWidget);
     expect(find.text('Tur 2/3'), findsOneWidget);
 
     tester.view.physicalSize = const Size(800, 1400);
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('replay-landscape')), findsNothing);
+    expect(find.byKey(const Key('replay-desktop')), findsNothing);
     expect(find.text('Tur 2/3'), findsOneWidget);
   });
 

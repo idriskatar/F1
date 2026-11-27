@@ -869,20 +869,26 @@ class _PitTab extends StatelessWidget {
           final driver = data.driverByCode(pit.driver);
           final active = pit.containsTime(t);
           final lane = pit.pitLaneSeconds;
-          return ListTile(
-            dense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-            leading: CircleAvatar(radius: 6, backgroundColor: Color(driver?.colorValue ?? 0xFF9AA0A6)),
-            title: Text(
-              '${pit.driver} · Tur ${pit.lap}',
-              style: TextStyle(fontWeight: FontWeight.w800, color: active ? AppColors.amber : null),
+          return Material(
+            color: Colors.transparent,
+            child: ListTile(
+              dense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+              leading: CircleAvatar(radius: 6, backgroundColor: Color(driver?.colorValue ?? 0xFF9AA0A6)),
+              title: Text(
+                '${pit.driver} · Tur ${pit.lap}',
+                style: TextStyle(fontWeight: FontWeight.w800, color: active ? AppColors.amber : null),
+              ),
+              subtitle: Text(
+                lane == null
+                    ? 'Giriş ${formatReplayClock(pit.inTime)}'
+                    : 'Giriş ${formatReplayClock(pit.inTime)} · Pit şeridi ${lane.toStringAsFixed(1).replaceAll('.', ',')} sn',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: AppColors.muted, fontSize: 12),
+              ),
+              onTap: () => onOpen(pit),
             ),
-            subtitle: Text('Giriş ${formatReplayClock(pit.inTime)}', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-            trailing: Text(
-              lane == null ? '—' : 'Pit şeridi ${lane.toStringAsFixed(1).replaceAll('.', ',')} sn',
-              style: TextStyle(color: AppColors.muted, fontSize: 12),
-            ),
-            onTap: () => onOpen(pit),
           );
         },
       ),
@@ -1088,20 +1094,23 @@ class _EventsPage extends StatelessWidget {
         itemBuilder: (context, i) {
           final event = data.events[i];
           final active = event.containsTime(t);
-          return ListTile(
-            key: Key('replay-event-$i'),
-            dense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-            leading: Icon(_icon(event.kind), size: 20, color: replayEventColor(event.kind)),
-            title: Text(
-              '${event.label}${event.lap == null ? '' : ' · Tur ${event.lap}'}',
-              style: TextStyle(fontWeight: FontWeight.w800, color: active ? AppColors.amber : null),
+          return Material(
+            color: Colors.transparent,
+            child: ListTile(
+              key: Key('replay-event-$i'),
+              dense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+              leading: Icon(_icon(event.kind), size: 20, color: replayEventColor(event.kind)),
+              title: Text(
+                '${event.label}${event.lap == null ? '' : ' · Tur ${event.lap}'}',
+                style: TextStyle(fontWeight: FontWeight.w800, color: active ? AppColors.amber : null),
+              ),
+              subtitle: event.message.isEmpty
+                  ? null
+                  : Text(event.message, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.muted, fontSize: 12)),
+              trailing: Text(formatReplayClock(event.time), style: TextStyle(color: AppColors.muted, fontSize: 12)),
+              onTap: open == null ? null : () => open(event),
             ),
-            subtitle: event.message.isEmpty
-                ? null
-                : Text(event.message, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.muted, fontSize: 12)),
-            trailing: Text(formatReplayClock(event.time), style: TextStyle(color: AppColors.muted, fontSize: 12)),
-            onTap: open == null ? null : () => open(event),
           );
         },
       ),

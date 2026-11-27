@@ -2,6 +2,14 @@
 
 Bu dosya kullanıcıya görünen sürüm geçmişini tutar. Sürüm numarası `pubspec.yaml` ve `lib/core/app_info.dart` ile eşleşir.
 
+## [1.6.5] - 2026-11-27
+
+### Düzeltildi
+- Masaüstü Replay: iç içe `Expanded` kaynaklı yerleşim hatası ve ListTile uyarıları giderildi.
+- Dar kolonda pit şeridi süresi satır taşması yapmadan gösteriliyor.
+- Tur/süre bilgisi harita kartında görünüyor; masaüstü düzen testleri yeni yerleşime uyarlandı.
+- Geri sayım kutularındaki rakam satırı küçük ekranlarda taşmıyor.
+
 ## [1.6.4] - 2026-11-27
 
 ### Değiştirildi
