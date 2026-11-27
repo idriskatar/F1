@@ -254,6 +254,16 @@ class _ReplayPlayerScreenState extends State<ReplayPlayerScreen> {
         future: _data,
         builder: (context, snapshot) {
           final data = snapshot.data;
+          final ready = !snapshot.hasError && data != null && snapshot.connectionState != ConnectionState.waiting;
+          // Yatayda AppBar yoktur: ad, geri ve strateji düğmesi haritanın üstündeki satırda yer alır.
+          // Scaffold/SafeArea/_ReplayView yapısı iki durumda aynı kaldığı için döndürmek oynatmayı sıfırlamaz.
+          final landscape = ready && _useLandscape(MediaQuery.sizeOf(context));
+          VoidCallback? openStrategy;
+          if (data != null && data.drivers.any((d) => d.stints.isNotEmpty)) {
+            openStrategy = () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => ReplayStrategyScreen(data: data)),
+                );
+          }
           final Widget body;
           if (snapshot.connectionState == ConnectionState.waiting) {
             body = const _Message(icon: Icons.downloading_rounded, text: 'Replay verisi hazırlanıyor…');
@@ -264,32 +274,43 @@ class _ReplayPlayerScreenState extends State<ReplayPlayerScreen> {
               action: FilledButton(onPressed: _retry, child: const Text('Tekrar dene')),
             );
           } else {
-            body = _ReplayView(data: data);
+            body = _ReplayView(data: data, landscape: landscape, title: widget.entry.name, onOpenStrategy: openStrategy);
           }
           return Scaffold(
-            appBar: AppBar(
-              title: Text(widget.entry.name),
-              actions: [
-                if (data != null && data.drivers.any((d) => d.stints.isNotEmpty))
-                  IconButton(
-                    tooltip: 'Lastik stratejisi',
-                    icon: const Icon(Icons.stacked_bar_chart_rounded),
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(builder: (_) => ReplayStrategyScreen(data: data)),
-                    ),
+            appBar: landscape
+                ? null
+                : AppBar(
+                    title: Text(widget.entry.name),
+                    actions: [
+                      if (openStrategy != null)
+                        IconButton(
+                          tooltip: 'Lastik stratejisi',
+                          icon: const Icon(Icons.stacked_bar_chart_rounded),
+                          onPressed: openStrategy,
+                        ),
+                    ],
                   ),
-              ],
-            ),
             body: SafeArea(child: body),
           );
         },
       );
 }
 
+/// Geniş ve belirgin biçimde yatay ekran: ekran ikiye bölünür. 700 dp altında yarım ekran (350 dp)
+/// kontrol satırını ve pilot panelini sığdıramaz; orada dikey düzen kalır.
+bool _useLandscape(Size size) => size.width >= 700 && size.width > size.height * 1.15;
+
 class _ReplayView extends StatefulWidget {
-  const _ReplayView({required this.data});
+  const _ReplayView({required this.data, this.landscape = false, this.title = '', this.onOpenStrategy});
 
   final ReplayData data;
+
+  /// true: ekran ikiye bölünür (solda ad/tur/harita, sağda kontroller ve pilot paneli).
+  final bool landscape;
+
+  /// Yatayda üst satırda gösterilen yarış adı (AppBar yok).
+  final String title;
+  final VoidCallback? onOpenStrategy;
 
   @override
   State<_ReplayView> createState() => _ReplayViewState();
@@ -393,39 +414,50 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Yatay mod: geniş ve alçak ekranda harita solda, pilot paneli sağda. 760 dp altında sol sütun
-        // kontrol satırını (~330 dp) taşıyamaz; orada dikey düzen kalır.
-        final landscape = constraints.maxWidth >= 760 && constraints.maxWidth > constraints.maxHeight * 1.15;
-        if (!landscape) {
-          return Column(children: [
-            _buildHeader(data, const EdgeInsets.fromLTRB(16, 0, 20, 4)),
-            Expanded(flex: 5, child: _buildMap(data, const EdgeInsets.symmetric(horizontal: 16))),
-            _buildControls(data),
-            _ReplayTimeline(data: data, time: _time, selected: _selected, onSeek: _seek),
-            Expanded(flex: 4, child: _buildPanel(data)),
-          ]);
-        }
-        final sideWidth = (constraints.maxWidth * 0.42).clamp(360.0, 520.0).toDouble();
-        return Row(key: const Key('replay-landscape'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Expanded(
-            child: Column(children: [
-              Expanded(child: _buildMap(data, const EdgeInsets.fromLTRB(16, 4, 8, 0))),
-              _ReplayTimeline(data: data, time: _time, selected: _selected, onSeek: _seek),
-              _buildControls(data),
-            ]),
-          ),
-          SizedBox(
-            width: sideWidth,
-            child: Column(children: [
-              _buildHeader(data, const EdgeInsets.fromLTRB(4, 4, 16, 4)),
-              Expanded(child: _buildPanel(data)),
-            ]),
-          ),
-        ]);
-      },
-    );
+    if (!widget.landscape) {
+      return Column(children: [
+        _buildHeader(data, const EdgeInsets.fromLTRB(16, 0, 20, 4)),
+        Expanded(flex: 5, child: _buildMap(data, const EdgeInsets.symmetric(horizontal: 16))),
+        _buildControls(data),
+        _ReplayTimeline(data: data, time: _time, selected: _selected, onSeek: _seek),
+        Expanded(flex: 4, child: _buildPanel(data)),
+      ]);
+    }
+    // Yatay: sol yarı yarış adı, tur/süre bilgisi ve harita; sağ yarı oynatma kontrolleri,
+    // zaman çubuğu ve pilot paneli.
+    return Row(key: const Key('replay-landscape'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Expanded(
+        child: Column(children: [
+          Row(children: [
+            IconButton(
+              tooltip: 'Geri',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.arrow_back_rounded),
+            ),
+            Expanded(
+              child: Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            ),
+            if (widget.onOpenStrategy != null)
+              IconButton(
+                tooltip: 'Lastik stratejisi',
+                visualDensity: VisualDensity.compact,
+                onPressed: widget.onOpenStrategy,
+                icon: const Icon(Icons.stacked_bar_chart_rounded),
+              ),
+          ]),
+          _buildHeader(data, const EdgeInsets.fromLTRB(12, 0, 12, 4)),
+          Expanded(child: _buildMap(data, const EdgeInsets.fromLTRB(16, 0, 8, 12))),
+        ]),
+      ),
+      Expanded(
+        child: Column(children: [
+          _buildControls(data, compact: true),
+          _ReplayTimeline(data: data, time: _time, selected: _selected, onSeek: _seek),
+          Expanded(child: _buildPanel(data)),
+        ]),
+      ),
+    ]);
   }
 
   /// Tur etiketi, saat ve pitteki pilotlar.
@@ -520,8 +552,11 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
         ),
       );
 
-  /// Oynat/duraklat, ±10 sn, tur atlama, hız ve kod göster/gizle.
-  Widget _buildControls(ReplayData data) => Padding(
+  /// Oynat/duraklat, ±10 sn, tur atlama, hız ve kod göster/gizle. [compact]: yarım ekranda
+  /// (yatay mod) sığması için tüm düğmeler küçülür.
+  Widget _buildControls(ReplayData data, {bool compact = false}) {
+    final density = compact ? VisualDensity.compact : null;
+    return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(children: [
           if (data.lapStarts.isNotEmpty)
@@ -531,13 +566,24 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
               onPressed: () => _jumpLap(forward: false),
               icon: const Icon(Icons.skip_previous_rounded),
             ),
-          IconButton(tooltip: '10 sn geri', onPressed: () => _seek(_time.value - 10), icon: const Icon(Icons.replay_10_rounded)),
+          IconButton(
+            tooltip: '10 sn geri',
+            visualDensity: density,
+            onPressed: () => _seek(_time.value - 10),
+            icon: const Icon(Icons.replay_10_rounded),
+          ),
           IconButton.filled(
             tooltip: _playing ? 'Duraklat' : 'Oynat',
+            visualDensity: density,
             onPressed: _playing ? _pause : _play,
             icon: Icon(_playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
           ),
-          IconButton(tooltip: '10 sn ileri', onPressed: () => _seek(_time.value + 10), icon: const Icon(Icons.forward_10_rounded)),
+          IconButton(
+            tooltip: '10 sn ileri',
+            visualDensity: density,
+            onPressed: () => _seek(_time.value + 10),
+            icon: const Icon(Icons.forward_10_rounded),
+          ),
           if (data.lapStarts.isNotEmpty)
             IconButton(
               tooltip: 'Sonraki tur',
@@ -554,17 +600,19 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
               for (final s in _speeds) PopupMenuItem<double>(value: s, child: Text('${s.toStringAsFixed(0)}×')),
             ],
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 12, vertical: 8),
               child: Text('${_speed.toStringAsFixed(0)}×', style: const TextStyle(fontWeight: FontWeight.w900)),
             ),
           ),
           IconButton(
             tooltip: 'Pilot kodlarını göster/gizle',
+            visualDensity: density,
             onPressed: () => setState(() => _showNames = !_showNames),
             icon: Icon(Icons.label_outline, color: _showNames ? AppColors.red : AppColors.muted),
           ),
         ]),
       );
+  }
 
   Widget _buildPanel(ReplayData data) => ReplayLowerPanel(
         data: data,

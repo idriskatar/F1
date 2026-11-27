@@ -359,9 +359,12 @@ void main() {
 
     expect(find.descendant(of: find.byKey(const Key('replay-compare-pick')), matching: find.text('CCC')), findsOneWidget);
     expect(find.text('Δ 5.0 sn'), findsOneWidget);
+    // Sayfanın sonunda her iki pilotun mini göstergesi
+    expect(find.byKey(const Key('replay-compare-gauge-AAA'), skipOffstage: false), findsOneWidget);
+    expect(find.byKey(const Key('replay-compare-gauge-CCC'), skipOffstage: false), findsOneWidget);
   });
 
-  testWidgets('geniş ve alçak ekranda yatay düzen kullanılır', (tester) async {
+  testWidgets('yatay düzen: ekran ikiye bölünür; solda ad/tur/harita, sağda kontroller ve panel', (tester) async {
     tester.view.physicalSize = const Size(1200, 600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -371,15 +374,70 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('replay-landscape')), findsOneWidget);
-    expect(find.text('Tur 1/3'), findsOneWidget);
-    expect(find.byKey(const Key('replay-timeline')), findsOneWidget);
-    expect(find.text('SIRALAMA'), findsOneWidget);
-    expect(find.byIcon(Icons.skip_next_rounded), findsOneWidget);
+    expect(find.byType(AppBar), findsNothing); // ad, geri ve strateji düğmesi sol üst satırda
+    expect(find.text('Test Grand Prix'), findsOneWidget);
+    expect(find.byTooltip('Geri'), findsOneWidget);
+    expect(find.byTooltip('Lastik stratejisi'), findsOneWidget);
+
+    // Sol yarı: tur bilgisi ve harita. Sağ yarı: kontroller, zaman çubuğu, pilot paneli.
+    final half = tester.getSize(find.byType(Scaffold).last).width / 2;
+    expect(tester.getCenter(find.text('Tur 1/3')).dx, lessThan(half));
+    expect(tester.getCenter(find.byIcon(Icons.skip_next_rounded)).dx, greaterThan(half));
+    expect(tester.getCenter(find.byKey(const Key('replay-timeline'))).dx, greaterThan(half));
+    expect(tester.getCenter(find.text('SIRALAMA')).dx, greaterThan(half));
+  });
+
+  testWidgets('ekranı yatay-dikey çevirmek oynatma konumunu korur', (tester) async {
+    await openPlayer(tester);
+    await tester.tap(find.byIcon(Icons.skip_next_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Tur 2/3'), findsOneWidget);
+
+    tester.view.physicalSize = const Size(1200, 600);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('replay-landscape')), findsOneWidget);
+    expect(find.text('Tur 2/3'), findsOneWidget);
+
+    tester.view.physicalSize = const Size(800, 1400);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('replay-landscape')), findsNothing);
+    expect(find.text('Tur 2/3'), findsOneWidget);
   });
 
   testWidgets('dikey ekranda yatay düzen kullanılmaz', (tester) async {
     await openPlayer(tester);
 
     expect(find.byKey(const Key('replay-landscape')), findsNothing);
+  });
+
+  testWidgets('10 ve sonrası sıra numaraları tek satırda kalır; pilot kodları aynı hizadan başlar', (tester) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final json = jsonDecode(File('test/fixtures/replay_sample.json').readAsStringSync()) as Map<String, dynamic>;
+    final drivers = json['drivers'] as List;
+    for (var rank = 5; rank <= 12; rank++) {
+      final clone = jsonDecode(jsonEncode(drivers[1])) as Map<String, dynamic>
+        ..['number'] = '$rank'
+        ..['code'] = 'D${rank.toString().padLeft(2, '0')}'
+        ..['position'] = rank
+        ..['positionLog'] = [
+          [0.0, rank],
+        ]
+        ..remove('gaps');
+      drivers.add(clone);
+    }
+    await tester.pumpWidget(host(FakeReplayRepository(index: const ReplayIndex([entry]), data: ReplayData.fromJson(json))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Test Grand Prix'));
+    await tester.pumpAndSettle();
+
+    final single = tester.getSize(find.text('9')).height;
+    for (final rank in ['10', '11', '12']) {
+      expect(tester.getSize(find.text(rank)).height, single, reason: '$rank tek satır olmalı');
+    }
+    // 1 haneli ve 2 haneli sıradaki pilotların kodu aynı x'ten başlar (hizalama bozulmaz).
+    expect(tester.getTopLeft(find.text('D10')).dx, tester.getTopLeft(find.text('D05')).dx);
+    expect(tester.getTopLeft(find.text('D12')).dx, tester.getTopLeft(find.text('D09')).dx);
   });
 }

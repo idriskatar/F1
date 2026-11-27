@@ -387,7 +387,20 @@ class _PositionRow extends StatelessWidget {
             border: selected ? Border.all(color: AppColors.red, width: 1.2) : null,
           ),
           child: Row(children: [
-            SizedBox(width: 16, child: Text(rank, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12))),
+            // Sabit genişlik: "10" ve sonrası da tek satırda kalır, kod sütunu tüm satırlarda aynı hizadan başlar.
+            SizedBox(
+              width: 24,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Text(
+                  rank,
+                  maxLines: 1,
+                  softWrap: false,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+                ),
+              ),
+            ),
             Container(
               width: 3,
               height: 16,
@@ -563,11 +576,14 @@ class _TyreBadge extends StatelessWidget {
 // ---------------------------------------------------------------------------- Gösterge
 
 class _Gauge extends StatelessWidget {
-  const _Gauge({required this.data, required this.driver, required this.time});
+  const _Gauge({required this.data, required this.driver, required this.time, this.compact = false});
 
   final ReplayData data;
   final ReplayDriver driver;
   final ValueListenable<double> time;
+
+  /// Minyatür: birim ve GAZ/FREN yazıları gizlenir, yalnız halka, hız, rpm ve vites kalır.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) => ValueListenableBuilder<double>(
@@ -604,29 +620,31 @@ class _Gauge extends StatelessWidget {
                       fit: BoxFit.scaleDown,
                       child: Column(mainAxisSize: MainAxisSize.min, children: [
                         Text(speed == null ? '—' : '${speed.round()}', style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w900, height: 1)),
-                        Text('KM/SA', style: TextStyle(color: AppColors.muted, fontSize: 10, fontWeight: FontWeight.w700)),
+                        if (!compact) Text('KM/SA', style: TextStyle(color: AppColors.muted, fontSize: 10, fontWeight: FontWeight.w700)),
                         const SizedBox(height: 2),
                         Text(rpm == null ? '—' : '${rpm.round()}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, height: 1.1)),
-                        Text('RPM', style: TextStyle(color: AppColors.muted, fontSize: 10, fontWeight: FontWeight.w700)),
+                        if (!compact) Text('RPM', style: TextStyle(color: AppColors.muted, fontSize: 10, fontWeight: FontWeight.w700)),
                       ]),
                     ),
                   ),
                   Align(
                     alignment: const Alignment(0, 0.94),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Text(gear == null ? '' : 'V$gear', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
+                      Text(gear == null ? '' : 'V$gear', style: TextStyle(fontSize: compact ? 10 : 12, fontWeight: FontWeight.w900)),
                       if (drs)
-                        Text('  DRS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: AppColors.green)),
+                        Text(compact ? ' D' : '  DRS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: AppColors.green)),
                     ]),
                   ),
-                  Align(
-                    alignment: Alignment.bottomLeft,
-                    child: Text('GAZ', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: AppColors.green)),
-                  ),
-                  Align(
-                    alignment: Alignment.bottomRight,
-                    child: Text('FREN', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: AppColors.red)),
-                  ),
+                  if (!compact) ...[
+                    Align(
+                      alignment: Alignment.bottomLeft,
+                      child: Text('GAZ', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: AppColors.green)),
+                    ),
+                    Align(
+                      alignment: Alignment.bottomRight,
+                      child: Text('FREN', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: AppColors.red)),
+                    ),
+                  ],
                 ]),
               ),
             );
@@ -1145,52 +1163,57 @@ class _ComparePage extends StatelessWidget {
         ),
       ]),
       const SizedBox(height: 6),
+      // Sayfa kısa panelde sıkışmasın diye kaydırılır: önce iki grafik, en sonda iki pilotun mini göstergesi.
       Expanded(
-        child: ValueListenableBuilder<double>(
-          valueListenable: time,
-          builder: (context, t, _) {
-            final from = math.max(0.0, t - 60);
-            return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Text('Hız (km/sa) · son 60 sn', style: TextStyle(color: AppColors.muted, fontSize: 10)),
-              const SizedBox(height: 2),
-              Expanded(
-                flex: 3,
-                child: CustomPaint(
-                  size: Size.infinite,
-                  painter: _LinesPainter(
-                    lines: [
-                      _Line(a.speedSeries(from, t, data.hz), colorA),
-                      _Line(b.speedSeries(from, t, data.hz), colorB),
-                    ],
-                    maxValue: 360,
-                    gridColor: AppColors.border,
+        child: SingleChildScrollView(
+          child: ValueListenableBuilder<double>(
+            valueListenable: time,
+            builder: (context, t, _) {
+              final from = math.max(0.0, t - 60);
+              return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Text('Hız (km/sa) · son 60 sn', style: TextStyle(color: AppColors.muted, fontSize: 10)),
+                const SizedBox(height: 2),
+                SizedBox(
+                  height: 96,
+                  child: CustomPaint(
+                    size: Size.infinite,
+                    painter: _LinesPainter(
+                      lines: [
+                        _Line(a.speedSeries(from, t, data.hz), colorA),
+                        _Line(b.speedSeries(from, t, data.hz), colorB),
+                      ],
+                      maxValue: 360,
+                      gridColor: AppColors.border,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text('Gaz (%)', style: TextStyle(color: AppColors.muted, fontSize: 10)),
-              const SizedBox(height: 2),
-              Expanded(
-                flex: 2,
-                child: CustomPaint(
-                  size: Size.infinite,
-                  painter: _LinesPainter(
-                    lines: [
-                      _Line(a.throttleSeries(from, t, data.hz), colorA),
-                      _Line(b.throttleSeries(from, t, data.hz), colorB),
-                    ],
-                    maxValue: 100,
-                    gridColor: AppColors.border,
+                const SizedBox(height: 8),
+                Text('Gaz (%)', style: TextStyle(color: AppColors.muted, fontSize: 10)),
+                const SizedBox(height: 2),
+                SizedBox(
+                  height: 60,
+                  child: CustomPaint(
+                    size: Size.infinite,
+                    painter: _LinesPainter(
+                      lines: [
+                        _Line(a.throttleSeries(from, t, data.hz), colorA),
+                        _Line(b.throttleSeries(from, t, data.hz), colorB),
+                      ],
+                      maxValue: 100,
+                      gridColor: AppColors.border,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Row(children: [
-                Expanded(child: _CompareValues(data: data, driver: a, color: colorA, t: t)),
-                Expanded(child: _CompareValues(data: data, driver: b, color: colorB, t: t)),
-              ]),
-            ]);
-          },
+                const SizedBox(height: 12),
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(child: _CompareGauge(data: data, driver: a, color: colorA, time: time)),
+                  const SizedBox(width: 8),
+                  Expanded(child: _CompareGauge(data: data, driver: b, color: colorB, time: time)),
+                ]),
+                const SizedBox(height: 8),
+              ]);
+            },
+          ),
         ),
       ),
     ]);
@@ -1216,26 +1239,25 @@ class _CompareChip extends StatelessWidget {
       );
 }
 
-/// Seçilen anda bir pilotun hızı ve gazı: "VER 287 · %100".
-class _CompareValues extends StatelessWidget {
-  const _CompareValues({required this.data, required this.driver, required this.color, required this.t});
+/// Pilotun ana ekrandaki göstergesinin (hız, gaz, fren, rpm, vites) minyatürü; üstünde çizgi renginde kod.
+class _CompareGauge extends StatelessWidget {
+  const _CompareGauge({required this.data, required this.driver, required this.color, required this.time});
 
   final ReplayData data;
   final ReplayDriver driver;
   final Color color;
-  final double t;
+  final ValueListenable<double> time;
 
   @override
-  Widget build(BuildContext context) {
-    final speed = driver.speedAt(t, data.hz);
-    final throttle = driver.throttleAt(t, data.hz);
-    return Text(
-      '${driver.code} ${speed == null ? '–' : speed.round()} · %${throttle == null ? '–' : throttle.round()}',
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w800),
-    );
-  }
+  Widget build(BuildContext context) => Column(children: [
+        Text(driver.code, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 4),
+        SizedBox(
+          key: Key('replay-compare-gauge-${driver.code}'),
+          height: 92,
+          child: _Gauge(data: data, driver: driver, time: time, compact: true),
+        ),
+      ]);
 }
 
 class _Line {
