@@ -619,10 +619,14 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
           _desktopCard(title: 'PİST HARİTASI', flex: 3, child: Column(children: [
             ValueListenableBuilder<double>(
               valueListenable: _slowTime,
-              builder: (context, t, _) => Text(
-                'Tur ${data.lapAt(t)}/${data.totalLaps} · ${_clock(t)}',
-                style: TextStyle(color: AppColors.muted, fontSize: 11, fontWeight: FontWeight.w700),
-              ),
+              builder: (context, t, _) => Row(children: [
+                Text(
+                  'Tur ${data.lapAt(t)}/${data.totalLaps}',
+                  style: TextStyle(color: AppColors.muted, fontSize: 11, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(width: 8),
+                Text(_clock(t), style: TextStyle(color: AppColors.muted, fontSize: 11)),
+              ]),
             ),
             const SizedBox(height: 4),
             _desktopControls(data),

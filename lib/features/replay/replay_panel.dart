@@ -550,6 +550,8 @@ class _LapTyreRow extends StatelessWidget {
         ),
         child: Text(
           formatLapTime(duration),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: highlighted ? Colors.white : null),
         ),
       );
@@ -558,9 +560,16 @@ class _LapTyreRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(children: [
-        Text('SON TUR  ', style: TextStyle(color: AppColors.muted, fontSize: 10, fontWeight: FontWeight.w800)),
-        lapTime,
-        const Spacer(),
+        Expanded(
+          child: Row(children: [
+            Flexible(
+              child: Text('SON TUR', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.muted, fontSize: 10, fontWeight: FontWeight.w800)),
+            ),
+            const SizedBox(width: 6),
+            Flexible(child: lapTime),
+          ]),
+        ),
+        const SizedBox(width: 6),
         if (stint != null && lapNumber != null) _TyreBadge(stint: stint, age: stint.ageAt(lapNumber)),
       ]),
     );
