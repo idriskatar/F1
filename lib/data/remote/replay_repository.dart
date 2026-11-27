@@ -5,9 +5,9 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
-import 'package:sqflite/sqflite.dart' show getDatabasesPath;
 
 import '../../core/models/replay_models.dart';
+import '../local/app_dirs.dart';
 
 class ReplayException implements Exception {
   const ReplayException(this.message);
@@ -51,8 +51,8 @@ class ReplayRepository {
   final bool _useIsolate;
 
   static Future<Directory> _defaultCacheDirectory() async {
-    final base = await getDatabasesPath();
-    return Directory(p.join(base, 'replay_cache'));
+    final base = await appDataSubdirectory('replay_cache');
+    return Directory(base);
   }
 
   Future<ReplayIndex> fetchIndex() async {

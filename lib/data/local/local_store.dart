@@ -1,13 +1,15 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
+import 'app_dirs.dart';
+
 /// Local SQLite cache. Schema is intentionally small for the first milestone.
 class LocalStore {
   static Database? _database;
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    final dbPath = await getDatabasesPath();
+    final dbPath = await appDataDirectory();
     _database = await openDatabase(
       p.join(dbPath, 'f1_tracker.db'),
       version: 1,

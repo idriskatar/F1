@@ -31,7 +31,7 @@ jobs:
       - name: Generate Android and iOS runners if absent
         run: |
           if [ ! -d android ] || [ ! -d ios ]; then
-            flutter create --platforms=android,ios .
+            flutter create --project-name f1_tracker --platforms=android,ios .
           fi
       - name: Set installed app name
         run: python tool/configure_app_name.py
@@ -69,7 +69,7 @@ jobs:
       - name: Generate Android and iOS runners if absent
         run: |
           if [ ! -d android ] || [ ! -d ios ]; then
-            flutter create --platforms=android,ios .
+            flutter create --project-name f1_tracker --platforms=android,ios .
           fi
       - name: Set installed app name
         run: python3 tool/configure_app_name.py

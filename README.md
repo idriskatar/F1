@@ -1,6 +1,6 @@
-# F1 Tracker — Flutter mobil
+# F1 Tracker — Flutter (mobil + masaüstü)
 
-Kişisel kullanım için hazırlanmış, premium koyu temalı Android/iOS Formula 1 takip uygulaması. Bu proje resmî Formula 1/FIA uygulaması değildir.
+Kişisel kullanım için hazırlanmış, premium koyu temalı Android/iOS ve Windows/Linux/macOS Formula 1 takip uygulaması. Bu proje resmî Formula 1/FIA uygulaması değildir.
 
 ## Bu pakette
 
@@ -16,8 +16,9 @@ Kişisel kullanım için hazırlanmış, premium koyu temalı Android/iOS Formul
 - Sol üstteki hamburger menüsünden açılan Ayarlar ekranında koyu, açık ve Pitwall temaları.
 - Hakkında (geliştirici: İdris KATAR), Gizlilik politikası ve Flutter'ın açık kaynak lisans ekranı.
 - Android sistem geri tuşu; açık yarış detayını kapatır, ana sekmeye döner ve Ana sayfadayken uygulamadan çıkar.
-- Beş sekmeli alt gezinme: Ana sayfa, Takvim, Haberler, Sonuçlar ve Replay. Simge adları alt çubukta gösterilir. Ayarlar, Hakkında, Gizlilik ve lisanslar sol üstteki üç çizgili menüden açılır.
-- Ücretsiz GitHub Actions Android APK ve imzasız iOS simülatör derlemesi.
+- Beş sekmeli gezinme: telefonlarda alt gezinme çubuğu, masaüstünde (≥900 px) solda genişletilmiş gezinme rayı. Ayarlar, Hakkında, Gizlilik ve lisanslar menüden açılır.
+- Masaüstü klavye kısayolları: `Ctrl/Cmd+1..5` sekmeler, `Ctrl/Cmd+M` menü, `Esc` açık sayfayı kapatır ya da ana sayfaya döner. Pencere 1400×900 açılır, en az 1000×650 boyuta küçültülebilir.
+- Ücretsiz GitHub Actions Android APK, imzasız iOS simülatör ve Windows/Linux/macOS masaüstü derlemeleri.
 
 ## Gerçek veri ve örnek alanlar
 
@@ -38,10 +39,39 @@ OpenF1, 2023 sezonundan itibaren tarihsel seans verisini kimlik doğrulama olmad
 
 ## Bilgisayarda çalıştırma
 
-Gereksinimler: Flutter stable (Dart 3.4+), Android/iOS platform araçları. Android ve iOS runner klasörleri başlangıç ZIP’inde bulunmayabilir. Klasörler yoksa proje kökünde bir kez üretin:
+Gereksinimler: Flutter stable 3.50+ (Dart 3.14+). Platform runner klasörleri bu pakette bulunmayabilir; kullanacağınız platformlar için proje kökünde bir kez üretin. `flutter create` mevcut dosyaların üzerine yazmaz.
+
+### Masaüstü (Windows, Linux, macOS)
 
 ```bash
-flutter create --platforms=android,ios .
+flutter create --project-name f1_tracker --org com.idriskatar --platforms=windows,linux,macos .
+python3 tool/configure_app_name.py
+flutter pub get
+flutter analyze
+flutter test
+flutter run -d windows
+```
+
+Masaüstü desteği güncel Flutter stable sürümünde varsayılan olarak açıktır. `flutter pub get` SDK sürümü uyarısı verirse `flutter upgrade` ile stable kanalı güncelleyin.
+
+`flutter run -d linux` veya `flutter run -d macos` ile diğer platformlarda çalıştırın. Sürüm derlemeleri:
+
+```bash
+flutter build windows --release   # build/windows/x64/runner/Release/
+flutter build linux --release     # build/linux/x64/release/bundle/
+flutter build macos --release     # build/macos/Build/Products/Release/
+```
+
+- Windows derlemesi Visual Studio 2022'de “Desktop development with C++” iş yükünü gerektirir.
+- Linux derlemesi `clang`, `cmake`, `ninja-build`, `pkg-config` ve GTK/X11 geliştirme dosyalarını gerektirir: `sudo apt-get install clang cmake ninja-build pkg-config libgtk-3-dev libx11-dev libxi-dev liblzma-dev`.
+- macOS derlemesi yalnızca macOS + Xcode ile yapılabilir; yerel/ad-hoc imzalı derleme çalışır, dağıtım için Apple imzası gerekir. Yapılandırma betiği macOS sandbox için giden ağ iznini (`com.apple.security.network.client`) ekler.
+- Windows'ta betiği `python tool/configure_app_name.py` ile çalıştırın.
+- Masaüstünde SQLite `sqflite_common_ffi` ile, önbellek ve replay dosyaları işletim sisteminin uygulama destek dizininde tutulur.
+
+### Mobil (Android, iOS)
+
+```bash
+flutter create --project-name f1_tracker --platforms=android,ios .
 python3 tool/configure_app_name.py
 flutter pub get
 flutter analyze
@@ -50,12 +80,13 @@ flutter run
 ```
 
 iOS derlemesi için macOS ve Xcode gerekir. Yerel Android sürüm derlemesi: `flutter build apk --release`.
-Kurulumda görünen uygulama adı **F1 Tracker** olarak yapılandırılır. GitHub Actions bu ayarı derleme sırasında uygular; yerel Android/iOS runner klasörlerini yeni oluşturduğunuzda yukarıdaki yapılandırma betiğini çalıştırın. Dart paket adı ve import yolu `f1_tracker` olarak kalır.
+
+Kurulumda görünen uygulama adı **F1 Tracker** olarak yapılandırılır (Android etiketi, iOS görünen adı, Windows pencere/ürün adı, Linux pencere başlığı ve macOS ürün adı). GitHub Actions bu ayarı derleme sırasında uygular; runner klasörlerini yeni oluşturduğunuzda yukarıdaki yapılandırma betiğini çalıştırın. Dart paket adı ve import yolu `f1_tracker` olarak kalır.
 
 ## GitHub’a yükleme ve commit
 
-1. Bu paketteki `f1-tracker-jolpica-mobile.zip` dosyasını bilgisayarda yeni bir klasöre çıkarın. GitHub deponuzun `main` dalında başlangıç projesi zaten varsa, çıkarılmış dosyaları deponun köküne kopyalayın ve mevcut dosyaların üzerine yazın. `android/` ve `ios/` klasörleri yerelde oluşturulmuşsa bunları da ekleyin; yoksa Actions kendisi üretir.
-2. GitHub’da deponuzu açın. **Add file → Upload files** seçip proje kökündeki dosya ve klasörleri yükleme alanına bırakın. Gizli `.github` klasörünün içindeki `.github/workflows/build-mobile.yml` dosyasının da eklendiğini kontrol edin. Web arayüzü gizli klasörü yüklemiyorsa **Add file → Create new file** seçin, dosya yolu alanına `.github/workflows/build-mobile.yml` yazın ve bu dosyanın içeriğini projedeki aynı adlı workflow’dan kopyalayın.
+1. Bu paketteki `f1-tracker-jolpica-mobile.zip` dosyasını bilgisayarda yeni bir klasöre çıkarın. GitHub deponuzun `main` dalında başlangıç projesi zaten varsa, çıkarılmış dosyaları deponun köküne kopyalayın ve mevcut dosyaların üzerine yazın. `android/`, `ios/`, `windows/`, `linux/` ve `macos/` klasörleri yerelde oluşturulmuşsa bunları da ekleyin; yoksa Actions kendisi üretir.
+2. GitHub’da deponuzu açın. **Add file → Upload files** seçip proje kökündeki dosya ve klasörleri yükleme alanına bırakın. Gizli `.github` klasörünün içindeki `.github/workflows/build-mobile.yml` ve `.github/workflows/build-desktop.yml` dosyalarının da eklendiğini kontrol edin. Web arayüzü gizli klasörü yüklemiyorsa **Add file → Create new file** seçin, dosya yolu alanına ilgili workflow yolunu yazın ve bu dosyanın içeriğini projedeki aynı adlı workflow’dan kopyalayın.
 3. **Commit changes** bölümünde örneğin `Add Jolpica mobile integration` mesajını yazın ve `Commit directly to the main branch` seçiliyken **Commit changes** düğmesine basın. Deponuzun varsayılan dalı `main` değilse GitHub Actions dosyasındaki `branches: [main]` değerini kendi dal adınızla değiştirin.
 
 Git kuruluysa alternatif olarak proje klasöründe:
@@ -78,7 +109,15 @@ git push -u origin main
 3. Çalışma tamamlandığında iş akışı özetindeki **Artifacts** bölümünden `f1-tracker-android` ve/veya `f1-tracker-ios-simulator` dosyasını indirin.
 4. Android arşivini açın; içindeki `app-release.apk` Android cihaza kurulabilir. iOS arşivi yalnızca simülatör için derlenmiş, imzasız `Runner.app` içerir; TestFlight veya fiziksel iPhone kurulumu için Apple imzalama/provisioning gerekir ve bu workflow bunları yapmaz.
 
-Actions adımları Android’de `flutter analyze` ve `flutter test` çalıştırır, ardından release APK üretir. iOS işi imzasız simülatör uygulaması oluşturur; App Store paketi değildir. GitHub’ın Actions dakikaları ve artifact saklama politikaları hesabın planına/limitlerine bağlı olabilir.
+Actions adımları Android’de `flutter analyze` ve `flutter test` çalıştırır, ardından release APK üretir. iOS işi imzasız simülatör uygulaması oluşturur; App Store paketi değildir.
+
+Masaüstü için **F1 Tracker Desktop Build** iş akışı ayrı ayrı Windows, Linux ve macOS release derlemeleri üretir:
+
+1. **Actions → F1 Tracker Desktop Build → Run workflow** ile başlatın (veya `main` dalına commit gönderin).
+2. Artifact’lar: `f1-tracker-windows.zip` (klasörü açıp `f1_tracker.exe` çalıştırın), `f1-tracker-linux.tar.gz` (`tar -xzf` sonrası `bundle/f1_tracker`) ve `f1-tracker-macos.zip` (açıp `F1 Tracker.app` çalıştırın).
+3. İndirilen masaüstü uygulamaları imzasızdır; macOS’ta ilk açılışta sağ tık → **Open** gerekebilir, Windows SmartScreen uyarısı gösterebilir.
+
+GitHub’ın Actions dakikaları ve artifact saklama politikaları hesabın planına/limitlerine bağlı olabilir.
 
 ## Teknik yapı
 
@@ -87,13 +126,14 @@ Actions adımları Android’de `flutter analyze` ve `flutter test` çalıştır
 - `lib/data/remote/replay_repository.dart` ve `lib/features/replay/`: hazır replay dosyalarını indirir ve diskte önbellekler; pist haritası, oynatıcı, telemetri paneli ve pit listesi.
 - `tool/replay/` ve `.github/workflows/build-replay-data.yml`: OpenF1'den replay dosyalarını üreten Python hattı ve zamanlanmış iş akışı.
 - `lib/features/settings/settings_screen.dart`, `lib/features/more/more_screen.dart` ve `lib/core/theme/app_theme.dart`: tema tercihleri, hakkında/gizlilik/lisans sayfaları, sistem fontu ve renk paletleri.
-- `lib/features/shell/app_shell.dart`: sekme gezinmesi ve Android sistem geri tuşunun sekme/detay davranışı.
+- `lib/features/shell/app_shell.dart`: duyarlı sekme gezinmesi (alt çubuk / masaüstü yan rayı), masaüstü klavye kısayolları ve Android sistem geri tuşunun sekme/detay davranışı.
 - `lib/core/models/news_models.dart` ve `lib/data/remote/news_repository.dart`: RSS/Atom ayrıştırma, kaynakları birleştirme/sıralama, kaynak bazlı hata ve önbellek.
 - `lib/features/calendar/race_detail_screen.dart`: yarış detay ekranı.
 - `test/`: sahte HTTP istemcisi ve sabit saatle model, repository ve ekran testleri (`test/support/fakes.dart`).
-- `lib/data/local/local_store.dart`: platform yerel SQLite cache.
-- `lib/features`: premium temalı mobil ekranlar.
-- `.github/workflows/build-mobile.yml`: Android ve iOS simülatör CI işleri.
+- `lib/data/local/app_dirs.dart` ve `lib/data/local/local_store.dart`: mobilde `sqflite`, masaüstünde `sqflite_common_ffi` arka ucuyla platform yerel SQLite cache ve ortak veri dizini.
+- `lib/main.dart`: masaüstünde `window_manager` ile pencere boyutu/başlığı ve SQLite FFI başlatması; mobilde yalnızca normal uygulama başlangıcı.
+- `lib/features`: premium temalı mobil ve masaüstü ekranlar.
+- `.github/workflows/build-mobile.yml` ve `.github/workflows/build-desktop.yml`: Android/iOS simülatör ve Windows/Linux/macOS CI işleri.
 
 ## Sonraki işler
 

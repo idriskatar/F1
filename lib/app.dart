@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/theme/app_theme.dart';
@@ -5,6 +6,20 @@ import 'data/remote/jolpica_repository.dart';
 import 'data/remote/news_repository.dart';
 import 'data/remote/replay_repository.dart';
 import 'features/shell/app_shell.dart';
+
+/// Masaüstünde liste ve sayfaların fareyle sürüklenerek kaydırılmasını sağlar;
+/// böylece mobildeki “aşağı çekip yenile” davranışı masaüstünde de çalışır.
+class _AppScrollBehavior extends MaterialScrollBehavior {
+  const _AppScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => const {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+      };
+}
 
 class F1TrackerApp extends StatefulWidget {
   const F1TrackerApp({super.key, this.repository, this.newsRepository, this.replayRepository, this.clock});
@@ -58,6 +73,7 @@ class _F1TrackerAppState extends State<F1TrackerApp> {
     return MaterialApp(
       title: 'F1 Tracker',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const _AppScrollBehavior(),
       theme: AppTheme.forId(_themeId),
       home: AppShell(repository: widget.repository, newsRepository: widget.newsRepository, replayRepository: widget.replayRepository, clock: widget.clock, themeId: _themeId, onThemeChanged: _setTheme),
     );
