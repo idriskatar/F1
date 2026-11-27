@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter/gestures.dart' show PointerScrollEvent;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart' show Ticker;
 
@@ -211,39 +212,62 @@ class _SessionCard extends StatelessWidget {
 }
 
 /// Masaüstü lastik stratejisi kartı: ilk 4 pilotun stint şeritleri.
-class _DesktopStrategy extends StatelessWidget {
+class _DesktopStrategy extends StatefulWidget {
   const _DesktopStrategy({required this.data});
   final ReplayData data;
 
   @override
+  State<_DesktopStrategy> createState() => _DesktopStrategyState();
+}
+
+class _DesktopStrategyState extends State<_DesktopStrategy> {
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final drivers = data.drivers.where((d) => d.stints.isNotEmpty).toList();
+    final drivers = widget.data.drivers.where((d) => d.stints.isNotEmpty).toList();
     if (drivers.isEmpty) {
       return Center(child: Text('Strateji verisi yok.', style: TextStyle(color: AppColors.muted, fontSize: 11)));
     }
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      for (final d in drivers)
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5),
-          child: Row(children: [
-            SizedBox(width: 34, child: Text(d.code, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11))),
-            const SizedBox(width: 4),
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(999),
-                child: Row(children: [
-                  for (final s in d.stints) ...[
-                    Expanded(
-                      flex: ((s.lapEnd ?? (s.lapStart + 1)) - s.lapStart + 1) < 1 ? 1 : ((s.lapEnd ?? (s.lapStart + 1)) - s.lapStart + 1),
-                      child: Container(height: 10, color: _stintColor(s.letter)),
-                    ),
-                  ],
-                ]),
-              ),
+    return Listener(
+      onPointerSignal: (signal) {
+        if (signal is! PointerScrollEvent) return;
+        final next = (_scroll.offset + signal.scrollDelta.dy).clamp(0.0, _scroll.position.maxScrollExtent);
+        _scroll.jumpTo(next);
+      },
+      child: SingleChildScrollView(
+        controller: _scroll,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          for (final d in drivers)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: Row(children: [
+                SizedBox(width: 34, child: Text(d.code, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11))),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: Row(children: [
+                      for (final s in d.stints) ...[
+                        Expanded(
+                          flex: ((s.lapEnd ?? (s.lapStart + 1)) - s.lapStart + 1) < 1 ? 1 : ((s.lapEnd ?? (s.lapStart + 1)) - s.lapStart + 1),
+                          child: Container(height: 10, color: _stintColor(s.letter)),
+                        ),
+                      ],
+                    ]),
+                  ),
+                ),
+              ]),
             ),
-          ]),
-        ),
-    ]);
+        ]),
+      ),
+    );
   }
 }
 
@@ -534,19 +558,19 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
         ? (rivals.isEmpty ? null : rivals.first)
         : data.driverByCode(_rivalCode);
     return Column(children: [
-      _desktopTopBar(data),
-      const SizedBox(height: 10),
       Expanded(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Expanded(flex: 22, child: _desktopCard(
-          title: 'CANLI SIRALAMA',
-          flex: 1,
-          child: ReplayPositionListCard(
-            data: data,
-            time: _slowTime,
-            selected: _selected,
-            onSelect: _select,
+        SizedBox(width: 250, child: Column(children: [
+          _desktopCard(
+            title: 'CANLI SIRALAMA',
+            flex: 1,
+            child: ReplayPositionListCard(
+              data: data,
+              time: _slowTime,
+              selected: _selected,
+              onSelect: _select,
+            ),
           ),
-        )),
+        ])),
         const SizedBox(width: 14),
         Expanded(flex: 40, child: Column(children: [
           _desktopCard(
@@ -592,7 +616,11 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
         ])),
         const SizedBox(width: 14),
         Expanded(flex: 38, child: Column(children: [
-          _desktopCard(title: 'PİST HARİTASI', flex: 3, child: _buildMap(data, EdgeInsets.zero)),
+          _desktopCard(title: 'PİST HARİTASI', flex: 3, child: Column(children: [
+            _desktopControls(data),
+            const SizedBox(height: 6),
+            Expanded(child: _buildMap(data, EdgeInsets.zero)),
+          ])),
           const SizedBox(height: 12),
           _desktopCard(title: 'LASTİK STRATEJİSİ · TÜM PİLOTLAR', flex: 2, child: _DesktopStrategy(data: data)),
           const SizedBox(height: 12),
@@ -616,23 +644,29 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
     ]);
   }
 
-  Widget _desktopTopBar(ReplayData data) => Row(children: [
-    Flexible(child: Text(widget.title, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900))),
-    const SizedBox(width: 10),
-    ValueListenableBuilder<double>(
-      valueListenable: _slowTime,
-      builder: (context, t, _) => Text('TUR ${data.lapAt(t)}/${data.totalLaps} · ${_clock(t)}', style: TextStyle(color: AppColors.muted, fontSize: 11)),
-    ),
-    const SizedBox(width: 12),
+  Widget _desktopControls(ReplayData data) => Row(children: [
     IconButton(
       tooltip: _playing ? 'Duraklat' : 'Oynat',
       visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
       color: AppColors.red,
       onPressed: () => _playing ? _pause() : _play(),
-      icon: Icon(_playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
+      icon: Icon(_playing ? Icons.pause_rounded : Icons.play_arrow_rounded, size: 19),
     ),
-    TextButton(onPressed: () => _seek(_time.value - 10), child: const Text('-10sn', style: TextStyle(fontSize: 11))),
-    TextButton(onPressed: () => _seek(_time.value + 10), child: const Text('+10sn', style: TextStyle(fontSize: 11))),
+    IconButton(
+      tooltip: '10 sn geri',
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      onPressed: () => _seek(_time.value - 10),
+      icon: const Icon(Icons.rotate_left, size: 17),
+    ),
+    IconButton(
+      tooltip: '10 sn ileri',
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      onPressed: () => _seek(_time.value + 10),
+      icon: const Icon(Icons.rotate_right, size: 17),
+    ),
     TextButton(
       onPressed: () => setState(() {
         final i = _speeds.indexOf(_speed);

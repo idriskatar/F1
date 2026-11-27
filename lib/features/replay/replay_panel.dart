@@ -234,12 +234,15 @@ class _PageDots extends StatelessWidget {
 // ---------------------------------------------------------------------------- Sıralama
 
 class _PositionList extends StatefulWidget {
-  const _PositionList({required this.data, required this.time, required this.selected, required this.onSelect});
+  const _PositionList({required this.data, required this.time, required this.selected, required this.onSelect, this.inlineGap = false});
 
   final ReplayData data;
   final ValueListenable<double> time;
   final String? selected;
   final ValueChanged<String> onSelect;
+
+  /// Masaüstünde fark metni kodun yanında, mobilde altında gösterilir.
+  final bool inlineGap;
 
   @override
   State<_PositionList> createState() => _PositionListState();
@@ -336,6 +339,7 @@ class _PositionListState extends State<_PositionList> {
                   inPit: widget.data.inPit(driver.code, t),
                   tyre: driver.stintAt(t),
                   hasFastestLap: driver.code == fastest,
+                  inlineGap: widget.inlineGap,
                   onTap: () => widget.onSelect(driver.code),
                 );
               },
@@ -357,6 +361,7 @@ class _PositionRow extends StatelessWidget {
     required this.hasFastestLap,
     required this.onTap,
     this.gap,
+    this.inlineGap = false,
   });
 
   final String rank;
@@ -373,6 +378,9 @@ class _PositionRow extends StatelessWidget {
   /// O ana kadarki en hızlı turun sahibi mi?
   final bool hasFastestLap;
   final VoidCallback onTap;
+
+  /// Masaüstünde fark aynı satırda, mobilde kodun altında.
+  final bool inlineGap;
 
   @override
   Widget build(BuildContext context) => InkWell(
@@ -409,16 +417,24 @@ class _PositionRow extends StatelessWidget {
             const SizedBox(width: 5),
             // Expanded: yer daralırsa (büyük yazı boyutu vb.) kod kısalır, satır taşmaz.
             Expanded(
-              child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(
-                  driver.code,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, height: 1.1, color: inPit ? AppColors.amber : null),
-                ),
-                if (gap != null)
-                  Text(gap!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.muted, fontSize: 10, height: 1.1)),
-              ]),
+              child: inlineGap
+                  ? Row(children: [
+                      Flexible(child: Text(driver.code, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, height: 1.1, color: inPit ? AppColors.amber : null))),
+                      if (gap != null) ...[
+                        const SizedBox(width: 4),
+                        Flexible(child: Text(gap!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.muted, fontSize: 9, height: 1.1))),
+                      ],
+                    ])
+                  : Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(
+                        driver.code,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, height: 1.1, color: inPit ? AppColors.amber : null),
+                      ),
+                      if (gap != null)
+                        Text(gap!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.muted, fontSize: 10, height: 1.1)),
+                    ]),
             ),
             if (hasFastestLap) ...[
               const Icon(Icons.timer_outlined, size: 15, color: _purple),
@@ -1398,7 +1414,7 @@ class ReplayPositionListCard extends StatelessWidget {
   final ValueChanged<String> onSelect;
 
   @override
-  Widget build(BuildContext context) => _PositionList(data: data, time: time, selected: selected, onSelect: onSelect);
+  Widget build(BuildContext context) => _PositionList(data: data, time: time, selected: selected, onSelect: onSelect, inlineGap: true);
 }
 
 class ReplayTelemetryDesktop extends StatelessWidget {

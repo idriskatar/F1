@@ -2,6 +2,14 @@
 
 Bu dosya kullanıcıya görünen sürüm geçmişini tutar. Sürüm numarası `pubspec.yaml` ve `lib/core/app_info.dart` ile eşleşir.
 
+## [1.6.4] - 2026-11-27
+
+### Değiştirildi
+- Masaüstü Replay'de üstteki koyu kontrol şeridi kaldırıldı; kontroller harita kartına taşındı.
+- Sıralama kolonu play sırasında küçülmüyor; fark süreleri pilot kodunun yanında gösteriliyor.
+- Lastik stratejisi kartı fare tekeriyle kaydırılabiliyor.
+- 10 sn ileri/geri için ↻ / ↺ ok simgeleri kullanılıyor.
+
 ## [1.6.3] - 2026-11-27
 
 ### Değiştirildi
