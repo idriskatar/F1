@@ -597,7 +597,7 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
           const SizedBox(height: 12),
           _desktopCard(
             title: 'HIZ GRAFİĞİ · SON 60 SN',
-            flex: 1.6,
+            flex: 1,
             child: selectedDriver == null
                 ? const SizedBox.shrink()
                 : ReplaySpeedGraphCard(data: data, driver: selectedDriver, time: _time),
@@ -613,7 +613,7 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
           const SizedBox(height: 12),
           _desktopCard(
             title: 'PİLOT KARŞILAŞTIRMASI',
-            flex: 1.6,
+            flex: 2.5,
             child: ReplayCompareCard(
               data: data,
               driver: selectedDriver,
@@ -631,7 +631,7 @@ class _ReplayViewState extends State<_ReplayView> with SingleTickerProviderState
         ])),
         const SizedBox(width: 14),
         Expanded(flex: 38, child: Column(children: [
-          _desktopCard(title: 'PİST HARİTASI', flex: 6, child: Column(children: [
+          _desktopCard(title: 'PİST HARİTASI', flex: 7, child: Column(children: [
             ValueListenableBuilder<double>(
               valueListenable: _slowTime,
               builder: (context, t, _) => Row(children: [

@@ -2,6 +2,13 @@
 
 Bu dosya kullanıcıya görünen sürüm geçmişini tutar. Sürüm numarası `pubspec.yaml` ve `lib/core/app_info.dart` ile eşleşir.
 
+## [1.6.8] - 2026-11-27
+
+### Değiştirildi
+- Lastik stratejisi kartı biraz daha kısaltıldı; harita alanı biraz büyütüldü.
+- Pilot karşılaştırma kartının yüksekliği artırıldı, hız grafiği kartı alçaltıldı; telemetri yüksekliği korundu.
+- Masaüstü ana sayfadaki haber kartlarında başlığın yanında haber özeti de gösteriliyor.
+
 ## [1.6.7] - 2026-11-27
 
 ### Değiştirildi

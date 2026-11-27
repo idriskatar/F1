@@ -758,9 +758,12 @@ class _NewsPreview extends StatelessWidget {
 
 /// Ana sayfadaki tek haber satırı; mobil panel ve masaüstü 2 sütunlu ızgara aynı öğeyi kullanır.
 class _NewsPreviewItem extends StatelessWidget {
-  const _NewsPreviewItem({required this.item, required this.onTap});
+  const _NewsPreviewItem({required this.item, required this.onTap, this.showSummary = false});
   final NewsItem item;
   final void Function(NewsItem) onTap;
+
+  /// Masaüstü kartlarında yalnızca başlık değil haber özeti de gösterilir.
+  final bool showSummary;
 
   @override
   Widget build(BuildContext context) => InkWell(
@@ -769,6 +772,15 @@ class _NewsPreviewItem extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 9),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
+            if (showSummary && item.summary.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                item.summary,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: AppColors.muted.withValues(alpha: .85), fontSize: 11, height: 1.35),
+              ),
+            ],
             const SizedBox(height: 3),
             Text(
               item.publishedAt == null
@@ -804,7 +816,7 @@ class _NewsPreviewGrid extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
         decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
-        child: _NewsPreviewItem(item: items[i], onTap: onTap),
+        child: _NewsPreviewItem(item: items[i], onTap: onTap, showSummary: true),
       );
       (i.isEven ? left : right).add(card);
     }
