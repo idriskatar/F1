@@ -230,12 +230,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
     decoration: BoxDecoration(
       color: AppColors.surface2,
       borderRadius: BorderRadius.circular(12),
-      border: Border(
-        left: BorderSide(color: color, width: 3),
-        top: BorderSide(color: AppColors.border),
-        right: BorderSide(color: AppColors.border),
-        bottom: BorderSide(color: AppColors.border),
-      ),
+      border: Border.all(color: AppColors.border),
     ),
     child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Container(

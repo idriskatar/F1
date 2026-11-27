@@ -362,18 +362,22 @@ class _CompactNextRaceCard extends StatelessWidget {
       children: [
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           decoration: BoxDecoration(
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border(
-              left: BorderSide(color: AppColors.red, width: 3),
-              top: BorderSide(color: AppColors.border),
-              right: BorderSide(color: AppColors.border),
-              bottom: BorderSide(color: AppColors.border),
-            ),
+            border: Border.all(color: AppColors.border),
           ),
-          child: race == null || start == null
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Container(
+              width: 3,
+              decoration: BoxDecoration(
+                color: AppColors.red,
+                borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), bottomLeft: Radius.circular(16)),
+              ),
+            ),
+            Expanded(child: Padding(
+              padding: const EdgeInsets.fromLTRB(13, 12, 16, 12),
+              child: race == null || start == null
               ? Row(children: [
                   Icon(Icons.flag_rounded, color: AppColors.red, size: 17),
                   const SizedBox(width: 10),
@@ -417,6 +421,8 @@ class _CompactNextRaceCard extends StatelessWidget {
                     )),
                   ]),
                 ]),
+            )),
+          ]),
         ),
         const SizedBox(height: 6),
         _SourceLine(cached: data.isCached, updatedAt: data.updatedAt),
