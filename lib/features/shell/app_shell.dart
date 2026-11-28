@@ -174,8 +174,10 @@ class _AppShellState extends State<AppShell> {
               ),
         body: isMobile
             ? IndexedStack(index: _index, children: _screens())
-            : Row(
-                children: [
+            : Padding(
+                // Kartların ve menünün dört yanında dengeli boşluk; başlık çubuğuna yapışmaz.
+                padding: const EdgeInsets.all(12),
+                child: Row(children: [
                   _DesktopNavigationRail(
                     index: _index,
                     onSelected: _selectTab,
@@ -187,7 +189,7 @@ class _AppShellState extends State<AppShell> {
                     open: _openPage,
                     child: _subPage != null ? _subPage! : IndexedStack(index: _index, children: _screens()),
                   )),
-                ],
+                ]),
               ),
         bottomNavigationBar: isMobile
             ? NavigationBar(
@@ -229,14 +231,14 @@ class _DesktopNavigationRail extends StatelessWidget {
         children: [
           if (compact)
             Padding(
-              padding: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.only(top: 8, bottom: 16),
               child: Center(
                 child: Container(width: 34, height: 30, decoration: BoxDecoration(color: const Color(0xFFE10600), borderRadius: BorderRadius.circular(7)), child: const Icon(Icons.flag_rounded, color: Colors.white, size: 16)),
               ),
             )
           else
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 18),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 18),
               child: Row(children: [
                 Container(width: 30, height: 26, decoration: BoxDecoration(color: const Color(0xFFE10600), borderRadius: BorderRadius.circular(6)), child: const Icon(Icons.flag_rounded, color: Colors.white, size: 17)),
                 const SizedBox(width: 9),

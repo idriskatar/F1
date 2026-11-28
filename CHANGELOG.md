@@ -2,6 +2,12 @@
 
 Bu dosya kullanıcıya görünen sürüm geçmişini tutar. Sürüm numarası `pubspec.yaml` ve `lib/core/app_info.dart` ile eşleşir.
 
+## [1.6.9] - 2026-11-28
+
+### Değiştirildi
+- Masaüstünde kartlar ve sol menü çubuğu dört yönden dengeli boşlukla çerçevelendi; başlık çubuğuna yapışma kalktı.
+- Sol menüdeki marka alanına küçük bir üst boşluk eklendi.
+
 ## [1.6.8] - 2026-11-27
 
 ### Değiştirildi

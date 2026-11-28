@@ -2,7 +2,7 @@
 # F1 Tracker — Applications klasörüne sürüklenebilir .dmg oluşturur.
 set -euo pipefail
 
-VERSION="1.6.8"
+VERSION="1.6.9"
 APP="$(find build/macos/Build/Products/Release -maxdepth 1 -name '*.app' -print -quit)"
 
 if [ -z "$APP" ]; then
